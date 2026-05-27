@@ -6,7 +6,13 @@ edition = "2024"
 [dependencies]
 windows = { version = "0.61", features = [
     "Media_SpeechRecognition",
+    "Globalization",
     "Foundation",
     "Foundation_Collections",
     "Win32_System_Com",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_System_Threading",
 ] }
+eframe = "0.29"
+egui = "0.29"
