@@ -112,7 +112,13 @@ impl eframe::App for App {
         // Drain speech events
         while let Ok(event) = self.event_rx.try_recv() {
             match event {
-                SpeechEvent::Languages(langs) => { self.languages = langs; }
+                SpeechEvent::Languages(langs) => {
+                    // Auto-select Japanese if available
+                    if let Some(idx) = langs.iter().position(|(tag, _)| tag.starts_with("ja")) {
+                        self.selected_lang_idx = idx;
+                    }
+                    self.languages = langs;
+                }
                 SpeechEvent::Hypothesis(text) => { self.hypothesis = text; }
                 SpeechEvent::Final(text) => {
                     self.hypothesis.clear();
@@ -139,11 +145,14 @@ impl eframe::App for App {
                 }
                 SpeechEvent::SessionEnded => {
                     self.rec_state = None;
-                    self.hypothesis.clear();
-                    if self.is_running {
-                        if let Some(tag) = &self.current_lang_tag {
-                            self.cmd_tx.send(Command::Start(tag.clone())).ok();
-                        }
+                    // Preserve in-progress hypothesis as pending rather than discarding
+                    if !self.auto_mode && !self.hypothesis.is_empty() {
+                        let h = std::mem::take(&mut self.hypothesis);
+                        let p = self.pending.get_or_insert_with(String::new);
+                        if !p.is_empty() { p.push(' '); }
+                        p.push_str(&h);
+                    } else {
+                        self.hypothesis.clear();
                     }
                 }
                 SpeechEvent::State(s) => { self.rec_state = Some(s); }

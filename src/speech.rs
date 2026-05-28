@@ -10,6 +10,7 @@ use windows::{
 pub enum Command {
     Start(String),
     Stop,
+    Restart,
 }
 
 pub enum SpeechEvent {
@@ -35,7 +36,7 @@ pub enum SpeechRecognizerState {
     Unknown,
 }
 
-pub fn run_thread(rx: Receiver<Command>, tx: Sender<SpeechEvent>) {
+pub fn run_thread(rx: Receiver<Command>, self_tx: Sender<Command>, tx: Sender<SpeechEvent>) {
     unsafe { let _ = CoInitializeEx(None, COINIT_MULTITHREADED); };
 
     match available_languages() {
@@ -46,13 +47,12 @@ pub fn run_thread(rx: Receiver<Command>, tx: Sender<SpeechEvent>) {
     let mut active: Option<ActiveSession> = None;
 
     while let Ok(cmd) = rx.recv() {
-        drop(active.take());
         match cmd {
             Command::Start(lang_tag) => {
+                drop(active.take());
                 eprintln!("[speech] Starting session for {lang_tag}");
-                // Give the old session time to fully release COM resources
                 std::thread::sleep(std::time::Duration::from_millis(300));
-                match ActiveSession::new(&lang_tag, tx.clone()) {
+                match ActiveSession::new(&lang_tag, tx.clone(), self_tx.clone()) {
                     Ok(s) => {
                         eprintln!("[speech] Session started OK");
                         tx.send(SpeechEvent::Started).ok();
@@ -64,7 +64,25 @@ pub fn run_thread(rx: Receiver<Command>, tx: Sender<SpeechEvent>) {
                     }
                 }
             }
+            Command::Restart => {
+                let lang_tag = active.take().map(|s| s.lang_tag.clone());
+                if let Some(lang_tag) = lang_tag {
+                    // Drop (above) awaits StopAsync; add delay so Windows fully releases resources
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    match ActiveSession::new(&lang_tag, tx.clone(), self_tx.clone()) {
+                        Ok(s) => {
+                            eprintln!("[speech] Session restarted for {lang_tag}");
+                            active = Some(s);
+                        }
+                        Err(e) => {
+                            eprintln!("[speech] Restart error: {e}");
+                            tx.send(SpeechEvent::Error(e.to_string())).ok();
+                        }
+                    }
+                }
+            }
             Command::Stop => {
+                drop(active.take());
                 tx.send(SpeechEvent::Stopped).ok();
             }
         }
@@ -83,6 +101,7 @@ fn available_languages() -> Result<Vec<(String, String)>> {
 }
 
 struct ActiveSession {
+    lang_tag: String,
     recognizer: SpeechRecognizer,
     session: SpeechContinuousRecognitionSession,
     hyp_token: i64,
@@ -92,7 +111,7 @@ struct ActiveSession {
 }
 
 impl ActiveSession {
-    fn new(lang_tag: &str, tx: Sender<SpeechEvent>) -> Result<Self> {
+    fn new(lang_tag: &str, tx: Sender<SpeechEvent>, self_tx: Sender<Command>) -> Result<Self> {
         let lang = Language::CreateLanguage(&HSTRING::from(lang_tag))?;
         let recognizer = SpeechRecognizer::Create(&lang)?;
 
@@ -131,8 +150,10 @@ impl ActiveSession {
             move |_, ev: Ref<'_, SpeechContinuousRecognitionResultGeneratedEventArgs>| {
                 if let Some(ev) = ev.as_ref() {
                     if let Ok(result) = ev.Result() {
+                        let status = result.Status().map(|s| s.0).unwrap_or(-1);
                         if let Ok(text) = result.Text() {
                             let s = text.to_string();
+                            eprintln!("[speech] Result status={status} text='{s}'");
                             if !s.is_empty() {
                                 tx2.send(SpeechEvent::Final(s)).ok();
                             }
@@ -143,11 +164,14 @@ impl ActiveSession {
             },
         ))?;
 
+        // Completed fires when session stops (focus loss = UserCanceled).
+        // Send Command::Restart directly to speech thread — no UI roundtrip needed.
         let tx_comp = tx.clone();
         let completed_token = session.Completed(&TypedEventHandler::new(
             move |_, ev: Ref<'_, SpeechContinuousRecognitionCompletedEventArgs>| {
                 if let Some(ev) = ev.as_ref() {
                     eprintln!("[speech] Completed status={}", ev.Status().map(|s| s.0).unwrap_or(-1));
+                    self_tx.send(Command::Restart).ok();
                     tx_comp.send(SpeechEvent::SessionEnded).ok();
                 }
                 Ok(())
@@ -177,8 +201,9 @@ impl ActiveSession {
 
         session.StartAsync()?.get()?;
 
-        Ok(Self { recognizer, session, hyp_token, result_token, state_token, completed_token })
+        Ok(Self { lang_tag: lang_tag.to_string(), recognizer, session, hyp_token, result_token, state_token, completed_token })
     }
+
 }
 
 impl Drop for ActiveSession {
@@ -187,6 +212,7 @@ impl Drop for ActiveSession {
         self.recognizer.RemoveHypothesisGenerated(self.hyp_token).ok();
         self.recognizer.RemoveStateChanged(self.state_token).ok();
         self.session.RemoveResultGenerated(self.result_token).ok();
-        self.session.StopAsync().ok();
+        // Await stop so COM resources are released before next session is created
+        if let Ok(op) = self.session.StopAsync() { op.get().ok(); }
     }
 }

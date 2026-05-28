@@ -8,7 +8,8 @@ fn main() {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (event_tx, event_rx) = std::sync::mpsc::channel();
 
-    std::thread::spawn(move || speech::run_thread(cmd_rx, event_tx));
+    let cmd_tx_speech = cmd_tx.clone();
+    std::thread::spawn(move || speech::run_thread(cmd_rx, cmd_tx_speech, event_tx));
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
