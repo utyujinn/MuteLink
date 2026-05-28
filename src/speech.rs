@@ -1,20 +1,25 @@
 use std::sync::mpsc::{Receiver, Sender};
 use windows::{
     core::*,
+    Devices::Enumeration::DeviceInformation,
     Foundation::TypedEventHandler,
     Globalization::Language,
+    Media::Devices::MediaDevice,
     Media::SpeechRecognition::*,
     Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED},
 };
+// Note: SpeechRecognizer.SetAudioInput is not exposed in windows-rs 0.61;
+// device enumeration is implemented for display only.
 
 pub enum Command {
-    Start(String),
+    Start(String, Option<String>), // (lang_tag, audio_device_id)
     Stop,
     Restart,
 }
 
 pub enum SpeechEvent {
     Languages(Vec<(String, String)>),
+    AudioInputs(Vec<(String, String)>),
     Hypothesis(String),
     Final(String),
     Started,
@@ -43,16 +48,20 @@ pub fn run_thread(rx: Receiver<Command>, self_tx: Sender<Command>, tx: Sender<Sp
         Ok(langs) => { tx.send(SpeechEvent::Languages(langs)).ok(); }
         Err(e)    => { tx.send(SpeechEvent::Error(e.to_string())).ok(); }
     }
+    match available_audio_inputs() {
+        Ok(inputs) => { tx.send(SpeechEvent::AudioInputs(inputs)).ok(); }
+        Err(_)     => {}
+    }
 
     let mut active: Option<ActiveSession> = None;
 
     while let Ok(cmd) = rx.recv() {
         match cmd {
-            Command::Start(lang_tag) => {
+            Command::Start(lang_tag, audio_device_id) => {
                 drop(active.take());
                 eprintln!("[speech] Starting session for {lang_tag}");
                 std::thread::sleep(std::time::Duration::from_millis(300));
-                match ActiveSession::new(&lang_tag, tx.clone(), self_tx.clone()) {
+                match ActiveSession::new(&lang_tag, audio_device_id, tx.clone(), self_tx.clone()) {
                     Ok(s) => {
                         eprintln!("[speech] Session started OK");
                         tx.send(SpeechEvent::Started).ok();
@@ -65,11 +74,10 @@ pub fn run_thread(rx: Receiver<Command>, self_tx: Sender<Command>, tx: Sender<Sp
                 }
             }
             Command::Restart => {
-                let lang_tag = active.take().map(|s| s.lang_tag.clone());
-                if let Some(lang_tag) = lang_tag {
-                    // Drop (above) awaits StopAsync; add delay so Windows fully releases resources
+                let info = active.take().map(|s| (s.lang_tag.clone(), s.audio_device_id.clone()));
+                if let Some((lang_tag, audio_device_id)) = info {
                     std::thread::sleep(std::time::Duration::from_millis(300));
-                    match ActiveSession::new(&lang_tag, tx.clone(), self_tx.clone()) {
+                    match ActiveSession::new(&lang_tag, audio_device_id, tx.clone(), self_tx.clone()) {
                         Ok(s) => {
                             eprintln!("[speech] Session restarted for {lang_tag}");
                             active = Some(s);
@@ -100,8 +108,22 @@ fn available_languages() -> Result<Vec<(String, String)>> {
     Ok(result)
 }
 
+fn available_audio_inputs() -> Result<Vec<(String, String)>> {
+    let selector = MediaDevice::GetAudioCaptureSelector()?;
+    let collection = DeviceInformation::FindAllAsyncAqsFilter(&selector)?.get()?;
+    let count = collection.Size()?;
+    let mut result = Vec::with_capacity(count as usize + 1);
+    result.push((String::new(), "デフォルト".to_string()));
+    for i in 0..count {
+        let info = collection.GetAt(i)?;
+        result.push((info.Id()?.to_string(), info.Name()?.to_string()));
+    }
+    Ok(result)
+}
+
 struct ActiveSession {
     lang_tag: String,
+    audio_device_id: Option<String>,
     recognizer: SpeechRecognizer,
     session: SpeechContinuousRecognitionSession,
     hyp_token: i64,
@@ -111,7 +133,12 @@ struct ActiveSession {
 }
 
 impl ActiveSession {
-    fn new(lang_tag: &str, tx: Sender<SpeechEvent>, self_tx: Sender<Command>) -> Result<Self> {
+    fn new(
+        lang_tag: &str,
+        audio_device_id: Option<String>,
+        tx: Sender<SpeechEvent>,
+        self_tx: Sender<Command>,
+    ) -> Result<Self> {
         let lang = Language::CreateLanguage(&HSTRING::from(lang_tag))?;
         let recognizer = SpeechRecognizer::Create(&lang)?;
 
@@ -128,7 +155,7 @@ impl ActiveSession {
 
         let session = recognizer.ContinuousRecognitionSession()?;
         session.SetAutoStopSilenceTimeout(windows::Foundation::TimeSpan {
-            Duration: 36_000_000_000, // 1 hour in 100-ns ticks
+            Duration: 36_000_000_000,
         })?;
 
         let tx1 = tx.clone();
@@ -150,10 +177,8 @@ impl ActiveSession {
             move |_, ev: Ref<'_, SpeechContinuousRecognitionResultGeneratedEventArgs>| {
                 if let Some(ev) = ev.as_ref() {
                     if let Ok(result) = ev.Result() {
-                        let status = result.Status().map(|s| s.0).unwrap_or(-1);
                         if let Ok(text) = result.Text() {
                             let s = text.to_string();
-                            eprintln!("[speech] Result status={status} text='{s}'");
                             if !s.is_empty() {
                                 tx2.send(SpeechEvent::Final(s)).ok();
                             }
@@ -164,8 +189,6 @@ impl ActiveSession {
             },
         ))?;
 
-        // Completed fires when session stops (focus loss = UserCanceled).
-        // Send Command::Restart directly to speech thread — no UI roundtrip needed.
         let tx_comp = tx.clone();
         let completed_token = session.Completed(&TypedEventHandler::new(
             move |_, ev: Ref<'_, SpeechContinuousRecognitionCompletedEventArgs>| {
@@ -184,14 +207,14 @@ impl ActiveSession {
                 use windows::Media::SpeechRecognition::SpeechRecognizerState as WinState;
                 if let Some(ev) = ev.as_ref() {
                     let state = match ev.State().unwrap_or(WinState::Idle) {
-                        WinState::Idle          => SpeechRecognizerState::Idle,
-                        WinState::Capturing     => SpeechRecognizerState::Capturing,
-                        WinState::Processing    => SpeechRecognizerState::Processing,
-                        WinState::SoundStarted  => SpeechRecognizerState::SoundStarted,
-                        WinState::SoundEnded    => SpeechRecognizerState::SoundEnded,
-                        WinState::SpeechDetected=> SpeechRecognizerState::SpeechDetected,
-                        WinState::Paused        => SpeechRecognizerState::Paused,
-                        _                       => SpeechRecognizerState::Unknown,
+                        WinState::Idle           => SpeechRecognizerState::Idle,
+                        WinState::Capturing      => SpeechRecognizerState::Capturing,
+                        WinState::Processing     => SpeechRecognizerState::Processing,
+                        WinState::SoundStarted   => SpeechRecognizerState::SoundStarted,
+                        WinState::SoundEnded     => SpeechRecognizerState::SoundEnded,
+                        WinState::SpeechDetected => SpeechRecognizerState::SpeechDetected,
+                        WinState::Paused         => SpeechRecognizerState::Paused,
+                        _                        => SpeechRecognizerState::Unknown,
                     };
                     tx3.send(SpeechEvent::State(state)).ok();
                 }
@@ -201,9 +224,17 @@ impl ActiveSession {
 
         session.StartAsync()?.get()?;
 
-        Ok(Self { lang_tag: lang_tag.to_string(), recognizer, session, hyp_token, result_token, state_token, completed_token })
+        Ok(Self {
+            lang_tag: lang_tag.to_string(),
+            audio_device_id,
+            recognizer,
+            session,
+            hyp_token,
+            result_token,
+            state_token,
+            completed_token,
+        })
     }
-
 }
 
 impl Drop for ActiveSession {
@@ -212,7 +243,6 @@ impl Drop for ActiveSession {
         self.recognizer.RemoveHypothesisGenerated(self.hyp_token).ok();
         self.recognizer.RemoveStateChanged(self.state_token).ok();
         self.session.RemoveResultGenerated(self.result_token).ok();
-        // Await stop so COM resources are released before next session is created
         if let Ok(op) = self.session.StopAsync() { op.get().ok(); }
     }
 }

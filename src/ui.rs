@@ -37,6 +37,8 @@ pub struct App {
     event_rx: Receiver<SpeechEvent>,
     languages: Vec<(String, String)>,
     selected_lang_idx: usize,
+    audio_devices: Vec<(String, String)>,
+    selected_audio_idx: usize,
     is_running: bool,
     rec_state: Option<SpeechRecognizerState>,
     current_lang_tag: Option<String>,
@@ -60,6 +62,8 @@ impl App {
             event_rx,
             languages: Vec::new(),
             selected_lang_idx: 0,
+            audio_devices: Vec::new(),
+            selected_audio_idx: 0,
             is_running: false,
             rec_state: None,
             current_lang_tag: None,
@@ -113,6 +117,7 @@ impl eframe::App for App {
                     }
                     self.languages = langs;
                 }
+                SpeechEvent::AudioInputs(devs) => { self.audio_devices = devs; }
                 SpeechEvent::Hypothesis(text) => { self.hypothesis = text; }
                 SpeechEvent::Final(text) => {
                     self.hypothesis.clear();
@@ -160,7 +165,7 @@ impl eframe::App for App {
 
         // ── Bottom panel ──
         let btn_h = 44.0;
-        let pending_h = 52.0;
+        let pending_h = 80.0; // enough for ~3 wrapped lines
         let grid_h = 3.0 * btn_h + 2.0 * 4.0;
         let panel_h = pending_h + 6.0 + grid_h + 8.0;
 
@@ -179,10 +184,11 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 ui.add_space(4.0);
 
-                // Pending text area
+                // Pending text area — wrapping, scrollable
                 let avail_w = ui.available_width();
+                let inner_h = pending_h - 8.0;
                 let (rect, _) = ui.allocate_exact_size(
-                    egui::vec2(avail_w, pending_h - 8.0),
+                    egui::vec2(avail_w, inner_h),
                     egui::Sense::hover(),
                 );
                 let bg = if has_pending {
@@ -191,15 +197,24 @@ impl eframe::App for App {
                     egui::Color32::from_gray(28)
                 };
                 ui.painter().rect_filled(rect, 6.0, bg);
-                if let Some(ref text) = self.pending {
-                    ui.painter().text(
-                        rect.left_center() + egui::vec2(8.0, 0.0),
-                        egui::Align2::LEFT_CENTER,
-                        text.as_str(),
-                        egui::FontId::proportional(15.0),
-                        egui::Color32::from_rgb(80, 255, 80),
-                    );
-                }
+                // Child UI inside the rect for wrapping + scrolling
+                let text_rect = rect.shrink2(egui::vec2(8.0, 4.0));
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(text_rect), |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("pending_scroll")
+                        .auto_shrink([false, false])
+                        .stick_to_bottom(true)
+                        .show(ui, |ui| {
+                            ui.set_min_width(text_rect.width());
+                            if let Some(ref text) = self.pending {
+                                ui.label(
+                                    egui::RichText::new(text.as_str())
+                                        .color(egui::Color32::from_rgb(80, 255, 80))
+                                        .size(15.0),
+                                );
+                            }
+                        });
+                });
 
                 ui.add_space(6.0);
 
@@ -288,7 +303,9 @@ impl eframe::App for App {
             if self.is_running {
                 self.cmd_tx.send(Command::Stop).ok();
             } else if let Some((tag, _)) = self.languages.get(self.selected_lang_idx) {
-                self.cmd_tx.send(Command::Start(tag.clone())).ok();
+                let audio_id = self.audio_devices.get(self.selected_audio_idx)
+                    .and_then(|(id, _)| if id.is_empty() { None } else { Some(id.clone()) });
+                self.cmd_tx.send(Command::Start(tag.clone(), audio_id)).ok();
             }
         }
         if do_toggle_auto { self.auto_mode = !self.auto_mode; }
@@ -299,7 +316,7 @@ impl eframe::App for App {
             ui.heading("音声入力");
             ui.separator();
 
-            // Language selector
+            // Language + microphone selectors
             ui.horizontal(|ui| {
                 ui.label("言語：");
                 if self.languages.is_empty() {
@@ -314,6 +331,24 @@ impl eframe::App for App {
                         .show_ui(ui, |ui| {
                             for (i, (_, name)) in self.languages.iter().enumerate() {
                                 ui.selectable_value(&mut self.selected_lang_idx, i, name);
+                            }
+                        });
+                }
+
+                ui.separator();
+                ui.label("マイク：");
+                if self.audio_devices.is_empty() {
+                    ui.label("読み込み中...");
+                } else {
+                    let selected_mic = self.audio_devices
+                        .get(self.selected_audio_idx)
+                        .map(|(_, n)| n.as_str())
+                        .unwrap_or("");
+                    egui::ComboBox::from_id_salt("audio_select")
+                        .selected_text(selected_mic)
+                        .show_ui(ui, |ui| {
+                            for (i, (_, name)) in self.audio_devices.iter().enumerate() {
+                                ui.selectable_value(&mut self.selected_audio_idx, i, name);
                             }
                         });
                 }
