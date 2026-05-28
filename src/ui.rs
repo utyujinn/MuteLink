@@ -17,7 +17,6 @@ fn setup_fonts(ctx: &egui::Context) {
         fonts.families.entry(egui::FontFamily::Monospace).or_default().push("japanese".into());
     }
 
-    // Symbol/emoji fallback for special kaomoji characters
     for path in &[
         r"C:\Windows\Fonts\seguisym.ttf",
         r"C:\Windows\Fonts\seguiemj.ttf",
@@ -82,23 +81,19 @@ impl App {
     }
 }
 
-// Button grid: 4 columns × 3 rows = 12 cells
-// None = empty cell, Some((label, None)) = Clear, Some((label, Some(suffix))) = confirm
-const BUTTONS: [Option<(&str, Option<&str>)>; 12] = [
-    Some((".",            Some("."))),
-    Some(("！",           Some("！"))),
-    Some(("？",           Some("？"))),
-    Some(("><",           Some(""))),
+// Rows 1-2: confirm buttons (8 cells = 2 rows × 4)
+// Some((label, Some(suffix))) = confirm with suffix
+// Some((label, None))         = not used here (Clear is in row 3)
+const BUTTONS: [(&str, &str); 8] = [
+    (".",    "."),
+    ("！",   "！"),
+    ("？",   "？"),
+    ("><",   "><"),
 
-    Some(("qwq",          Some("qwq"))),
-    Some(("xwx",          Some("xwx"))),
-    Some(("( ᐢ. ̫ .ᐢ )", Some("( ᐢ. ̫ .ᐢ )"))),
-    Some(("^⸝⸝⋟ˬ⋞⸝⸝^",  Some("^⸝⸝⋟ˬ⋞⸝⸝^"))),
-
-    Some((".o○",          Some(".o○"))),
-    None,
-    None,
-    Some(("Clear",        None)),
+    ("qwq",  "qwq"),
+    ("xwx",  "xwx"),
+    ("..o○",  "..o○"),
+    ("..//", "..//"),
 ];
 
 impl eframe::App for App {
@@ -113,7 +108,6 @@ impl eframe::App for App {
         while let Ok(event) = self.event_rx.try_recv() {
             match event {
                 SpeechEvent::Languages(langs) => {
-                    // Auto-select Japanese if available
                     if let Some(idx) = langs.iter().position(|(tag, _)| tag.starts_with("ja")) {
                         self.selected_lang_idx = idx;
                     }
@@ -145,7 +139,6 @@ impl eframe::App for App {
                 }
                 SpeechEvent::SessionEnded => {
                     self.rec_state = None;
-                    // Preserve in-progress hypothesis as pending rather than discarding
                     if !self.auto_mode && !self.hypothesis.is_empty() {
                         let h = std::mem::take(&mut self.hypothesis);
                         let p = self.pending.get_or_insert_with(String::new);
@@ -165,22 +158,28 @@ impl eframe::App for App {
 
         ctx.request_repaint_after(std::time::Duration::from_millis(50));
 
-        // ── Bottom panel (fixed height: pending text + 4×3 button grid) ──
+        // ── Bottom panel ──
         let btn_h = 44.0;
         let pending_h = 52.0;
-        let grid_h = 3.0 * btn_h + 2.0 * 4.0; // 3 rows + 2 gaps
+        let grid_h = 3.0 * btn_h + 2.0 * 4.0;
         let panel_h = pending_h + 6.0 + grid_h + 8.0;
 
         let mut confirm_suffix: Option<String> = None;
-        let mut do_clear = false;
-        let has_pending = self.pending.is_some();
+        let mut do_clear      = false;
+        let mut do_start_stop = false;
+        let mut do_toggle_auto = false;
+        let mut do_reset      = false;
+
+        let has_pending  = self.pending.is_some();
+        let is_running   = self.is_running;
+        let auto_mode    = self.auto_mode;
 
         egui::TopBottomPanel::bottom("confirm_panel")
             .exact_height(panel_h)
             .show(ctx, |ui| {
                 ui.add_space(4.0);
 
-                // Pending text area — always reserves pending_h pixels
+                // Pending text area
                 let avail_w = ui.available_width();
                 let (rect, _) = ui.allocate_exact_size(
                     egui::vec2(avail_w, pending_h - 8.0),
@@ -204,59 +203,96 @@ impl eframe::App for App {
 
                 ui.add_space(6.0);
 
-                // 4×3 button grid
                 let gap = 4.0;
                 let btn_w = (ui.available_width() - 3.0 * gap) / 4.0;
                 let btn_size = egui::vec2(btn_w, btn_h);
+
+                let mk_text = |s: &str| {
+                    egui::RichText::new(s).color(egui::Color32::WHITE).size(14.0)
+                };
 
                 egui::Grid::new("confirm_grid")
                     .num_columns(4)
                     .spacing([gap, gap])
                     .show(ui, |ui| {
-                        for (i, entry) in BUTTONS.iter().enumerate() {
-                            match entry {
-                                None => {
-                                    // Empty cell — invisible, same size as button
-                                    ui.add_sized(btn_size, egui::Label::new(""));
-                                }
-                                Some((label, action)) => {
-                                    let fill = if action.is_none() {
-                                        egui::Color32::from_rgb(90, 35, 35) // red tint for Clear
-                                    } else {
-                                        egui::Color32::from_gray(60)
-                                    };
-                                    let text = egui::RichText::new(*label)
-                                        .color(egui::Color32::WHITE)
-                                        .size(14.0);
-                                    let clicked = ui.add_enabled_ui(has_pending, |ui| {
-                                        ui.add_sized(
-                                            btn_size,
-                                            egui::Button::new(text).fill(fill),
-                                        )
-                                        .clicked()
-                                    })
-                                    .inner;
-                                    if clicked {
-                                        match action {
-                                            Some(s) => confirm_suffix = Some(s.to_string()),
-                                            None    => do_clear = true,
-                                        }
-                                    }
-                                }
+                        // Rows 1-2: confirm buttons (enabled only when pending exists)
+                        for (i, (label, suffix)) in BUTTONS.iter().enumerate() {
+                            let clicked = ui.add_enabled_ui(has_pending, |ui| {
+                                ui.add_sized(
+                                    btn_size,
+                                    egui::Button::new(mk_text(label))
+                                        .fill(egui::Color32::from_gray(60)),
+                                ).clicked()
+                            }).inner;
+                            if clicked {
+                                confirm_suffix = Some(suffix.to_string());
                             }
                             if (i + 1) % 4 == 0 {
                                 ui.end_row();
                             }
                         }
+
+                        // Row 3: control buttons
+                        // 開始/停止
+                        let (start_label, start_fill) = if is_running {
+                            ("停止", egui::Color32::from_rgb(90, 35, 35))
+                        } else {
+                            ("開始", egui::Color32::from_rgb(30, 80, 30))
+                        };
+                        if ui.add_sized(btn_size,
+                            egui::Button::new(mk_text(start_label)).fill(start_fill)
+                        ).clicked() {
+                            do_start_stop = true;
+                        }
+
+                        // Auto
+                        let auto_fill = if auto_mode {
+                            egui::Color32::from_rgb(30, 60, 110)
+                        } else {
+                            egui::Color32::from_gray(60)
+                        };
+                        if ui.add_sized(btn_size,
+                            egui::Button::new(mk_text("Auto")).fill(auto_fill)
+                        ).clicked() {
+                            do_toggle_auto = true;
+                        }
+
+                        // Reset
+                        if ui.add_sized(btn_size,
+                            egui::Button::new(mk_text("Reset"))
+                                .fill(egui::Color32::from_gray(60))
+                        ).clicked() {
+                            do_reset = true;
+                        }
+
+                        // Clear (disabled when no pending)
+                        if ui.add_enabled_ui(has_pending, |ui| {
+                            ui.add_sized(btn_size,
+                                egui::Button::new(mk_text("Clear"))
+                                    .fill(egui::Color32::from_rgb(90, 35, 35))
+                            ).clicked()
+                        }).inner {
+                            do_clear = true;
+                        }
+
+                        ui.end_row();
                     });
             });
 
-        // Apply button actions (after panel closes to avoid borrow conflict)
+        // Apply actions after panel closes
         if let Some(suffix) = confirm_suffix {
             self.confirm(&suffix);
-        } else if do_clear {
-            self.pending = None;
         }
+        if do_clear       { self.pending = None; }
+        if do_start_stop  {
+            if self.is_running {
+                self.cmd_tx.send(Command::Stop).ok();
+            } else if let Some((tag, _)) = self.languages.get(self.selected_lang_idx) {
+                self.cmd_tx.send(Command::Start(tag.clone())).ok();
+            }
+        }
+        if do_toggle_auto { self.auto_mode = !self.auto_mode; }
+        if do_reset       { input::reset_external(self.last_external_hwnd); }
 
         // ── Central panel ──
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -285,17 +321,8 @@ impl eframe::App for App {
 
             ui.add_space(4.0);
 
-            // Controls row
+            // Status indicator
             ui.horizontal(|ui| {
-                let btn_label = if self.is_running { "停止" } else { "開始" };
-                if ui.button(btn_label).clicked() {
-                    if self.is_running {
-                        self.cmd_tx.send(Command::Stop).ok();
-                    } else if let Some((tag, _)) = self.languages.get(self.selected_lang_idx) {
-                        self.cmd_tx.send(Command::Start(tag.clone())).ok();
-                    }
-                }
-
                 let (dot_color, state_label) = match self.rec_state {
                     Some(SpeechRecognizerState::Capturing)      => (egui::Color32::from_rgb(80, 200, 80),   "聴取中"),
                     Some(SpeechRecognizerState::SoundStarted)   => (egui::Color32::from_rgb(80, 200, 80),   "音声検出"),
@@ -310,14 +337,6 @@ impl eframe::App for App {
                 if !state_label.is_empty() {
                     ui.label(state_label);
                 }
-
-                ui.checkbox(&mut self.auto_mode, "Auto");
-
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("Reset").clicked() {
-                        input::reset_external(self.last_external_hwnd);
-                    }
-                });
             });
 
             ui.separator();
