@@ -323,6 +323,8 @@ impl eframe::App for App {
         if do_toggle_auto { self.auto_mode = !self.auto_mode; }
         if do_reset       { input::reset_external(self.last_external_hwnd); }
 
+        let prev_lang_idx  = self.selected_lang_idx;
+
         // ── Central panel ──
         egui::CentralPanel::default().show(ctx, |ui| {
             // Language + microphone selectors
@@ -392,5 +394,13 @@ impl eframe::App for App {
                 ui.colored_label(egui::Color32::from_rgb(100, 150, 220), &self.hypothesis);
             }
         });
+
+        if self.is_running && self.selected_lang_idx != prev_lang_idx {
+            if let Some((tag, _)) = self.languages.get(self.selected_lang_idx) {
+                let audio_id = self.audio_devices.get(self.selected_audio_idx)
+                    .and_then(|(id, _)| if id.is_empty() { None } else { Some(id.clone()) });
+                self.cmd_tx.send(Command::Start(tag.clone(), audio_id)).ok();
+            }
+        }
     }
 }
