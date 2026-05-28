@@ -46,7 +46,6 @@ pub struct App {
     pending: Option<String>,
     last_external_hwnd: isize,
     hypothesis: String,
-    history: Vec<String>,
     error: Option<String>,
 }
 
@@ -71,7 +70,6 @@ impl App {
             pending: None,
             last_external_hwnd: 0,
             hypothesis: String::new(),
-            history: Vec::new(),
             error: None,
         }
     }
@@ -79,8 +77,7 @@ impl App {
     fn confirm(&mut self, suffix: &str) {
         if let Some(text) = self.pending.take() {
             let full = format!("{}{}", text, suffix);
-            input::send_text_to(self.last_external_hwnd, full.clone());
-            self.history.push(full);
+            input::send_text_to(self.last_external_hwnd, full);
         }
     }
 }
@@ -122,8 +119,7 @@ impl eframe::App for App {
                 SpeechEvent::Final(text) => {
                     self.hypothesis.clear();
                     if self.auto_mode {
-                        input::send_text_to(self.last_external_hwnd, text.clone());
-                        self.history.push(text);
+                        input::send_text_to(self.last_external_hwnd, text);
                     } else {
                         let pending = self.pending.get_or_insert_with(String::new);
                         if !pending.is_empty() { pending.push(' '); }
@@ -165,7 +161,7 @@ impl eframe::App for App {
 
         // ── Bottom panel ──
         let btn_h = 44.0;
-        let pending_h = 80.0; // enough for ~3 wrapped lines
+        let pending_h = 150.0; // enough for ~6 wrapped lines
         let grid_h = 3.0 * btn_h + 2.0 * 4.0;
         let panel_h = pending_h + 6.0 + grid_h + 8.0;
 
@@ -215,6 +211,22 @@ impl eframe::App for App {
                             }
                         });
                 });
+
+                let count = self.pending.as_ref().map(|t| t.chars().count()).unwrap_or(0);
+                let count_color = if count >= 144 {
+                    egui::Color32::from_rgb(255, 80, 80)
+                } else if count >= 120 {
+                    egui::Color32::from_rgb(255, 200, 80)
+                } else {
+                    egui::Color32::from_gray(160)
+                };
+                ui.painter().text(
+                    rect.right_bottom() - egui::vec2(6.0, 4.0),
+                    egui::Align2::RIGHT_BOTTOM,
+                    format!("{}/144", count),
+                    egui::FontId::proportional(11.0),
+                    count_color,
+                );
 
                 ui.add_space(6.0);
 
@@ -313,9 +325,6 @@ impl eframe::App for App {
 
         // ── Central panel ──
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("音声入力");
-            ui.separator();
-
             // Language + microphone selectors
             ui.horizontal(|ui| {
                 ui.label("言語：");
@@ -369,9 +378,7 @@ impl eframe::App for App {
                 };
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                 ui.painter().circle_filled(rect.center(), 5.0, dot_color);
-                if !state_label.is_empty() {
-                    ui.label(state_label);
-                }
+                ui.label(state_label);
             });
 
             ui.separator();
@@ -383,20 +390,7 @@ impl eframe::App for App {
 
             if !self.hypothesis.is_empty() {
                 ui.colored_label(egui::Color32::from_rgb(100, 150, 220), &self.hypothesis);
-                ui.add_space(2.0);
             }
-
-            ui.separator();
-
-            ui.label("認識履歴：");
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, false])
-                .stick_to_bottom(true)
-                .show(ui, |ui| {
-                    for text in &self.history {
-                        ui.label(text);
-                    }
-                });
         });
     }
 }
