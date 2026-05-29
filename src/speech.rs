@@ -67,7 +67,11 @@ pub enum SpeechRecognizerState {
     SpeechDetected,
 }
 
-pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<SpeechEvent>) {
+/// main と共有する Chrome プロセスホルダ（main 側から終了時に kill できるよう）
+pub type ChromeHolder = Arc<Mutex<Option<std::process::Child>>>;
+
+pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<SpeechEvent>,
+                  chrome_holder: ChromeHolder) {
     unsafe { let _ = CoInitializeEx(None, COINIT_MULTITHREADED); }
 
     tx.send(SpeechEvent::Languages(available_languages())).ok();
@@ -94,7 +98,6 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
         thread::spawn(move || ws_server(at));
     }
 
-    let mut chrome: Option<std::process::Child> = None;
     let mut saved_audio: Option<String> = None;
 
     while let Ok(cmd) = rx.recv() {
@@ -102,7 +105,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
             Command::Start(lang_tag, audio_device_id) => {
                 // 先に転送を止めてから旧 Chrome を kill（"aborted" エラーが届かないようにする）
                 *active_tx.lock().unwrap() = None;
-                if let Some(mut c) = chrome.take() {
+                if let Some(mut c) = chrome_holder.lock().unwrap().take() {
                     kill_process_tree(&mut c);
                 }
                 // 前回変更したデフォルトデバイスを復元
@@ -124,7 +127,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
                 match launch_chrome() {
                     Ok(proc) => {
                         eprintln!("[speech] Chrome started for {lang_tag}");
-                        chrome = Some(proc);
+                        *chrome_holder.lock().unwrap() = Some(proc);
                         tx.send(SpeechEvent::Started).ok();
                     }
                     Err(e) => {
@@ -134,7 +137,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
                 }
             }
             Command::Stop => {
-                if let Some(mut c) = chrome.take() {
+                if let Some(mut c) = chrome_holder.lock().unwrap().take() {
                     kill_process_tree(&mut c);
                 }
                 if let Some(ref orig) = saved_audio.take() {
@@ -148,7 +151,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
     }
 
     // プロセス終了時クリーンアップ
-    if let Some(mut c) = chrome.take() { kill_process_tree(&mut c); }
+    if let Some(mut c) = chrome_holder.lock().unwrap().take() { kill_process_tree(&mut c); }
     if let Some(ref orig) = saved_audio.take() {
         crate::audio_device::set_default_capture_endpoint_id(orig);
     }

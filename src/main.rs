@@ -52,8 +52,12 @@ fn main() {
     let (cmd_tx, cmd_rx) = std::sync::mpsc::channel();
     let (event_tx, event_rx) = std::sync::mpsc::channel();
 
+    // Chrome プロセスを main と speech スレッドで共有（eframe 終了後に main から確実に kill）
+    let chrome_holder: speech::ChromeHolder = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let chrome_for_speech = chrome_holder.clone();
+
     let cmd_tx_speech = cmd_tx.clone();
-    std::thread::spawn(move || speech::run_thread(cmd_rx, cmd_tx_speech, event_tx));
+    std::thread::spawn(move || speech::run_thread(cmd_rx, cmd_tx_speech, event_tx, chrome_for_speech));
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
@@ -70,6 +74,18 @@ fn main() {
         Box::new(|cc| Ok(Box::new(ui::App::new(cc, cmd_tx, event_rx, vv_path)))),
     )
     .expect("eframe の起動に失敗しました");
+
+    // eframe 終了後、Chrome が残っていれば確実に kill（on_exit で止まらなかった場合の保険）
+    if let Some(mut chrome) = chrome_holder.lock().unwrap().take() {
+        let pid = chrome.id();
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/T", "/PID", &pid.to_string()])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+        chrome.kill().ok();
+        chrome.wait().ok();
+    }
 
     // アプリ終了後に VoiceVox エンジンを停止
     if let Some(mut proc) = voicevox_proc.take() {
