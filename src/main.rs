@@ -1,5 +1,6 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
+mod audio_device;
 mod input;
 mod speech;
 mod ui;

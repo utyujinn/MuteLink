@@ -41,10 +41,10 @@ pub struct App {
     selected_audio_idx: usize,
     is_running: bool,
     rec_state: Option<SpeechRecognizerState>,
-    current_lang_tag: Option<String>,
     auto_mode: bool,
     pending: Option<String>,
     last_external_hwnd: isize,
+    our_hwnd: isize,
     hypothesis: String,
     error: Option<String>,
 }
@@ -65,10 +65,10 @@ impl App {
             selected_audio_idx: 0,
             is_running: false,
             rec_state: None,
-            current_lang_tag: None,
             auto_mode: false,
             pending: None,
             last_external_hwnd: 0,
+            our_hwnd: 0,
             hypothesis: String::new(),
             error: None,
         }
@@ -99,6 +99,11 @@ const BUTTONS: [(&str, &str); 8] = [
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Capture our own HWND once (used to restore focus after reset_external)
+        if self.our_hwnd == 0 && input::foreground_is_ours() {
+            self.our_hwnd = input::get_foreground_hwnd();
+        }
+
         // Track last focused external window
         let fg = input::get_foreground_hwnd();
         if !input::foreground_is_ours() && fg != 0 {
@@ -129,25 +134,11 @@ impl eframe::App for App {
                 SpeechEvent::Started => {
                     self.is_running = true;
                     self.error = None;
-                    self.current_lang_tag = self.languages
-                        .get(self.selected_lang_idx)
-                        .map(|(t, _)| t.clone());
                 }
                 SpeechEvent::Stopped => {
                     self.is_running = false;
                     self.rec_state = None;
                     self.hypothesis.clear();
-                }
-                SpeechEvent::SessionEnded => {
-                    self.rec_state = None;
-                    if !self.auto_mode && !self.hypothesis.is_empty() {
-                        let h = std::mem::take(&mut self.hypothesis);
-                        let p = self.pending.get_or_insert_with(String::new);
-                        if !p.is_empty() { p.push(' '); }
-                        p.push_str(&h);
-                    } else {
-                        self.hypothesis.clear();
-                    }
                 }
                 SpeechEvent::State(s) => { self.rec_state = Some(s); }
                 SpeechEvent::Error(e) => {
@@ -321,9 +312,10 @@ impl eframe::App for App {
             }
         }
         if do_toggle_auto { self.auto_mode = !self.auto_mode; }
-        if do_reset       { input::reset_external(self.last_external_hwnd); }
+        if do_reset       { input::reset_external(self.last_external_hwnd, self.our_hwnd); }
 
         let prev_lang_idx  = self.selected_lang_idx;
+        let prev_audio_idx = self.selected_audio_idx;
 
         // ── Central panel ──
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -370,13 +362,9 @@ impl eframe::App for App {
             // Status indicator
             ui.horizontal(|ui| {
                 let (dot_color, state_label) = match self.rec_state {
-                    Some(SpeechRecognizerState::Capturing)      => (egui::Color32::from_rgb(80, 200, 80),   "聴取中"),
-                    Some(SpeechRecognizerState::SoundStarted)   => (egui::Color32::from_rgb(80, 200, 80),   "音声検出"),
-                    Some(SpeechRecognizerState::SpeechDetected) => (egui::Color32::from_rgb(255, 200, 0),   "発話中"),
-                    Some(SpeechRecognizerState::SoundEnded)     => (egui::Color32::from_rgb(255, 200, 0),   "処理待ち"),
-                    Some(SpeechRecognizerState::Processing)     => (egui::Color32::from_rgb(100, 150, 255), "認識中"),
-                    Some(SpeechRecognizerState::Paused)         => (egui::Color32::GRAY,                    "一時停止"),
-                    _                                           => (egui::Color32::DARK_GRAY,               ""),
+                    Some(SpeechRecognizerState::Capturing)      => (egui::Color32::from_rgb(80, 200, 80), "聴取中"),
+                    Some(SpeechRecognizerState::SpeechDetected) => (egui::Color32::from_rgb(255, 200, 0), "発話中"),
+                    _                                           => (egui::Color32::DARK_GRAY,              ""),
                 };
                 let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
                 ui.painter().circle_filled(rect.center(), 5.0, dot_color);
@@ -395,7 +383,9 @@ impl eframe::App for App {
             }
         });
 
-        if self.is_running && self.selected_lang_idx != prev_lang_idx {
+        let sel_changed = self.selected_lang_idx != prev_lang_idx
+            || self.selected_audio_idx != prev_audio_idx;
+        if self.is_running && sel_changed {
             if let Some((tag, _)) = self.languages.get(self.selected_lang_idx) {
                 let audio_id = self.audio_devices.get(self.selected_audio_idx)
                     .and_then(|(id, _)| if id.is_empty() { None } else { Some(id.clone()) });

@@ -33,8 +33,9 @@ pub fn send_text_to(hwnd_raw: isize, text: String) {
     });
 }
 
-/// Focus `hwnd_raw` then send Ctrl+A → Delete to clear its content.
-pub fn reset_external(hwnd_raw: isize) {
+/// Focus `hwnd_raw`, send Ctrl+A → Delete, then return focus to `our_hwnd`
+/// so the speech recognizer keeps running without interruption.
+pub fn reset_external(hwnd_raw: isize, our_hwnd: isize) {
     std::thread::spawn(move || {
         if hwnd_raw == 0 {
             return;
@@ -54,6 +55,10 @@ pub fn reset_external(hwnd_raw: isize) {
         unsafe {
             let del = [vkey(VK_DELETE.0, false), vkey(VK_DELETE.0, true)];
             SendInput(&del, size_of::<INPUT>() as i32);
+        }
+        if our_hwnd != 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+            unsafe { let _ = SetForegroundWindow(raw_hwnd(our_hwnd)); }
         }
     });
 }
