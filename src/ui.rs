@@ -44,6 +44,10 @@ pub struct App {
     concat_mode: bool,
     concat_limit: usize,
     vrc_will_reset: bool,
+    tts_enabled: bool,
+    tts_speaker_idx: usize,
+    tts_device_idx: usize,
+    tts_devices: Vec<String>,
     pending: Option<String>,
     vrc_text: String,
     hypothesis: String,
@@ -70,6 +74,10 @@ impl App {
             concat_mode: false,
             concat_limit: 100,
             vrc_will_reset: false,
+            tts_enabled: false,
+            tts_speaker_idx: 0,
+            tts_device_idx: 0,
+            tts_devices: crate::tts::list_devices().unwrap_or_default(),
             pending: None,
             vrc_text: String::new(),
             hypothesis: String::new(),
@@ -80,9 +88,13 @@ impl App {
     fn confirm(&mut self, suffix: &str) {
         if let Some(text) = self.pending.take() {
             let new_part = format!("{}{}", text, suffix);
-            let full = self.build_send_text(new_part);
+            let full = self.build_send_text(new_part.clone());
             crate::osc::send_chatbox(&full);
             self.vrc_text = full;
+            if self.tts_enabled && !new_part.is_empty() {
+                // 送信前テキストから VRC に移ったテキスト（new_part）だけを読み上げる
+                crate::tts::speak(&new_part, self.tts_speaker_idx as i32, self.tts_device_idx);
+            }
             self.check_reset_threshold();
         }
     }
@@ -108,7 +120,7 @@ impl App {
 // Some((label, Some(suffix))) = confirm with suffix
 // Some((label, None))         = not used here (Clear is in row 3)
 const BUTTONS: [(&str, &str); 8] = [
-    (".",    "."),
+    ("。",   "。"),
     ("！",   "！"),
     ("？",   "？"),
     ("><",   "><"),
@@ -134,6 +146,29 @@ impl eframe::App for App {
                                 .range(10..=144)
                                 .speed(1.0));
                         });
+                    }
+                    ui.separator();
+                    ui.checkbox(&mut self.tts_enabled, "TTS（送信時に自動読み上げ）");
+                    if self.tts_enabled {
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.label("VoiceVox スピーカー ID：");
+                            ui.add(egui::DragValue::new(&mut self.tts_speaker_idx)
+                                .range(0..=200)
+                                .speed(1.0));
+                        });
+                        ui.label("出力デバイス：");
+                        if !self.tts_devices.is_empty() {
+                            ui.vertical(|ui| {
+                                for (i, name) in self.tts_devices.iter().enumerate() {
+                                    if ui.selectable_label(self.tts_device_idx == i, name).clicked() {
+                                        self.tts_device_idx = i;
+                                    }
+                                }
+                            });
+                        } else {
+                            ui.label("デバイスが見つかりません");
+                        }
                     }
                 });
                 ui.menu_button("アプリ", |ui| {
@@ -163,9 +198,13 @@ impl eframe::App for App {
                     self.hypothesis.clear();
                     if self.auto_mode {
                         let text_with_period = format!("{}。", text);
-                        let full = self.build_send_text(text_with_period);
+                        let full = self.build_send_text(text_with_period.clone());
                         crate::osc::send_chatbox(&full);
                         self.vrc_text = full;
+                        if self.tts_enabled && !text_with_period.is_empty() {
+                            // 送信前テキストから VRC に移ったテキスト（text_with_period）だけを読み上げる
+                            crate::tts::speak(&text_with_period, self.tts_speaker_idx as i32, self.tts_device_idx);
+                        }
                         self.check_reset_threshold();
                     } else {
                         let pending = self.pending.get_or_insert_with(String::new);
@@ -380,7 +419,7 @@ impl eframe::App for App {
                         }
 
                         // Row 3: control buttons
-                        // 開始/停止
+                        // Col 1: 開始/停止
                         let (start_label, start_fill) = if is_running {
                             ("停止", egui::Color32::from_rgb(90, 35, 35))
                         } else {
@@ -392,7 +431,15 @@ impl eframe::App for App {
                             do_start_stop = true;
                         }
 
-                        // Auto
+                        // Col 2: VRC Reset (チャットボックスをクリア)
+                        if ui.add_sized(btn_size,
+                            egui::Button::new(mk_text("VRCクリア"))
+                                .fill(egui::Color32::from_gray(60))
+                        ).clicked() {
+                            do_reset = true;
+                        }
+
+                        // Col 3: Auto
                         let auto_fill = if auto_mode {
                             egui::Color32::from_rgb(30, 60, 110)
                         } else {
@@ -404,16 +451,17 @@ impl eframe::App for App {
                             do_toggle_auto = true;
                         }
 
-                        // VRC Reset (チャットボックスをクリア)
+                        // Col 4: TTS (ON/OFF 切り替え、Auto と同じ色)
+                        let tts_fill = if self.tts_enabled {
+                            egui::Color32::from_rgb(60, 100, 140)
+                        } else {
+                            egui::Color32::from_gray(60)
+                        };
                         if ui.add_sized(btn_size,
-                            egui::Button::new(mk_text("VRCクリア"))
-                                .fill(egui::Color32::from_gray(60))
+                            egui::Button::new(mk_text("TTS")).fill(tts_fill)
                         ).clicked() {
-                            do_reset = true;
+                            self.tts_enabled = !self.tts_enabled;
                         }
-
-                        // 4列目は空セル（グリッド幅を保持）
-                        ui.allocate_exact_size(btn_size, egui::Sense::hover());
 
                         ui.end_row();
                     });

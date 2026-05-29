@@ -3,6 +3,7 @@
 mod audio_device;
 mod osc;
 mod speech;
+mod tts;
 mod ui;
 
 fn main() {
