@@ -98,14 +98,14 @@ impl App {
             let full = self.build_send_text(new_part.clone());
             crate::osc::send_chatbox(&full);
             self.vrc_text = full;
-            if self.tts_enabled && !new_part.is_empty() {
-                // 選択されたデバイスのインデックスを集める
+            if self.tts_enabled && !text.is_empty() {
+                // TTS には語尾を含めず、テキスト部分のみ送信
                 let devices: Vec<usize> = self.tts_device_indices.iter()
                     .enumerate()
                     .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
                     .collect();
                 if !devices.is_empty() {
-                    crate::tts::speak(&new_part, self.tts_speaker_idx as i32, &devices);
+                    crate::tts::speak(&text, self.tts_speaker_idx as i32, &devices);
                 }
             }
             self.check_reset_threshold();
@@ -129,19 +129,23 @@ impl App {
     }
 }
 
-// Rows 1-2: confirm buttons (8 cells = 2 rows × 4)
-// Some((label, Some(suffix))) = confirm with suffix
-// Some((label, None))         = not used here (Clear is in row 3)
-const BUTTONS: [(&str, &str); 8] = [
+// Rows 1-3: confirm buttons (12 cells = 4 rows × 3)
+const BUTTONS: [(&str, &str); 12] = [
     ("。",   "。"),
     ("！",   "！"),
     ("？",   "？"),
-    ("><",   "><"),
 
     ("qwq",  "qwq"),
     ("xwx",  "xwx"),
+    ("owo",  "owo"),
+
     ("..o○",  "..o○"),
     ("..//", "..//"),
+    ("><",   "><"),
+
+    ("www",  "www"),
+    ("zzz",  "zzz"),
+    ("~",    "~"),
 ];
 
 impl eframe::App for App {
@@ -214,14 +218,14 @@ impl eframe::App for App {
                         let full = self.build_send_text(text_with_period.clone());
                         crate::osc::send_chatbox(&full);
                         self.vrc_text = full;
-                        if self.tts_enabled && !text_with_period.is_empty() {
-                            // 選択されたデバイスのインデックスを集める
+                        if self.tts_enabled && !text.is_empty() {
+                            // TTS には語尾（。）を含めず、テキスト部分のみ送信
                             let devices: Vec<usize> = self.tts_device_indices.iter()
                                 .enumerate()
                                 .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
                                 .collect();
                             if !devices.is_empty() {
-                                crate::tts::speak(&text_with_period, self.tts_speaker_idx as i32, &devices);
+                                crate::tts::speak(&text, self.tts_speaker_idx as i32, &devices);
                             }
                         }
                         self.check_reset_threshold();
@@ -250,12 +254,9 @@ impl eframe::App for App {
 
         ctx.request_repaint_after(std::time::Duration::from_millis(50));
 
-        // ── Bottom panel ──
-        let btn_h = 44.0;
-        let pending_h = 150.0;
-        let vrc_h    = 150.0; // 緑エリアと同じ行数
-        let grid_h = 3.0 * btn_h + 2.0 * 4.0;
-        let panel_h = pending_h + 2.0 + btn_h + 2.0 + vrc_h + 6.0 + grid_h + 8.0;
+        // 言語/デバイス変更検出のため、パネル描画前にキャプチャ
+        let prev_lang_idx  = self.selected_lang_idx;
+        let prev_audio_idx = self.selected_audio_idx;
 
         let mut confirm_suffix: Option<String> = None;
         let mut do_clear      = false;
@@ -266,71 +267,161 @@ impl eframe::App for App {
         let has_pending  = self.pending.is_some();
         let is_running   = self.is_running;
         let auto_mode    = self.auto_mode;
+        let btn_h = 44.0;
+        let pending_h = 84.0; // 4行 × 17px + padding 16px
+        let vrc_h    = 100.0; // 4行 × 17px + header 16px + padding 24px
 
-        egui::TopBottomPanel::bottom("confirm_panel")
-            .exact_height(panel_h)
-            .show(ctx, |ui| {
-                ui.add_space(4.0);
+        // ── Central panel: 上から順に全て配置 ──
+        egui::CentralPanel::default().show(ctx, |ui| {
+            // 1. Language + Microphone selectors （一番上）
+            ui.horizontal(|ui| {
+                ui.label("言語：");
+                if self.languages.is_empty() {
+                    ui.label("読み込み中...");
+                } else {
+                    let selected_name = self.languages
+                        .get(self.selected_lang_idx)
+                        .map(|(_, n)| n.as_str())
+                        .unwrap_or("");
+                    egui::ComboBox::from_id_salt("lang_select")
+                        .selected_text(selected_name)
+                        .show_ui(ui, |ui| {
+                            for (i, (_, name)) in self.languages.iter().enumerate() {
+                                ui.selectable_value(&mut self.selected_lang_idx, i, name);
+                            }
+                        });
+                }
 
-                // Pending text area — wrapping, scrollable
+                ui.separator();
+                ui.label("マイク：");
+                if self.audio_devices.is_empty() {
+                    ui.label("読み込み中...");
+                } else {
+                    let selected_mic = self.audio_devices
+                        .get(self.selected_audio_idx)
+                        .map(|(_, n)| n.as_str())
+                        .unwrap_or("");
+                    egui::ComboBox::from_id_salt("audio_select")
+                        .selected_text(selected_mic)
+                        .show_ui(ui, |ui| {
+                            for (i, (_, name)) in self.audio_devices.iter().enumerate() {
+                                ui.selectable_value(&mut self.selected_audio_idx, i, name);
+                            }
+                        });
+                }
+            });
+
+            ui.separator();
+
+            // 2. Status indicator + error（同じ行に並べる）
+            ui.horizontal(|ui| {
+                let (dot_color, state_label) = match self.rec_state {
+                    Some(SpeechRecognizerState::Capturing)      => (egui::Color32::from_rgb(80, 200, 80), "聴取中"),
+                    Some(SpeechRecognizerState::SpeechDetected) => (egui::Color32::from_rgb(255, 200, 0), "発話中"),
+                    _                                           => (egui::Color32::DARK_GRAY,              ""),
+                };
+                let (dot_rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
+                ui.painter().circle_filled(dot_rect.center(), 5.0, dot_color);
+                ui.label(state_label);
+                if let Some(err) = &self.error {
+                    ui.add_space(6.0);
+                    ui.colored_label(egui::Color32::from_rgb(255, 100, 100), format!("エラー: {}", err));
+                }
+            });
+
+            // ── hypothesis + セパレータを隙間ゼロの隔離空間に包む ──
+            ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                ui.spacing_mut().item_spacing.y = 0.0;
+
+                // 3. Hypothesis display
+                let hyp_h = 55.0;
                 let avail_w = ui.available_width();
-                let inner_h = pending_h - 8.0;
-                let (rect, _) = ui.allocate_exact_size(
-                    egui::vec2(avail_w, inner_h),
+                let (hyp_rect, _) = ui.allocate_exact_size(
+                    egui::vec2(avail_w, hyp_h),
                     egui::Sense::hover(),
                 );
-                let bg = if has_pending {
-                    egui::Color32::from_rgb(20, 60, 20)
-                } else {
-                    egui::Color32::from_gray(28)
-                };
-                ui.painter().rect_filled(rect, 6.0, bg);
-                // Child UI inside the rect for wrapping + scrolling
-                let text_rect = rect.shrink2(egui::vec2(8.0, 4.0));
-                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(text_rect), |ui| {
+                ui.painter().rect_filled(hyp_rect, 4.0, egui::Color32::from_rgb(20, 20, 35));
+
+                let hyp_inner = hyp_rect.shrink2(egui::vec2(6.0, 3.0));
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(hyp_inner), |ui| {
                     egui::ScrollArea::vertical()
-                        .id_salt("pending_scroll")
+                        .id_salt("hypothesis_scroll")
                         .auto_shrink([false, false])
                         .stick_to_bottom(true)
                         .show(ui, |ui| {
-                            ui.set_min_width(text_rect.width());
-                            if let Some(ref text) = self.pending {
-                                ui.label(
-                                    egui::RichText::new(text.as_str())
-                                        .color(egui::Color32::from_rgb(80, 255, 80))
-                                        .size(15.0),
+                            ui.spacing_mut().item_spacing.y = 2.0;
+                            ui.set_min_width(hyp_inner.width());
+                            if !self.hypothesis.is_empty() {
+                                ui.colored_label(
+                                    egui::Color32::from_rgb(100, 150, 220),
+                                    &self.hypothesis
                                 );
                             }
                         });
                 });
 
-                // ✕ クリアボタン（確定テキスト欄の直下・右寄せ）
-                // allocate_exact_size で高さを btn_h に固定し、put でボタンを重ねる
-                ui.add_space(2.0);
-                let avail_w_c = ui.available_width();
-                let (row_rect, _) = ui.allocate_exact_size(
-                    egui::vec2(avail_w_c, btn_h),
-                    egui::Sense::hover(),
-                );
-                let btn_rect = egui::Rect::from_min_size(
-                    row_rect.right_top() + egui::vec2(-btn_h - 4.0, 0.0),
-                    egui::vec2(btn_h, btn_h),
-                );
-                let (btn_fill, txt_color) = if has_pending {
-                    (egui::Color32::from_rgb(90, 35, 35), egui::Color32::WHITE)
-                } else {
-                    (egui::Color32::from_gray(40), egui::Color32::from_gray(100))
-                };
-                if ui.put(btn_rect,
-                    egui::Button::new(
-                        egui::RichText::new("✕").color(txt_color).size(16.0)
-                    ).fill(btn_fill)
-                ).clicked() && has_pending {
-                    do_clear = true;
-                }
+                ui.separator();
+            });
 
-                // VRC チャットボックス表示エリア
-                ui.add_space(2.0);
+            ui.add_space(6.0);
+
+            // 4. Pending text area — wrapping, scrollable
+            let avail_w = ui.available_width();
+            let inner_h = pending_h - 8.0;
+            let (rect, _) = ui.allocate_exact_size(
+                egui::vec2(avail_w, inner_h),
+                egui::Sense::hover(),
+            );
+            // ホバー判定・クリック判定を raw input で取得（ScrollArea の消費を迂回）
+            let pending_hovered = ctx.input(|i| {
+                i.pointer.hover_pos().map_or(false, |p| rect.contains(p))
+            });
+            let pending_clicked = ctx.input(|i| {
+                i.pointer.primary_clicked() &&
+                i.pointer.interact_pos().map_or(false, |p| rect.contains(p))
+            });
+            let bg = if pending_hovered {
+                if has_pending {
+                    egui::Color32::from_rgb(120, 50, 50)
+                } else {
+                    egui::Color32::from_gray(50)
+                }
+            } else {
+                if has_pending {
+                    egui::Color32::from_rgb(20, 60, 20)
+                } else {
+                    egui::Color32::from_gray(28)
+                }
+            };
+            ui.painter().rect_filled(rect, 6.0, bg);
+            let text_rect = rect.shrink2(egui::vec2(8.0, 4.0));
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(text_rect), |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("pending_scroll")
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        ui.set_min_width(text_rect.width());
+                        if let Some(ref text) = self.pending {
+                            ui.add(egui::Label::new(
+                                egui::RichText::new(text.as_str())
+                                    .color(egui::Color32::from_rgb(80, 255, 80))
+                                    .size(15.0),
+                            ).selectable(false));
+                        }
+                    });
+            });
+
+            // クリックでpending クリア
+            if pending_clicked && has_pending {
+                do_clear = true;
+            }
+
+            ui.add_space(2.0);
+
+            // 5. VRC チャットボックス表示エリア
+            ui.add_space(2.0);
                 let avail_w2 = ui.available_width();
                 let inner_vrc_h = vrc_h - 8.0;
                 let header_h = 16.0;
@@ -338,8 +429,18 @@ impl eframe::App for App {
                     egui::vec2(avail_w2, inner_vrc_h),
                     egui::Sense::hover(),
                 );
-                // リセット予告時はオレンジ背景
-                let vrc_bg = if self.vrc_will_reset {
+                // ホバー・クリック判定を raw input で取得（ScrollArea の消費を迂回）
+                let vrc_hovered = ctx.input(|i| {
+                    i.pointer.hover_pos().map_or(false, |p| vrc_rect.contains(p))
+                });
+                let vrc_clicked = ctx.input(|i| {
+                    i.pointer.primary_clicked() &&
+                    i.pointer.interact_pos().map_or(false, |p| vrc_rect.contains(p))
+                });
+                // ホバー時は常に赤みを帯びた色（will_reset 状態に関わらず統一）
+                let vrc_bg = if vrc_hovered {
+                    egui::Color32::from_rgb(120, 50, 50)
+                } else if self.vrc_will_reset {
                     egui::Color32::from_rgb(55, 28, 8)
                 } else {
                     egui::Color32::from_rgb(30, 20, 50)
@@ -389,27 +490,33 @@ impl eframe::App for App {
                 } else {
                     egui::Color32::from_rgb(210, 170, 255)
                 };
-                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
-                    egui::ScrollArea::vertical()
-                        .id_salt("vrc_scroll")
-                        .auto_shrink([false, false])
-                        .stick_to_bottom(true)
-                        .show(ui, |ui| {
-                            ui.set_min_width(content_rect.width());
-                            if !self.vrc_text.is_empty() {
-                                ui.label(
-                                    egui::RichText::new(&self.vrc_text)
-                                        .color(text_color)
-                                        .size(15.0),
-                                );
-                            }
-                        });
-                });
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
+                egui::ScrollArea::vertical()
+                    .id_salt("vrc_scroll")
+                    .auto_shrink([false, false])
+                    .stick_to_bottom(true)
+                    .show(ui, |ui| {
+                        ui.spacing_mut().item_spacing.y = 2.0;
+                        ui.set_min_width(content_rect.width());
+                        if !self.vrc_text.is_empty() {
+                            ui.add(egui::Label::new(
+                                egui::RichText::new(&self.vrc_text)
+                                    .color(text_color)
+                                    .size(15.0),
+                            ).selectable(false));
+                        }
+                    });
+            });
+
+                // VRC エリアクリックでリセット
+                if vrc_clicked && !self.vrc_text.is_empty() {
+                    do_reset = true;
+                }
 
                 ui.add_space(6.0);
 
                 let gap = 4.0;
-                let btn_w = (ui.available_width() - 3.0 * gap) / 4.0;
+                let btn_w = (ui.available_width() - 2.0 * gap) / 3.0;
                 let btn_size = egui::vec2(btn_w, btn_h);
 
                 let mk_text = |s: &str| {
@@ -417,27 +524,27 @@ impl eframe::App for App {
                 };
 
                 egui::Grid::new("confirm_grid")
-                    .num_columns(4)
+                    .num_columns(3)
                     .spacing([gap, gap])
                     .show(ui, |ui| {
-                        // Rows 1-2: confirm buttons (enabled only when pending exists)
+                        // Rows 1-4: confirm buttons (enabled only when pending exists)
                         for (i, (label, suffix)) in BUTTONS.iter().enumerate() {
                             let clicked = ui.add_enabled_ui(has_pending, |ui| {
                                 ui.add_sized(
                                     btn_size,
                                     egui::Button::new(mk_text(label))
-                                        .fill(egui::Color32::from_gray(60)),
+                                        .fill(egui::Color32::from_rgb(60, 140, 180)),
                                 ).clicked()
                             }).inner;
                             if clicked {
                                 confirm_suffix = Some(suffix.to_string());
                             }
-                            if (i + 1) % 4 == 0 {
+                            if (i + 1) % 3 == 0 {
                                 ui.end_row();
                             }
                         }
 
-                        // Row 3: control buttons
+                        // Row 3: control buttons (3 columns only)
                         // Col 1: 開始/停止
                         let (start_label, start_fill) = if is_running {
                             ("停止", egui::Color32::from_rgb(90, 35, 35))
@@ -450,17 +557,9 @@ impl eframe::App for App {
                             do_start_stop = true;
                         }
 
-                        // Col 2: VRC Reset (チャットボックスをクリア)
-                        if ui.add_sized(btn_size,
-                            egui::Button::new(mk_text("VRCクリア"))
-                                .fill(egui::Color32::from_gray(60))
-                        ).clicked() {
-                            do_reset = true;
-                        }
-
-                        // Col 3: Auto
+                        // Col 2: Auto（ON/OFF 切り替え）
                         let auto_fill = if auto_mode {
-                            egui::Color32::from_rgb(30, 60, 110)
+                            egui::Color32::from_rgb(40, 70, 120)
                         } else {
                             egui::Color32::from_gray(60)
                         };
@@ -470,9 +569,9 @@ impl eframe::App for App {
                             do_toggle_auto = true;
                         }
 
-                        // Col 4: TTS (ON/OFF 切り替え、Auto と同じ色)
+                        // Col 3: TTS（ON/OFF 切り替え、Auto と完全に同じ色）
                         let tts_fill = if self.tts_enabled {
-                            egui::Color32::from_rgb(60, 100, 140)
+                            egui::Color32::from_rgb(40, 70, 120)
                         } else {
                             egui::Color32::from_gray(60)
                         };
@@ -487,8 +586,8 @@ impl eframe::App for App {
             });
 
         // Apply actions after panel closes
-        if let Some(suffix) = confirm_suffix {
-            self.confirm(&suffix);
+        if let Some(ref suffix) = confirm_suffix {
+            self.confirm(suffix);
         }
         if do_clear       { self.pending = None; }
         if do_start_stop  {
@@ -507,75 +606,7 @@ impl eframe::App for App {
             self.vrc_will_reset = false;
         }
 
-        let prev_lang_idx  = self.selected_lang_idx;
-        let prev_audio_idx = self.selected_audio_idx;
-
-        // ── Central panel ──
-        egui::CentralPanel::default().show(ctx, |ui| {
-            // Language + microphone selectors
-            ui.horizontal(|ui| {
-                ui.label("言語：");
-                if self.languages.is_empty() {
-                    ui.label("読み込み中...");
-                } else {
-                    let selected_name = self.languages
-                        .get(self.selected_lang_idx)
-                        .map(|(_, n)| n.as_str())
-                        .unwrap_or("");
-                    egui::ComboBox::from_id_salt("lang_select")
-                        .selected_text(selected_name)
-                        .show_ui(ui, |ui| {
-                            for (i, (_, name)) in self.languages.iter().enumerate() {
-                                ui.selectable_value(&mut self.selected_lang_idx, i, name);
-                            }
-                        });
-                }
-
-                ui.separator();
-                ui.label("マイク：");
-                if self.audio_devices.is_empty() {
-                    ui.label("読み込み中...");
-                } else {
-                    let selected_mic = self.audio_devices
-                        .get(self.selected_audio_idx)
-                        .map(|(_, n)| n.as_str())
-                        .unwrap_or("");
-                    egui::ComboBox::from_id_salt("audio_select")
-                        .selected_text(selected_mic)
-                        .show_ui(ui, |ui| {
-                            for (i, (_, name)) in self.audio_devices.iter().enumerate() {
-                                ui.selectable_value(&mut self.selected_audio_idx, i, name);
-                            }
-                        });
-                }
-            });
-
-            ui.add_space(4.0);
-
-            // Status indicator
-            ui.horizontal(|ui| {
-                let (dot_color, state_label) = match self.rec_state {
-                    Some(SpeechRecognizerState::Capturing)      => (egui::Color32::from_rgb(80, 200, 80), "聴取中"),
-                    Some(SpeechRecognizerState::SpeechDetected) => (egui::Color32::from_rgb(255, 200, 0), "発話中"),
-                    _                                           => (egui::Color32::DARK_GRAY,              ""),
-                };
-                let (rect, _) = ui.allocate_exact_size(egui::vec2(10.0, 10.0), egui::Sense::hover());
-                ui.painter().circle_filled(rect.center(), 5.0, dot_color);
-                ui.label(state_label);
-            });
-
-            ui.separator();
-
-            if let Some(err) = &self.error {
-                ui.colored_label(egui::Color32::RED, format!("エラー: {}", err));
-                ui.separator();
-            }
-
-            if !self.hypothesis.is_empty() {
-                ui.colored_label(egui::Color32::from_rgb(100, 150, 220), &self.hypothesis);
-            }
-        });
-
+        // 言語/デバイス変更で認識を再起動
         let sel_changed = self.selected_lang_idx != prev_lang_idx
             || self.selected_audio_idx != prev_audio_idx;
         if self.is_running && sel_changed {

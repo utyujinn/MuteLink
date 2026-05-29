@@ -1,7 +1,11 @@
 use std::io::{Cursor, Read};
+use std::sync::Mutex;
 use cpal::traits::{DeviceTrait, HostTrait};
 
 const VOICEVOX_URL: &str = "http://127.0.0.1:50021";
+
+// TTS 再生をシリアライズするためのロック
+static TTS_LOCK: Mutex<()> = Mutex::new(());
 
 /// 利用可能な出力デバイスのリストを返す
 pub fn list_devices() -> Option<Vec<String>> {
@@ -37,6 +41,9 @@ pub fn speak(text: &str, speaker_id: i32, device_indices: &[usize]) {
 }
 
 fn tts_blocking(text: &str, speaker_id: i32, device_indices: &[usize]) -> Result<(), String> {
+    // ロックを取得（前の再生が終わるまで待機）
+    let _lock = TTS_LOCK.lock().map_err(|e| format!("TTS lock failed: {e}"))?;
+
     // ── audio_query 取得 ──
     let query_url = format!(
         "{}/audio_query?text={}&speaker={}",
