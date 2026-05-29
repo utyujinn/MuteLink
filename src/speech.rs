@@ -103,8 +103,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
                 // 先に転送を止めてから旧 Chrome を kill（"aborted" エラーが届かないようにする）
                 *active_tx.lock().unwrap() = None;
                 if let Some(mut c) = chrome.take() {
-                    c.kill().ok();
-                    c.wait().ok();
+                    kill_process_tree(&mut c);
                 }
                 // 前回変更したデフォルトデバイスを復元
                 if let Some(ref orig) = saved_audio.take() {
@@ -136,8 +135,7 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
             }
             Command::Stop => {
                 if let Some(mut c) = chrome.take() {
-                    c.kill().ok();
-                    c.wait().ok();
+                    kill_process_tree(&mut c);
                 }
                 if let Some(ref orig) = saved_audio.take() {
                     crate::audio_device::set_default_capture_endpoint_id(orig);
@@ -150,10 +148,22 @@ pub fn run_thread(rx: Receiver<Command>, _self_tx: Sender<Command>, tx: Sender<S
     }
 
     // プロセス終了時クリーンアップ
-    if let Some(mut c) = chrome.take() { c.kill().ok(); }
+    if let Some(mut c) = chrome.take() { kill_process_tree(&mut c); }
     if let Some(ref orig) = saved_audio.take() {
         crate::audio_device::set_default_capture_endpoint_id(orig);
     }
+}
+
+/// Chrome のプロセスツリーを taskkill /F /T で根こそぎ終了する
+fn kill_process_tree(child: &mut std::process::Child) {
+    let pid = child.id();
+    let _ = std::process::Command::new("taskkill")
+        .args(["/F", "/T", "/PID", &pid.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status();
+    child.kill().ok();
+    child.wait().ok();
 }
 
 fn make_html(lang: &str) -> String {

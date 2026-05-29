@@ -1,6 +1,16 @@
 use std::sync::mpsc::{Receiver, Sender};
 use crate::speech::{Command, SpeechEvent, SpeechRecognizerState};
 
+fn save_voicevox_path_file(path: &str) {
+    use std::io::Write as _;
+    let mut p = std::env::current_exe().unwrap_or_default();
+    p.pop();
+    p.push("sttv_config.txt");
+    if let Ok(mut f) = std::fs::File::create(p) {
+        f.write_all(path.as_bytes()).ok();
+    }
+}
+
 fn setup_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
 
@@ -52,6 +62,7 @@ pub struct App {
     vrc_text: String,
     hypothesis: String,
     error: Option<String>,
+    voicevox_path: String,
 }
 
 impl App {
@@ -59,6 +70,7 @@ impl App {
         cc: &eframe::CreationContext,
         cmd_tx: Sender<Command>,
         event_rx: Receiver<SpeechEvent>,
+        voicevox_path: String,
     ) -> Self {
         setup_fonts(&cc.egui_ctx);
         Self {
@@ -89,6 +101,7 @@ impl App {
             vrc_text: String::new(),
             hypothesis: String::new(),
             error: None,
+            voicevox_path,
         }
     }
 
@@ -186,6 +199,15 @@ impl eframe::App for App {
                         } else {
                             ui.label("デバイスが見つかりません");
                         }
+                    }
+                    ui.separator();
+                    ui.label("VoiceVox エンジンパス：");
+                    let path_resp = ui.add(
+                        egui::TextEdit::singleline(&mut self.voicevox_path)
+                            .desired_width(360.0)
+                    );
+                    if path_resp.lost_focus() {
+                        save_voicevox_path_file(&self.voicevox_path);
                     }
                 });
                 ui.menu_button("アプリ", |ui| {
@@ -329,12 +351,14 @@ impl eframe::App for App {
                 }
             });
 
+            ui.separator();
+
             // ── hypothesis + セパレータを隙間ゼロの隔離空間に包む ──
             ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                 ui.spacing_mut().item_spacing.y = 0.0;
 
                 // 3. Hypothesis display
-                let hyp_h = 55.0;
+                let hyp_h = 63.0;
                 let avail_w = ui.available_width();
                 let (hyp_rect, _) = ui.allocate_exact_size(
                     egui::vec2(avail_w, hyp_h),
@@ -363,8 +387,6 @@ impl eframe::App for App {
                 ui.separator();
             });
 
-            ui.add_space(6.0);
-
             // 4. Pending text area — wrapping, scrollable
             let avail_w = ui.available_width();
             let inner_h = pending_h - 8.0;
@@ -381,17 +403,9 @@ impl eframe::App for App {
                 i.pointer.interact_pos().map_or(false, |p| rect.contains(p))
             });
             let bg = if pending_hovered {
-                if has_pending {
-                    egui::Color32::from_rgb(120, 50, 50)
-                } else {
-                    egui::Color32::from_gray(50)
-                }
-            } else {
-                if has_pending {
-                    egui::Color32::from_rgb(20, 60, 20)
-                } else {
-                    egui::Color32::from_gray(28)
-                }
+                egui::Color32::from_rgb(120, 50, 50)
+            } else{
+                egui::Color32::from_rgb(20, 60, 20)
             };
             ui.painter().rect_filled(rect, 6.0, bg);
             let text_rect = rect.shrink2(egui::vec2(8.0, 4.0));
@@ -616,5 +630,11 @@ impl eframe::App for App {
                 self.cmd_tx.send(Command::Start(tag.clone(), audio_id)).ok();
             }
         }
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        // ウィンドウ閉じる前に Chrome を停止（taskkill /F /T が走る）
+        self.cmd_tx.send(Command::Stop).ok();
+        std::thread::sleep(std::time::Duration::from_millis(400));
     }
 }
