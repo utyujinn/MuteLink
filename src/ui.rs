@@ -1,6 +1,5 @@
 use std::sync::mpsc::{Receiver, Sender};
 use crate::speech::{Command, SpeechEvent, SpeechRecognizerState};
-use crate::input;
 
 fn setup_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
@@ -42,9 +41,11 @@ pub struct App {
     is_running: bool,
     rec_state: Option<SpeechRecognizerState>,
     auto_mode: bool,
+    concat_mode: bool,
+    concat_limit: usize,
+    vrc_will_reset: bool,
     pending: Option<String>,
-    last_external_hwnd: isize,
-    our_hwnd: isize,
+    vrc_text: String,
     hypothesis: String,
     error: Option<String>,
 }
@@ -66,9 +67,11 @@ impl App {
             is_running: false,
             rec_state: None,
             auto_mode: false,
+            concat_mode: false,
+            concat_limit: 100,
+            vrc_will_reset: false,
             pending: None,
-            last_external_hwnd: 0,
-            our_hwnd: 0,
+            vrc_text: String::new(),
             hypothesis: String::new(),
             error: None,
         }
@@ -76,9 +79,28 @@ impl App {
 
     fn confirm(&mut self, suffix: &str) {
         if let Some(text) = self.pending.take() {
-            let full = format!("{}{}", text, suffix);
-            input::send_text_to(self.last_external_hwnd, full);
+            let new_part = format!("{}{}", text, suffix);
+            let full = self.build_send_text(new_part);
+            crate::osc::send_chatbox(&full);
+            self.vrc_text = full;
+            self.check_reset_threshold();
         }
+    }
+
+    /// 結合モードと vrc_will_reset フラグに従って送信テキストを組み立てる
+    fn build_send_text(&mut self, new_part: String) -> String {
+        if self.concat_mode && !self.vrc_text.is_empty() && !self.vrc_will_reset {
+            format!("{}{}", self.vrc_text, new_part)
+        } else {
+            self.vrc_will_reset = false;
+            new_part
+        }
+    }
+
+    /// 送信後、次回リセットが必要かどうかを判定してフラグを更新する
+    fn check_reset_threshold(&mut self) {
+        self.vrc_will_reset = self.concat_mode
+            && self.vrc_text.chars().count() >= self.concat_limit;
     }
 }
 
@@ -99,16 +121,28 @@ const BUTTONS: [(&str, &str); 8] = [
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Capture our own HWND once (used to restore focus after reset_external)
-        if self.our_hwnd == 0 && input::foreground_is_ours() {
-            self.our_hwnd = input::get_foreground_hwnd();
-        }
-
-        // Track last focused external window
-        let fg = input::get_foreground_hwnd();
-        if !input::foreground_is_ours() && fg != 0 {
-            self.last_external_hwnd = fg;
-        }
+        // ── メニューバー ──
+        egui::TopBottomPanel::top("menu_bar").show(ctx, |ui| {
+            egui::menu::bar(ui, |ui| {
+                ui.menu_button("設定", |ui| {
+                    ui.checkbox(&mut self.concat_mode, "結合モード（送信を前のテキストに追記）");
+                    if self.concat_mode {
+                        ui.separator();
+                        ui.horizontal(|ui| {
+                            ui.label("リセット文字数：");
+                            ui.add(egui::DragValue::new(&mut self.concat_limit)
+                                .range(10..=144)
+                                .speed(1.0));
+                        });
+                    }
+                });
+                ui.menu_button("アプリ", |ui| {
+                    if ui.button("終了").clicked() {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                    }
+                });
+            });
+        });
 
         // Drain speech events
         while let Ok(event) = self.event_rx.try_recv() {
@@ -120,11 +154,19 @@ impl eframe::App for App {
                     self.languages = langs;
                 }
                 SpeechEvent::AudioInputs(devs) => { self.audio_devices = devs; }
-                SpeechEvent::Hypothesis(text) => { self.hypothesis = text; }
+                SpeechEvent::Hypothesis(text) => {
+                    self.error = None;
+                    self.hypothesis = text;
+                }
                 SpeechEvent::Final(text) => {
+                    self.error = None;
                     self.hypothesis.clear();
                     if self.auto_mode {
-                        input::send_text_to(self.last_external_hwnd, text);
+                        let text_with_period = format!("{}。", text);
+                        let full = self.build_send_text(text_with_period);
+                        crate::osc::send_chatbox(&full);
+                        self.vrc_text = full;
+                        self.check_reset_threshold();
                     } else {
                         let pending = self.pending.get_or_insert_with(String::new);
                         if !pending.is_empty() { pending.push(' '); }
@@ -152,9 +194,10 @@ impl eframe::App for App {
 
         // ── Bottom panel ──
         let btn_h = 44.0;
-        let pending_h = 150.0; // enough for ~6 wrapped lines
+        let pending_h = 150.0;
+        let vrc_h    = 150.0; // 緑エリアと同じ行数
         let grid_h = 3.0 * btn_h + 2.0 * 4.0;
-        let panel_h = pending_h + 6.0 + grid_h + 8.0;
+        let panel_h = pending_h + 2.0 + btn_h + 2.0 + vrc_h + 6.0 + grid_h + 8.0;
 
         let mut confirm_suffix: Option<String> = None;
         let mut do_clear      = false;
@@ -203,21 +246,107 @@ impl eframe::App for App {
                         });
                 });
 
-                let count = self.pending.as_ref().map(|t| t.chars().count()).unwrap_or(0);
-                let count_color = if count >= 144 {
+                // ✕ クリアボタン（確定テキスト欄の直下・右寄せ）
+                // allocate_exact_size で高さを btn_h に固定し、put でボタンを重ねる
+                ui.add_space(2.0);
+                let avail_w_c = ui.available_width();
+                let (row_rect, _) = ui.allocate_exact_size(
+                    egui::vec2(avail_w_c, btn_h),
+                    egui::Sense::hover(),
+                );
+                let btn_rect = egui::Rect::from_min_size(
+                    row_rect.right_top() + egui::vec2(-btn_h - 4.0, 0.0),
+                    egui::vec2(btn_h, btn_h),
+                );
+                let (btn_fill, txt_color) = if has_pending {
+                    (egui::Color32::from_rgb(90, 35, 35), egui::Color32::WHITE)
+                } else {
+                    (egui::Color32::from_gray(40), egui::Color32::from_gray(100))
+                };
+                if ui.put(btn_rect,
+                    egui::Button::new(
+                        egui::RichText::new("✕").color(txt_color).size(16.0)
+                    ).fill(btn_fill)
+                ).clicked() && has_pending {
+                    do_clear = true;
+                }
+
+                // VRC チャットボックス表示エリア
+                ui.add_space(2.0);
+                let avail_w2 = ui.available_width();
+                let inner_vrc_h = vrc_h - 8.0;
+                let header_h = 16.0;
+                let (vrc_rect, _) = ui.allocate_exact_size(
+                    egui::vec2(avail_w2, inner_vrc_h),
+                    egui::Sense::hover(),
+                );
+                // リセット予告時はオレンジ背景
+                let vrc_bg = if self.vrc_will_reset {
+                    egui::Color32::from_rgb(55, 28, 8)
+                } else {
+                    egui::Color32::from_rgb(30, 20, 50)
+                };
+                ui.painter().rect_filled(vrc_rect, 6.0, vrc_bg);
+
+                let vrc_inner = vrc_rect.shrink2(egui::vec2(8.0, 4.0));
+
+                // ヘッダー行：「VRC ›」ラベル ＋ 文字数カウンター
+                let vrc_count = self.vrc_text.chars().count();
+                let vrc_count_color = if vrc_count >= 144 {
                     egui::Color32::from_rgb(255, 80, 80)
-                } else if count >= 120 {
+                } else if self.vrc_will_reset {
+                    egui::Color32::from_rgb(255, 160, 60)
+                } else if vrc_count >= self.concat_limit {
                     egui::Color32::from_rgb(255, 200, 80)
                 } else {
                     egui::Color32::from_gray(160)
                 };
+                let label_color = if self.vrc_will_reset {
+                    egui::Color32::from_rgb(255, 160, 60)
+                } else {
+                    egui::Color32::from_rgb(160, 100, 255)
+                };
                 ui.painter().text(
-                    rect.right_bottom() - egui::vec2(6.0, 4.0),
-                    egui::Align2::RIGHT_BOTTOM,
-                    format!("{}/144", count),
+                    vrc_inner.left_top(),
+                    egui::Align2::LEFT_TOP,
+                    "VRC ›",
                     egui::FontId::proportional(11.0),
-                    count_color,
+                    label_color,
                 );
+                ui.painter().text(
+                    vrc_inner.right_top(),
+                    egui::Align2::RIGHT_TOP,
+                    format!("{}/144", vrc_count),
+                    egui::FontId::proportional(11.0),
+                    vrc_count_color,
+                );
+
+                // テキスト表示（ヘッダーの下）
+                let content_rect = egui::Rect::from_min_size(
+                    vrc_inner.min + egui::vec2(0.0, header_h),
+                    egui::vec2(vrc_inner.width(), vrc_inner.height() - header_h),
+                );
+                let text_color = if self.vrc_will_reset {
+                    egui::Color32::from_rgb(255, 180, 80)
+                } else {
+                    egui::Color32::from_rgb(210, 170, 255)
+                };
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
+                    egui::ScrollArea::vertical()
+                        .id_salt("vrc_scroll")
+                        .auto_shrink([false, false])
+                        .stick_to_bottom(true)
+                        .show(ui, |ui| {
+                            ui.set_min_width(content_rect.width());
+                            if !self.vrc_text.is_empty() {
+                                ui.label(
+                                    egui::RichText::new(&self.vrc_text)
+                                        .color(text_color)
+                                        .size(15.0),
+                                );
+                            }
+                        });
+                });
 
                 ui.add_space(6.0);
 
@@ -275,23 +404,16 @@ impl eframe::App for App {
                             do_toggle_auto = true;
                         }
 
-                        // Reset
+                        // VRC Reset (チャットボックスをクリア)
                         if ui.add_sized(btn_size,
-                            egui::Button::new(mk_text("Reset"))
+                            egui::Button::new(mk_text("VRCクリア"))
                                 .fill(egui::Color32::from_gray(60))
                         ).clicked() {
                             do_reset = true;
                         }
 
-                        // Clear (disabled when no pending)
-                        if ui.add_enabled_ui(has_pending, |ui| {
-                            ui.add_sized(btn_size,
-                                egui::Button::new(mk_text("Clear"))
-                                    .fill(egui::Color32::from_rgb(90, 35, 35))
-                            ).clicked()
-                        }).inner {
-                            do_clear = true;
-                        }
+                        // 4列目は空セル（グリッド幅を保持）
+                        ui.allocate_exact_size(btn_size, egui::Sense::hover());
 
                         ui.end_row();
                     });
@@ -312,7 +434,11 @@ impl eframe::App for App {
             }
         }
         if do_toggle_auto { self.auto_mode = !self.auto_mode; }
-        if do_reset       { input::reset_external(self.last_external_hwnd, self.our_hwnd); }
+        if do_reset {
+            crate::osc::send_chatbox("");
+            self.vrc_text.clear();
+            self.vrc_will_reset = false;
+        }
 
         let prev_lang_idx  = self.selected_lang_idx;
         let prev_audio_idx = self.selected_audio_idx;

@@ -1,7 +1,7 @@
 #![allow(unsafe_op_in_unsafe_fn)]
 
 mod audio_device;
-mod input;
+mod osc;
 mod speech;
 mod ui;
 
@@ -15,7 +15,8 @@ fn main() {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("音声入力")
-            .with_inner_size([440.0, 480.0])
+            .with_inner_size([440.0, 670.0])
+            .with_resizable(false)
             .with_always_on_top(),
         ..Default::default()
     };
