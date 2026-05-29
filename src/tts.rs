@@ -14,17 +14,29 @@ pub fn list_devices() -> Option<Vec<String>> {
     if devices.is_empty() { None } else { Some(devices) }
 }
 
-/// VoiceVox で日本語テキストを合成し、指定デバイスで再生する（バックグラウンド）
-pub fn speak(text: &str, speaker_id: i32, device_idx: usize) {
+/// CABLE Input デバイスのインデックスを探す、見つからなければ 0 を返す
+pub fn find_cable_input_index() -> usize {
+    if let Some(devices) = list_devices() {
+        devices.iter()
+            .position(|name| name.to_lowercase().contains("cable"))
+            .unwrap_or(0)
+    } else {
+        0
+    }
+}
+
+/// VoiceVox で日本語テキストを合成し、指定複数デバイスで再生する（バックグラウンド）
+pub fn speak(text: &str, speaker_id: i32, device_indices: &[usize]) {
     let text = text.to_string();
+    let device_indices = device_indices.to_vec();
     std::thread::spawn(move || {
-        if let Err(e) = tts_blocking(&text, speaker_id, device_idx) {
+        if let Err(e) = tts_blocking(&text, speaker_id, &device_indices) {
             eprintln!("[tts] error: {e}");
         }
     });
 }
 
-fn tts_blocking(text: &str, speaker_id: i32, device_idx: usize) -> Result<(), String> {
+fn tts_blocking(text: &str, speaker_id: i32, device_indices: &[usize]) -> Result<(), String> {
     // ── audio_query 取得 ──
     let query_url = format!(
         "{}/audio_query?text={}&speaker={}",
@@ -54,25 +66,38 @@ fn tts_blocking(text: &str, speaker_id: i32, device_idx: usize) -> Result<(), St
         .read_to_end(&mut wav_bytes)
         .map_err(|e| format!("read wav failed: {e}"))?;
 
-    // ── 指定デバイスで再生 ──
+    // ── 複数デバイスで再生 ──
     let host = cpal::default_host();
-    let device = host
+    let devices: Vec<_> = host
         .output_devices()
         .ok()
-        .and_then(|mut devs| devs.nth(device_idx))
-        .ok_or_else(|| "specified output device not found".to_string())?;
+        .ok_or_else(|| "no output devices found".to_string())?
+        .collect();
 
-    let (stream, stream_handle) = rodio::OutputStream::try_from_device(&device)
-        .map_err(|e| format!("output stream failed: {e}"))?;
-    let cursor = Cursor::new(wav_bytes);
-    let source = rodio::Decoder::new(cursor)
-        .map_err(|e| format!("decode failed: {e}"))?;
+    let mut streams = Vec::new();
+    for device_idx in device_indices {
+        let device = devices
+            .get(*device_idx)
+            .ok_or_else(|| format!("device index {} not found", device_idx))?;
 
-    let sink = rodio::Sink::try_new(&stream_handle)
-        .map_err(|e| format!("sink creation failed: {e}"))?;
-    sink.append(source);
-    sink.sleep_until_end();
-    std::mem::drop(stream);
+        let (stream, stream_handle) = rodio::OutputStream::try_from_device(device)
+            .map_err(|e| format!("output stream failed for device {}: {e}", device_idx))?;
+
+        let cursor = Cursor::new(wav_bytes.clone());
+        let source = rodio::Decoder::new(cursor)
+            .map_err(|e| format!("decode failed for device {}: {e}", device_idx))?;
+
+        let sink = rodio::Sink::try_new(&stream_handle)
+            .map_err(|e| format!("sink creation failed for device {}: {e}", device_idx))?;
+        sink.append(source);
+
+        streams.push((stream, sink));
+    }
+
+    // すべてのデバイスで再生完了まで待機
+    if !streams.is_empty() {
+        streams[0].1.sleep_until_end();
+    }
 
     Ok(())
 }

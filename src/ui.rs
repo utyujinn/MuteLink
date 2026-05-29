@@ -46,7 +46,7 @@ pub struct App {
     vrc_will_reset: bool,
     tts_enabled: bool,
     tts_speaker_idx: usize,
-    tts_device_idx: usize,
+    tts_device_indices: Vec<bool>,
     tts_devices: Vec<String>,
     pending: Option<String>,
     vrc_text: String,
@@ -71,13 +71,20 @@ impl App {
             is_running: false,
             rec_state: None,
             auto_mode: false,
-            concat_mode: false,
-            concat_limit: 100,
+            concat_mode: true,
+            concat_limit: 50,
             vrc_will_reset: false,
-            tts_enabled: false,
-            tts_speaker_idx: 0,
-            tts_device_idx: 0,
+            tts_enabled: true,
+            tts_speaker_idx: 46,
             tts_devices: crate::tts::list_devices().unwrap_or_default(),
+            tts_device_indices: {
+                let mut indices = vec![false; 16]; // 最大16デバイス対応
+                let cable_idx = crate::tts::find_cable_input_index();
+                if cable_idx < indices.len() {
+                    indices[cable_idx] = true;
+                }
+                indices
+            },
             pending: None,
             vrc_text: String::new(),
             hypothesis: String::new(),
@@ -92,8 +99,14 @@ impl App {
             crate::osc::send_chatbox(&full);
             self.vrc_text = full;
             if self.tts_enabled && !new_part.is_empty() {
-                // 送信前テキストから VRC に移ったテキスト（new_part）だけを読み上げる
-                crate::tts::speak(&new_part, self.tts_speaker_idx as i32, self.tts_device_idx);
+                // 選択されたデバイスのインデックスを集める
+                let devices: Vec<usize> = self.tts_device_indices.iter()
+                    .enumerate()
+                    .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
+                    .collect();
+                if !devices.is_empty() {
+                    crate::tts::speak(&new_part, self.tts_speaker_idx as i32, &devices);
+                }
             }
             self.check_reset_threshold();
         }
@@ -157,12 +170,12 @@ impl eframe::App for App {
                                 .range(0..=200)
                                 .speed(1.0));
                         });
-                        ui.label("出力デバイス：");
+                        ui.label("出力デバイス（複数選択可）：");
                         if !self.tts_devices.is_empty() {
                             ui.vertical(|ui| {
                                 for (i, name) in self.tts_devices.iter().enumerate() {
-                                    if ui.selectable_label(self.tts_device_idx == i, name).clicked() {
-                                        self.tts_device_idx = i;
+                                    if i < self.tts_device_indices.len() {
+                                        ui.checkbox(&mut self.tts_device_indices[i], name);
                                     }
                                 }
                             });
@@ -202,8 +215,14 @@ impl eframe::App for App {
                         crate::osc::send_chatbox(&full);
                         self.vrc_text = full;
                         if self.tts_enabled && !text_with_period.is_empty() {
-                            // 送信前テキストから VRC に移ったテキスト（text_with_period）だけを読み上げる
-                            crate::tts::speak(&text_with_period, self.tts_speaker_idx as i32, self.tts_device_idx);
+                            // 選択されたデバイスのインデックスを集める
+                            let devices: Vec<usize> = self.tts_device_indices.iter()
+                                .enumerate()
+                                .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
+                                .collect();
+                            if !devices.is_empty() {
+                                crate::tts::speak(&text_with_period, self.tts_speaker_idx as i32, &devices);
+                            }
                         }
                         self.check_reset_threshold();
                     } else {
