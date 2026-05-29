@@ -55,7 +55,10 @@ pub struct App {
     concat_limit: usize,
     vrc_will_reset: bool,
     tts_enabled: bool,
-    tts_speaker_idx: usize,
+    tts_speaker_idx: usize,       // fallback: 数値指定
+    tts_speakers: Vec<crate::tts::VoiceSpeaker>,
+    tts_speaker_sel: usize,       // キャラクター選択
+    tts_style_sel: usize,         // スタイル（感情）選択
     tts_device_indices: Vec<bool>,
     tts_devices: Vec<String>,
     pending: Option<String>,
@@ -63,6 +66,8 @@ pub struct App {
     hypothesis: String,
     error: Option<String>,
     voicevox_path: String,
+    suffix_configs: Vec<SuffixConfig>,
+    show_suffix_editor: bool,
 }
 
 impl App {
@@ -73,7 +78,7 @@ impl App {
         voicevox_path: String,
     ) -> Self {
         setup_fonts(&cc.egui_ctx);
-        Self {
+        let mut app = Self {
             cmd_tx,
             event_rx,
             languages: Vec::new(),
@@ -88,6 +93,9 @@ impl App {
             vrc_will_reset: false,
             tts_enabled: true,
             tts_speaker_idx: 46,
+            tts_speakers: crate::tts::fetch_speakers(),
+            tts_speaker_sel: 0, // 後で補正
+            tts_style_sel: 0,
             tts_devices: crate::tts::list_devices().unwrap_or_default(),
             tts_device_indices: {
                 let mut indices = vec![false; 16]; // 最大16デバイス対応
@@ -102,23 +110,45 @@ impl App {
             hypothesis: String::new(),
             error: None,
             voicevox_path,
+            suffix_configs: default_suffix_configs(),
+            show_suffix_editor: false,
+        };
+        // 小夜/SAYO (style ID 46) をデフォルト選択
+        if let Some(idx) = app.tts_speakers.iter().position(|spk| {
+            spk.styles.iter().any(|st| st.id == 46)
+        }) {
+            app.tts_speaker_sel = idx;
         }
+        app
     }
 
-    fn confirm(&mut self, suffix: &str) {
+    fn effective_style_id(&self) -> i32 {
+        if let Some(speaker) = self.tts_speakers.get(self.tts_speaker_sel) {
+            if let Some(style) = speaker.styles.get(self.tts_style_sel) {
+                return style.id;
+            }
+        }
+        self.tts_speaker_idx as i32
+    }
+
+    fn tts_devices_selected(&self) -> Vec<usize> {
+        self.tts_device_indices.iter()
+            .enumerate()
+            .filter_map(|(i, &s)| if s { Some(i) } else { None })
+            .collect()
+    }
+
+    fn confirm(&mut self, cfg_idx: usize) {
+        let cfg = self.suffix_configs[cfg_idx].clone();
         if let Some(text) = self.pending.take() {
-            let new_part = format!("{}{}", text, suffix);
+            let new_part = format!("{}{}", text, cfg.suffix);
             let full = self.build_send_text(new_part.clone());
             crate::osc::send_chatbox(&full);
             self.vrc_text = full;
             if self.tts_enabled && !text.is_empty() {
-                // TTS には語尾を含めず、テキスト部分のみ送信
-                let devices: Vec<usize> = self.tts_device_indices.iter()
-                    .enumerate()
-                    .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
-                    .collect();
+                let devices = self.tts_devices_selected();
                 if !devices.is_empty() {
-                    crate::tts::speak(&text, self.tts_speaker_idx as i32, &devices);
+                    crate::tts::speak(&text, self.effective_style_id(), &devices, cfg.emotion());
                 }
             }
             self.check_reset_threshold();
@@ -142,24 +172,42 @@ impl App {
     }
 }
 
-// Rows 1-3: confirm buttons (12 cells = 4 rows × 3)
-const BUTTONS: [(&str, &str); 12] = [
-    ("。",   "。"),
-    ("！",   "！"),
-    ("？",   "？"),
+#[derive(Clone)]
+pub struct SuffixConfig {
+    pub label:  String,
+    pub suffix: String,
+    pub speed:      f64,
+    pub pitch:      f64,
+    pub intonation: f64,
+    pub volume:     f64,
+}
 
-    ("qwq",  "qwq"),
-    ("xwx",  "xwx"),
-    ("owo",  "owo"),
+impl SuffixConfig {
+    fn new(label: &str, suffix: &str, speed: f64, pitch: f64, intonation: f64, volume: f64) -> Self {
+        Self { label: label.into(), suffix: suffix.into(), speed, pitch, intonation, volume }
+    }
+    fn emotion(&self) -> crate::tts::EmotionParams {
+        crate::tts::EmotionParams { speed: self.speed, pitch: self.pitch,
+            intonation: self.intonation, volume: self.volume }
+    }
+}
 
-    ("..o○",  "..o○"),
-    ("..//", "..//"),
-    ("><",   "><"),
-
-    ("www",  "www"),
-    ("zzz",  "zzz"),
-    ("~",    "~"),
-];
+fn default_suffix_configs() -> Vec<SuffixConfig> {
+    vec![
+        SuffixConfig::new("。",    "。",    1.0,   0.0,   1.0,  1.0 ),
+        SuffixConfig::new("！",    "！",    1.2,   0.05,  1.5,  1.1 ),
+        SuffixConfig::new("？",    "？",    0.95,  0.05,  1.3,  1.0 ),
+        SuffixConfig::new("qwq",   "qwq",   0.85, -0.05,  0.8,  0.9 ),
+        SuffixConfig::new("xwx",   "xwx",   0.9,  -0.03,  0.9,  0.9 ),
+        SuffixConfig::new("owo",   "owo",   1.1,   0.07,  1.4,  1.0 ),
+        SuffixConfig::new("..o○",  "..o○",  0.85,  0.02,  0.7,  0.8 ),
+        SuffixConfig::new("..//",  "..//",  1.0,   0.03,  1.1,  0.85),
+        SuffixConfig::new("><",    "><",    1.1,   0.05,  1.2,  0.9 ),
+        SuffixConfig::new("www",   "www",   1.15,  0.05,  1.5,  1.1 ),
+        SuffixConfig::new("zzz",   "zzz",   0.75, -0.07,  0.5,  0.7 ),
+        SuffixConfig::new("~",     "~",     0.9,   0.03,  1.2,  1.0 ),
+    ]
+}
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
@@ -181,12 +229,65 @@ impl eframe::App for App {
                     ui.checkbox(&mut self.tts_enabled, "TTS（送信時に自動読み上げ）");
                     if self.tts_enabled {
                         ui.separator();
-                        ui.horizontal(|ui| {
-                            ui.label("VoiceVox スピーカー ID：");
-                            ui.add(egui::DragValue::new(&mut self.tts_speaker_idx)
-                                .range(0..=200)
-                                .speed(1.0));
-                        });
+
+                        // スピーカー・スタイル（感情）選択
+                        if self.tts_speakers.is_empty() {
+                            ui.horizontal(|ui| {
+                                ui.label("スピーカー ID（手動）：");
+                                ui.add(egui::DragValue::new(&mut self.tts_speaker_idx)
+                                    .range(0..=200).speed(1.0));
+                            });
+                            if ui.button("スピーカー読み込み").clicked() {
+                                self.tts_speakers = crate::tts::fetch_speakers();
+                                self.tts_speaker_sel = 0;
+                                self.tts_style_sel = 0;
+                            }
+                        } else {
+                            // キャラクター選択
+                            ui.label("キャラクター：");
+                            let spk_name = self.tts_speakers
+                                .get(self.tts_speaker_sel)
+                                .map(|s| s.name.as_str())
+                                .unwrap_or("");
+                            egui::ComboBox::from_id_salt("tts_speaker")
+                                .selected_text(spk_name)
+                                .show_ui(ui, |ui| {
+                                    for (i, spk) in self.tts_speakers.iter().enumerate() {
+                                        if ui.selectable_label(self.tts_speaker_sel == i, &spk.name).clicked() {
+                                            self.tts_speaker_sel = i;
+                                            self.tts_style_sel = 0;
+                                        }
+                                    }
+                                });
+
+                            // スタイル（感情）選択
+                            if let Some(spk) = self.tts_speakers.get(self.tts_speaker_sel) {
+                                if !spk.styles.is_empty() {
+                                    ui.label("スタイル（感情）：");
+                                    let style_name = spk.styles
+                                        .get(self.tts_style_sel)
+                                        .map(|s| s.name.as_str())
+                                        .unwrap_or("");
+                                    egui::ComboBox::from_id_salt("tts_style")
+                                        .selected_text(style_name)
+                                        .show_ui(ui, |ui| {
+                                            for (i, st) in spk.styles.iter().enumerate() {
+                                                let label = format!("{} (ID:{})", st.name, st.id);
+                                                if ui.selectable_label(self.tts_style_sel == i, &label).clicked() {
+                                                    self.tts_style_sel = i;
+                                                }
+                                            }
+                                        });
+                                }
+                            }
+                            if ui.small_button("再読み込み").clicked() {
+                                self.tts_speakers = crate::tts::fetch_speakers();
+                                self.tts_speaker_sel = 0;
+                                self.tts_style_sel = 0;
+                            }
+                        }
+
+                        ui.separator();
                         ui.label("出力デバイス（複数選択可）：");
                         if !self.tts_devices.is_empty() {
                             ui.vertical(|ui| {
@@ -210,6 +311,9 @@ impl eframe::App for App {
                         save_voicevox_path_file(&self.voicevox_path);
                     }
                 });
+                if ui.menu_button("語尾", |_ui| {}).response.clicked() {
+                    self.show_suffix_editor = !self.show_suffix_editor;
+                }
                 ui.menu_button("アプリ", |ui| {
                     if ui.button("終了").clicked() {
                         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -241,13 +345,10 @@ impl eframe::App for App {
                         crate::osc::send_chatbox(&full);
                         self.vrc_text = full;
                         if self.tts_enabled && !text.is_empty() {
-                            // TTS には語尾（。）を含めず、テキスト部分のみ送信
-                            let devices: Vec<usize> = self.tts_device_indices.iter()
-                                .enumerate()
-                                .filter_map(|(i, &selected)| if selected { Some(i) } else { None })
-                                .collect();
+                            let devices = self.tts_devices_selected();
                             if !devices.is_empty() {
-                                crate::tts::speak(&text, self.tts_speaker_idx as i32, &devices);
+                                crate::tts::speak(&text, self.effective_style_id(), &devices,
+                                    crate::tts::EmotionParams::default());
                             }
                         }
                         self.check_reset_threshold();
@@ -280,7 +381,7 @@ impl eframe::App for App {
         let prev_lang_idx  = self.selected_lang_idx;
         let prev_audio_idx = self.selected_audio_idx;
 
-        let mut confirm_suffix: Option<String> = None;
+        let mut confirm_idx: Option<usize> = None;
         let mut do_clear      = false;
         let mut do_start_stop = false;
         let mut do_toggle_auto = false;
@@ -542,7 +643,8 @@ impl eframe::App for App {
                     .spacing([gap, gap])
                     .show(ui, |ui| {
                         // Rows 1-4: confirm buttons (enabled only when pending exists)
-                        for (i, (label, suffix)) in BUTTONS.iter().enumerate() {
+                        let labels: Vec<String> = self.suffix_configs.iter().map(|c| c.label.clone()).collect();
+                        for (i, label) in labels.iter().enumerate() {
                             let clicked = ui.add_enabled_ui(has_pending, |ui| {
                                 ui.add_sized(
                                     btn_size,
@@ -551,7 +653,7 @@ impl eframe::App for App {
                                 ).clicked()
                             }).inner;
                             if clicked {
-                                confirm_suffix = Some(suffix.to_string());
+                                confirm_idx = Some(i);
                             }
                             if (i + 1) % 3 == 0 {
                                 ui.end_row();
@@ -600,8 +702,8 @@ impl eframe::App for App {
             });
 
         // Apply actions after panel closes
-        if let Some(ref suffix) = confirm_suffix {
-            self.confirm(suffix);
+        if let Some(idx) = confirm_idx {
+            self.confirm(idx);
         }
         if do_clear       { self.pending = None; }
         if do_start_stop  {
@@ -618,6 +720,53 @@ impl eframe::App for App {
             crate::osc::send_chatbox("");
             self.vrc_text.clear();
             self.vrc_will_reset = false;
+        }
+
+        // ── 語尾編集ウィンドウ ──
+        if self.show_suffix_editor {
+            egui::Window::new("語尾 設定")
+                .open(&mut self.show_suffix_editor)
+                .resizable(true)
+                .min_width(500.0)
+                .show(ctx, |ui| {
+                    egui::ScrollArea::vertical().show(ui, |ui| {
+                        egui::Grid::new("suffix_edit_grid")
+                            .num_columns(7)
+                            .spacing([6.0, 4.0])
+                            .striped(true)
+                            .show(ui, |ui| {
+                                // ヘッダー
+                                ui.label(egui::RichText::new("ラベル").strong());
+                                ui.label(egui::RichText::new("語尾テキスト").strong());
+                                ui.label(egui::RichText::new("速さ").strong());
+                                ui.label(egui::RichText::new("ピッチ").strong());
+                                ui.label(egui::RichText::new("抑揚").strong());
+                                ui.label(egui::RichText::new("音量").strong());
+                                ui.label(egui::RichText::new("リセット").strong());
+                                ui.end_row();
+
+                                let defaults = default_suffix_configs();
+                                for (i, cfg) in self.suffix_configs.iter_mut().enumerate() {
+                                    ui.add(egui::TextEdit::singleline(&mut cfg.label).desired_width(50.0));
+                                    ui.add(egui::TextEdit::singleline(&mut cfg.suffix).desired_width(70.0));
+                                    ui.add(egui::DragValue::new(&mut cfg.speed)
+                                        .range(0.5f64..=2.0).speed(0.01).fixed_decimals(2));
+                                    ui.add(egui::DragValue::new(&mut cfg.pitch)
+                                        .range(-0.15f64..=0.15).speed(0.005).fixed_decimals(3));
+                                    ui.add(egui::DragValue::new(&mut cfg.intonation)
+                                        .range(0.0f64..=2.0).speed(0.01).fixed_decimals(2));
+                                    ui.add(egui::DragValue::new(&mut cfg.volume)
+                                        .range(0.0f64..=2.0).speed(0.01).fixed_decimals(2));
+                                    if ui.small_button("↺").clicked() {
+                                        if let Some(d) = defaults.get(i) {
+                                            *cfg = d.clone();
+                                        }
+                                    }
+                                    ui.end_row();
+                                }
+                            });
+                    });
+                });
         }
 
         // 言語/デバイス変更で認識を再起動
