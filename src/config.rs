@@ -28,7 +28,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             voicevox_path:      crate::VOICEVOX_DEFAULT_PATH.to_string(),
-            concat_mode:        true,
+            concat_mode:        false,
             concat_limit:       50,
             auto_mode:          false,
             tts_enabled:        true,
@@ -43,21 +43,46 @@ impl Default for AppConfig {
     }
 }
 
+/// よくあるインストール先から run.exe を探し、見つかったパスを返す。見つからなければ空文字。
+pub fn find_voicevox_path() -> String {
+    let mut candidates = vec![
+        crate::VOICEVOX_DEFAULT_PATH.to_string(),
+    ];
+    if let Ok(local) = std::env::var("LOCALAPPDATA") {
+        candidates.push(format!(r"{}\Programs\VOICEVOX\vv-engine\run.exe", local));
+        candidates.push(format!(r"{}\VOICEVOX\vv-engine\run.exe", local));
+    }
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        candidates.push(format!(r"{}\VOICEVOX\vv-engine\run.exe", appdata));
+    }
+    for path in candidates {
+        if std::path::Path::new(&path).exists() {
+            return path;
+        }
+    }
+    String::new()
+}
+
 pub fn load() -> AppConfig {
     if let Ok(text) = std::fs::read_to_string(config_path()) {
         if let Ok(cfg) = serde_json::from_str::<AppConfig>(&text) {
             return cfg;
         }
     }
-    // 旧形式 sttv_config.txt があれば VoiceVox パスだけ引き継ぐ
     let mut cfg = AppConfig::default();
+    // 旧形式 sttv_config.txt があればパスだけ引き継ぐ
     let mut old_path = std::env::current_exe().unwrap_or_default();
     old_path.pop();
     old_path.push("sttv_config.txt");
-    if let Ok(s) = std::fs::read_to_string(old_path) {
+    if let Ok(s) = std::fs::read_to_string(&old_path) {
         let trimmed = s.trim().to_string();
-        if !trimmed.is_empty() { cfg.voicevox_path = trimmed; }
+        if !trimmed.is_empty() {
+            cfg.voicevox_path = trimmed;
+            return cfg;
+        }
     }
+    // 自動検出
+    cfg.voicevox_path = find_voicevox_path();
     cfg
 }
 

@@ -44,7 +44,7 @@ fn main() {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("音声入力")
-            .with_inner_size([440.0, 600.0])
+            .with_inner_size([440.0, 560.0])
             .with_resizable(false)
             .with_always_on_top(),
         ..Default::default()

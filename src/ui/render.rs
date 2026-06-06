@@ -86,6 +86,8 @@ impl App {
                         });
                     }
                     ui.separator();
+                    ui.checkbox(&mut self.chatbox_enabled, "Chatbox（VRCチャットボックスに送信）");
+                    ui.separator();
                     ui.checkbox(&mut self.tts_enabled, "TTS（送信時に自動読み上げ）");
                     if self.tts_enabled {
                         ui.separator();
@@ -105,7 +107,26 @@ impl App {
                         }
                     }
                     ui.separator();
-                    ui.label("VoiceVox エンジンパス：");
+                    ui.horizontal(|ui| {
+                        ui.label("VoiceVox エンジンパス：");
+                        if ui.small_button("自動検出").clicked() {
+                            let found = crate::config::find_voicevox_path();
+                            if !found.is_empty() { self.voicevox_path = found; }
+                        }
+                    });
+                    let path_ok = !self.voicevox_path.is_empty()
+                        && std::path::Path::new(&self.voicevox_path).exists();
+                    if self.voicevox_path.is_empty() {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(255, 100, 80),
+                            "⚠ VoiceVox が見つかりませんでした。パスを入力してください。",
+                        );
+                    } else if !path_ok {
+                        ui.colored_label(
+                            egui::Color32::from_rgb(255, 180, 60),
+                            "⚠ 指定されたパスにファイルが見つかりません。",
+                        );
+                    }
                     ui.add(
                         egui::TextEdit::singleline(&mut self.voicevox_path)
                             .desired_width(360.0)
@@ -175,11 +196,6 @@ impl App {
                             }
                         });
                 }
-            }
-            if ui.small_button("再読み込み").clicked() {
-                self.tts_speakers = crate::tts::fetch_speakers();
-                self.tts_speaker_sel = 0;
-                self.tts_style_sel = 0;
             }
         }
     }
