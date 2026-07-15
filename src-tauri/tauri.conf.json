@@ -1,0 +1,30 @@
+{
+  "productName": "MuteLink",
+  "version": "0.1.0",
+  "identifier": "com.mutelink.app",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "音声入力",
+        "width": 440,
+        "height": 590,
+        "resizable": false,
+        "alwaysOnTop": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": []
+  }
+}

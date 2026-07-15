@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>音声入力</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- メニューバー -->
+      <div id="menubar">
+        <div class="menu-item" id="menu-settings-btn">設定</div>
+        <div class="menu-item" id="menu-suffix-btn">語尾</div>
+        <div class="menu-item" id="menu-app-btn">アプリ</div>
+      </div>
+
+      <!-- メインコンテンツ -->
+      <div id="main">
+        <!-- 言語・マイク選択 -->
+        <div class="row" id="device-row">
+          <span class="label">言語：</span>
+          <select id="lang-select"></select>
+          <span class="separator">|</span>
+          <span class="label">マイク：</span>
+          <select id="mic-select"></select>
+        </div>
+
+        <div class="hr"></div>
+
+        <!-- ステータス -->
+        <div class="row" id="status-row">
+          <span id="status-dot" class="dot dot-idle"></span>
+          <span id="status-label"></span>
+          <span id="error-label" class="error hidden"></span>
+        </div>
+
+        <div class="hr"></div>
+
+        <!-- Hypothesis -->
+        <div id="hypothesis-area">
+          <div id="hypothesis-text"></div>
+        </div>
+
+        <div class="hr"></div>
+
+        <!-- Pending テキストエリア -->
+        <div id="pending-area">
+          <div id="pending-hint">Ctrl+Enter で送信</div>
+          <textarea id="pending-text" spellcheck="false" autocomplete="off"></textarea>
+        </div>
+
+        <div id="vrc-area">
+          <div id="vrc-header">
+            <span id="vrc-label">VRC ›</span>
+            <span id="vrc-count">0/144</span>
+          </div>
+          <div id="vrc-text"></div>
+        </div>
+
+        <!-- ボタングリッド -->
+        <div id="button-grid">
+          <!-- 語尾ボタン (JS で生成) -->
+          <div id="suffix-buttons"></div>
+          <!-- コントロールボタン -->
+          <div id="control-buttons">
+            <button id="btn-start" class="ctrl-btn btn-start">開始</button>
+            <button id="btn-auto"  class="ctrl-btn btn-off">Auto</button>
+            <button id="btn-chat"  class="ctrl-btn btn-on">Chatbox</button>
+            <button id="btn-tts"   class="ctrl-btn btn-on">TTS</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 設定パネル（非表示） -->
+    <div id="settings-panel" class="panel hidden"></div>
+
+    <!-- 語尾エディタ（非表示） -->
+    <div id="suffix-editor" class="panel hidden"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
