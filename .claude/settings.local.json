@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cargo build *)",
-      "PowerShell(Test-Path *)",
-      "PowerShell(Select-String *)"
-    ]
-  }
-}

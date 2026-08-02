@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASR test</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <h1>SenseVoice WS test</h1>
+
+      <div class="row">
+        <input id="ws-url" value="ws://127.0.0.1:8000/ws/transcribe" size="36" />
+        <button id="toggle-btn">Start</button>
+      </div>
+      <p id="status">idle</p>
+
+      <div id="log"></div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,10 @@
+[project]
+name = "python"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.141.1",
+    "funasr>=1.4.0",
+    "torch>=2.13.0",
+    "torchaudio>=2.11.0",
+]

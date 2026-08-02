@@ -2,3 +2,5 @@
 /dist
 /node_modules
 /.claude
+/python/.venv
+/python/__pycache__
