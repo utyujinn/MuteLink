@@ -3,22 +3,29 @@ import json
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-from asr import SenseVoiceEngine, SAMPLE_RATE
+from asr import FunASRNanoEngine, VadEngine, SAMPLE_RATE
 
 app = FastAPI()
 
 BYTES_PER_SAMPLE = 2
-EMIT_INTERVAL_MS = 1000
-EMIT_INTERVAL_BYTES = int(SAMPLE_RATE * BYTES_PER_SAMPLE * EMIT_INTERVAL_MS / 1000)
+BYTES_PER_MS = SAMPLE_RATE * BYTES_PER_SAMPLE // 1000
 
-_engine: SenseVoiceEngine | None = None
+_asr_engine: FunASRNanoEngine | None = None
+_vad_engine: VadEngine | None = None
 
 
-def get_engine() -> SenseVoiceEngine:
-    global _engine
-    if _engine is None:
-        _engine = SenseVoiceEngine()
-    return _engine
+def get_asr_engine() -> FunASRNanoEngine:
+    global _asr_engine
+    if _asr_engine is None:
+        _asr_engine = FunASRNanoEngine()
+    return _asr_engine
+
+
+def get_vad_engine() -> VadEngine:
+    global _vad_engine
+    if _vad_engine is None:
+        _vad_engine = VadEngine()
+    return _vad_engine
 
 
 @app.get("/")
@@ -29,15 +36,33 @@ async def root():
 @app.websocket("/ws/transcribe")
 async def ws_transcribe(ws: WebSocket):
     await ws.accept()
-    engine = get_engine()
-    buffer = bytearray()
-    emitted_len = 0
+    asr_engine = get_asr_engine()
+    vad_engine = get_vad_engine()
 
-    async def run(kind: str):
-        nonlocal emitted_len
-        result = await asyncio.to_thread(engine.transcribe, bytes(buffer))
-        await ws.send_json({"type": kind, **result})
-        emitted_len = len(buffer)
+    buffer = bytearray()
+    buffer_start_ms = 0
+    segment_start_ms: int | None = None
+    vad_cache = vad_engine.new_cache()
+
+    async def transcribe_and_send(pcm16_bytes: bytes):
+        if not pcm16_bytes:
+            return
+        result = await asyncio.to_thread(asr_engine.transcribe, pcm16_bytes)
+        await ws.send_json({"type": "final", **result})
+
+    async def handle_segments(segments: list[list[int]]):
+        nonlocal buffer, buffer_start_ms, segment_start_ms
+        for start_ms, end_ms in segments:
+            if start_ms != -1:
+                segment_start_ms = start_ms
+            if end_ms != -1:
+                seg_from = segment_start_ms if segment_start_ms is not None else buffer_start_ms
+                start_byte = max(int((seg_from - buffer_start_ms) * BYTES_PER_MS), 0)
+                end_byte = max(int((end_ms - buffer_start_ms) * BYTES_PER_MS), start_byte)
+                await transcribe_and_send(bytes(buffer[start_byte:end_byte]))
+                buffer = buffer[end_byte:]
+                buffer_start_ms = end_ms
+                segment_start_ms = None
 
     try:
         while True:
@@ -48,8 +73,8 @@ async def ws_transcribe(ws: WebSocket):
             data = message.get("bytes")
             if data is not None:
                 buffer += data
-                if len(buffer) - emitted_len >= EMIT_INTERVAL_BYTES:
-                    await run("partial")
+                segments = await asyncio.to_thread(vad_engine.detect, data, vad_cache, False)
+                await handle_segments(segments)
                 continue
 
             text = message.get("text")
@@ -60,9 +85,13 @@ async def ws_transcribe(ws: WebSocket):
             except ValueError:
                 continue
             if control.get("type") == "end":
+                segments = await asyncio.to_thread(vad_engine.detect, b"", vad_cache, True)
+                await handle_segments(segments)
                 if buffer:
-                    await run("final")
+                    await transcribe_and_send(bytes(buffer))
                 buffer = bytearray()
-                emitted_len = 0
+                buffer_start_ms = 0
+                segment_start_ms = None
+                vad_cache = vad_engine.new_cache()
     except WebSocketDisconnect:
         pass

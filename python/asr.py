@@ -21,13 +21,40 @@ def parse_result(raw_text: str) -> dict:
     return {"text": clean_text, "emotion": emotion, "language": language, "event": event}
 
 
-class SenseVoiceEngine:
+class FunASRNanoEngine:
     def __init__(self, device: str | None = None):
         device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
-        self.model = AutoModel(model="iic/SenseVoiceSmall", device=device)
+        self.model = AutoModel(model="FunAudioLLM/Fun-ASR-Nano-2512", device=device)
 
     def transcribe(self, pcm16_bytes: bytes) -> dict:
         audio = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float32) / 32768.0
-        res = self.model.generate(input=audio, language="auto", ban_emo_unk=True)
+        res = self.model.generate(input=torch.from_numpy(audio))
         raw_text = res[0]["text"] if res else ""
         return parse_result(raw_text)
+
+
+class VadEngine:
+    """Streaming speech-segment boundary detector (fsmn-vad).
+
+    Each call reports segment boundaries as [start_ms, end_ms] pairs, timed
+    relative to the first sample seen since the cache was created. -1 means
+    "not yet known" (e.g. [start_ms, -1] = speech started, end not seen yet).
+    """
+
+    def __init__(self, device: str | None = None):
+        device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.model = AutoModel(model="fsmn-vad", device=device, disable_pbar=True, disable_log=True)
+
+    def new_cache(self) -> dict:
+        return {}
+
+    def detect(self, pcm16_bytes: bytes, cache: dict, is_final: bool) -> list[list[int]]:
+        audio = np.frombuffer(pcm16_bytes, dtype=np.int16).astype(np.float32) / 32768.0
+        chunk_ms = max(int(len(audio) / SAMPLE_RATE * 1000), 1)
+        res = self.model.generate(
+            input=torch.from_numpy(audio),
+            cache=cache,
+            is_final=is_final,
+            chunk_size=chunk_ms,
+        )
+        return res[0]["value"] if res else []
