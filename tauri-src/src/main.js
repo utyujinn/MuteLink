@@ -9,7 +9,18 @@ let googleHadError = false;
 let googleRetryTimer;
 let googleBtn;
 let googleStatusEl;
+let sttLangSelect;
+let chatboxToggle;
 let logEl;
+
+async function sendChatbox(text) {
+  try {
+    await window.__TAURI__.core.invoke("send_chatbox", { text });
+    log(`[chatbox] sent: ${text}`);
+  } catch (err) {
+    log(`[chatbox] error: ${err}`);
+  }
+}
 
 // SpeechRecognition owns mic capture internally and doesn't expose audio
 // levels, so silence/voice is measured by a second, independent mic stream
@@ -71,7 +82,7 @@ async function stopVoiceMonitor() {
 function createRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const r = new SpeechRecognition();
-  r.lang = "ja-JP";
+  r.lang = sttLangSelect.value;
   r.continuous = true;
   r.interimResults = true;
 
@@ -80,7 +91,17 @@ function createRecognition() {
     const kind = result.isFinal ? "final" : "partial";
     const text = result[0].transcript;
     log(`[google:${kind}] text=${text}`);
-    if (result.isFinal) speak(text);
+    if (!result.isFinal) return;
+
+    if (chatboxToggle.checked) sendChatbox(text);
+
+    // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other
+    // scripts), so only auto-speak when recognizing in Japanese.
+    if (r.lang === "ja-JP") {
+      speak(text);
+    } else {
+      log("[voicevox] skipped: recognition language is not Japanese");
+    }
   };
   r.onstart = () => {
     googleHadError = false;
@@ -157,6 +178,7 @@ async function startGoogleStt() {
   recognition = createRecognition();
   armed = true;
   googleBtn.textContent = "Google STT Stop";
+  sttLangSelect.disabled = true;
   resumeRecognition();
 }
 
@@ -169,6 +191,7 @@ function stopGoogleStt() {
   stopVoiceMonitor();
   googleStatusEl.textContent = "idle";
   googleBtn.textContent = "Google STT Start";
+  sttLangSelect.disabled = false;
 }
 
 let voicevoxInput;
@@ -255,6 +278,8 @@ function setupSettingsDialog() {
 window.addEventListener("DOMContentLoaded", () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
+  sttLangSelect = document.querySelector("#stt-lang");
+  chatboxToggle = document.querySelector("#chatbox-toggle");
   googleStatusEl = document.querySelector("#google-status");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");

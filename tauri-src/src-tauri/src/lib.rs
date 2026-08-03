@@ -1,5 +1,7 @@
+use std::net::UdpSocket;
 use std::sync::Mutex;
 
+use rosc::{OscMessage, OscPacket, OscType};
 use tauri::{Manager, State};
 use voicevox_core::blocking::{Onnxruntime, OpenJtalk, Synthesizer, VoiceModelFile};
 use voicevox_core::StyleId;
@@ -9,6 +11,8 @@ use voicevox_core::StyleId;
 const VOICEVOX_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/voicevox_core");
 // 小夜/SAYO, ノーマル style (confirmed against the VOICEVOX/voicevox_vvm model table).
 const SAYO_NORMAL_STYLE_ID: StyleId = StyleId(46);
+
+const VRCHAT_OSC_ADDR: &str = "127.0.0.1:9000";
 
 struct VoicevoxState(Mutex<Synthesizer<OpenJtalk>>);
 
@@ -34,6 +38,21 @@ fn synthesize(text: String, state: State<VoicevoxState>) -> Result<Vec<u8>, Stri
         .map_err(|e| e.to_string())
 }
 
+// VRChat listens for OSC on 127.0.0.1:9000. /chatbox/input takes
+// (message, bSend, bSFX): bSend=true submits immediately instead of opening
+// the keyboard; bSFX=true plays the notification sound.
+#[tauri::command]
+fn send_chatbox(text: String) -> Result<(), String> {
+    let packet = OscPacket::Message(OscMessage {
+        addr: "/chatbox/input".to_string(),
+        args: vec![OscType::String(text), OscType::Bool(true), OscType::Bool(true)],
+    });
+    let bytes = rosc::encoder::encode(&packet).map_err(|e| e.to_string())?;
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
+    socket.send_to(&bytes, VRCHAT_OSC_ADDR).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -43,7 +62,7 @@ pub fn run() {
             app.manage(VoicevoxState(Mutex::new(synth)));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![synthesize])
+        .invoke_handler(tauri::generate_handler![synthesize, send_chatbox])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

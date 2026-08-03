@@ -3374,6 +3374,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rosc"
+version = "0.11.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd37602e1513794e952274082d074e8d31aa7f64d047e3acb746c91db40600a5"
+dependencies = [
+ "byteorder",
+ "nom",
+ "time",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4266,6 +4277,7 @@ name = "tauri-src"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "rosc",
  "serde",
  "serde_json",
  "tauri",
