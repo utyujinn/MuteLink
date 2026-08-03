@@ -775,12 +775,35 @@ input[type="checkbox"]:checked::after {
   margin: 0 0 0.9em;
 }
 
-.character-placeholder {
-  margin-bottom: 1em;
-  padding: 1.5em;
-  border: 1px dashed var(--color-border);
-  border-radius: 8px;
-  text-align: center;
+.character-style-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em;
+  padding: 0.2em 0.2em 0.6em;
+}
+
+.character-style-btn {
+  padding: 0.4em 0.9em;
+  font-size: 0.85em;
+}
+
+.character-style-btn.active {
+  border-color: transparent;
+  color: #ffffff;
+  background-color: #396cd8;
+}
+
+.character-add-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.2em 0.2em 0.6em;
+}
+
+.character-add-hint {
+  font-size: 0.8em;
+  opacity: 0.65;
 }
 
 .danger-btn:hover {

@@ -302,6 +302,7 @@ async function speak(text, params = {}) {
   try {
     const bytes = await window.__TAURI__.core.invoke("synthesize", {
       text,
+      styleId: getSelectedStyleId(),
       speedScale: params.speedScale,
       pitchScale: params.pitchScale,
       intonationScale: params.intonationScale,
@@ -443,6 +444,7 @@ function setupSettingsDialog() {
 
   setupSettingsNav();
   setupGeneralPanel();
+  setupCharacterPanel();
   setupAppearancePanel();
   setupDevicePanel();
 }
@@ -784,6 +786,167 @@ function showConfirmDialog(message) {
     dialog.addEventListener("click", onBackdrop);
     dialog.showModal();
   });
+}
+
+const SELECTED_STYLE_KEY = "mutelink.selectedStyleId";
+const DEFAULT_STYLE_ID = 46; // 小夜/SAYO ノーマル, the character bundled with the app
+
+function loadSelectedStyleId() {
+  const raw = localStorage.getItem(SELECTED_STYLE_KEY);
+  const id = raw !== null ? Number(raw) : DEFAULT_STYLE_ID;
+  return Number.isFinite(id) ? id : DEFAULT_STYLE_ID;
+}
+
+function saveSelectedStyleId(id) {
+  localStorage.setItem(SELECTED_STYLE_KEY, String(id));
+}
+
+// Read by speak() on every synthesis call, so switching the character in
+// General settings takes effect immediately without needing a restart.
+function getSelectedStyleId() {
+  return loadSelectedStyleId();
+}
+
+function findStyleLabel(catalog, styleId) {
+  for (const entry of catalog) {
+    for (const character of entry.characters) {
+      const style = character.styles.find((s) => s.id === styleId);
+      if (style) return `${character.name}(${style.name})`;
+    }
+  }
+  return null;
+}
+
+// Characters are downloaded per-VVM-file on demand (some VVMs bundle more
+// than one character) via the Rust-side download_character/load_character
+// commands, which shell out to the same download.exe used for the initial
+// SAYO model. The catalog itself is parsed server-side from the VVM/style
+// table VOICEVOX ships in models/README.txt, so it stays in sync with
+// whatever's actually downloadable without us hand-maintaining a list here.
+async function setupCharacterPanel() {
+  const listEl = document.querySelector("#character-catalog-list");
+  const labelEl = document.querySelector("#current-character-label");
+
+  let catalog;
+  try {
+    catalog = await window.__TAURI__.core.invoke("character_catalog");
+  } catch (err) {
+    listEl.textContent = `読み込みに失敗しました: ${err}`;
+    return;
+  }
+
+  function updateLabel() {
+    const label = findStyleLabel(catalog, loadSelectedStyleId());
+    labelEl.textContent = label ? `現在の音声: ${label}` : "現在の音声: 未設定";
+  }
+
+  // One VVM file can bundle several characters (they're downloaded and
+  // loaded together, there's no way to fetch just one), but the list is
+  // still one row per *character* — each gets its own add button, and
+  // adding any of them refreshes every row that shares the same VVM.
+  const refreshersByEntry = new Map();
+
+  listEl.innerHTML = "";
+  for (const entry of catalog) {
+    refreshersByEntry.set(entry, []);
+
+    for (const character of entry.characters) {
+      const row = document.createElement("div");
+      row.className = "ending-settings-row";
+
+      const summary = document.createElement("button");
+      summary.type = "button";
+      summary.className = "ending-settings-summary";
+
+      const textSpan = document.createElement("span");
+      textSpan.className = "ending-settings-text";
+      textSpan.textContent = character.name;
+
+      const valuesSpan = document.createElement("span");
+      valuesSpan.className = "ending-settings-values";
+
+      const chevron = document.createElement("span");
+      chevron.className = "ending-settings-chevron";
+      chevron.textContent = "▾";
+
+      summary.append(textSpan, valuesSpan, chevron);
+
+      const detail = document.createElement("div");
+      detail.className = "ending-settings-detail";
+      detail.hidden = true;
+
+      function renderDetail() {
+        valuesSpan.textContent = entry.downloaded ? "追加済み" : "未追加";
+        detail.innerHTML = "";
+
+        if (entry.downloaded) {
+          const styleList = document.createElement("div");
+          styleList.className = "character-style-list";
+          for (const style of character.styles) {
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.className = "character-style-btn";
+            btn.textContent = style.name;
+            btn.classList.toggle("active", style.id === loadSelectedStyleId());
+            btn.addEventListener("click", () => {
+              saveSelectedStyleId(style.id);
+              updateLabel();
+              for (const b of styleList.querySelectorAll(".character-style-btn")) b.classList.remove("active");
+              btn.classList.add("active");
+            });
+            styleList.appendChild(btn);
+          }
+          detail.appendChild(styleList);
+        } else {
+          const addRow = document.createElement("div");
+          addRow.className = "character-add-row";
+
+          const hint = document.createElement("span");
+          hint.className = "character-add-hint";
+          const siblings = entry.characters.filter((c) => c !== character).map((c) => c.name);
+          hint.textContent =
+            siblings.length > 0
+              ? `追加すると同じ音声データに含まれる次のキャラも一緒に追加されます: ${siblings.join("、")}`
+              : "このキャラクターはまだ追加されていません。";
+
+          const addBtn = document.createElement("button");
+          addBtn.type = "button";
+          addBtn.textContent = "追加";
+          addBtn.addEventListener("click", async () => {
+            addBtn.disabled = true;
+            addBtn.textContent = "ダウンロード中...";
+            try {
+              await window.__TAURI__.core.invoke("download_character", { vvmFile: entry.vvmFile });
+              await window.__TAURI__.core.invoke("load_character", { vvmFile: entry.vvmFile });
+              entry.downloaded = true;
+              for (const refresh of refreshersByEntry.get(entry)) refresh();
+            } catch (err) {
+              addBtn.disabled = false;
+              addBtn.textContent = "追加";
+              log(`[character] download failed: ${err}`);
+            }
+          });
+
+          addRow.append(hint, addBtn);
+          detail.appendChild(addRow);
+        }
+      }
+
+      renderDetail();
+      refreshersByEntry.get(entry).push(renderDetail);
+
+      summary.addEventListener("click", () => {
+        const willOpen = detail.hidden;
+        detail.hidden = !willOpen;
+        row.classList.toggle("open", willOpen);
+      });
+
+      row.append(summary, detail);
+      listEl.appendChild(row);
+    }
+  }
+
+  updateLabel();
 }
 
 function setupGeneralPanel() {
