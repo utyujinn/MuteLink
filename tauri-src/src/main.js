@@ -631,59 +631,11 @@ function applyEnding(ending) {
 
 function setupEndings() {
   const endingButtons = document.querySelector("#ending-buttons");
-  const endingNewInput = document.querySelector("#ending-new");
-  const endingAddBtn = document.querySelector("#ending-add-btn");
-  const speedInput = document.querySelector("#ending-speed");
-  const pitchInput = document.querySelector("#ending-pitch");
-  const intonationInput = document.querySelector("#ending-intonation");
-  const volumeInput = document.querySelector("#ending-volume");
-  const speedVal = document.querySelector("#ending-speed-val");
-  const pitchVal = document.querySelector("#ending-pitch-val");
-  const intonationVal = document.querySelector("#ending-intonation-val");
-  const volumeVal = document.querySelector("#ending-volume-val");
-
-  for (const [input, out] of [
-    [speedInput, speedVal],
-    [pitchInput, pitchVal],
-    [intonationInput, intonationVal],
-    [volumeInput, volumeVal],
-  ]) {
-    input.addEventListener("input", () => {
-      out.textContent = Number(input.value).toFixed(2);
-    });
-  }
 
   endings = loadEndings();
   saveEndings(endings); // persist defaults on first run
   renderEndingButtons(endingButtons, endings, applyEnding);
   renderHotkeyAssignmentOptions();
-
-  endingAddBtn.addEventListener("click", () => {
-    const text = endingNewInput.value.trim();
-    if (!text) return;
-    endings.push({
-      text,
-      speedScale: Number(speedInput.value),
-      pitchScale: Number(pitchInput.value),
-      intonationScale: Number(intonationInput.value),
-      volumeScale: Number(volumeInput.value),
-    });
-    saveEndings(endings);
-    renderEndingButtons(endingButtons, endings, applyEnding);
-    renderHotkeyAssignmentOptions();
-    renderGeneralEndingsList();
-    endingNewInput.value = "";
-    for (const [input, out] of [
-      [speedInput, speedVal],
-      [pitchInput, pitchVal],
-      [intonationInput, intonationVal],
-      [volumeInput, volumeVal],
-    ]) {
-      input.value = DEFAULT_ENDING_PARAMS[input.id.replace("ending-", "") + "Scale"];
-      out.textContent = Number(input.value).toFixed(2);
-      input.dispatchEvent(new Event("input"));
-    }
-  });
 }
 
 const ENDING_PARAM_DEFS = [

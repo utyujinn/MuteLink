@@ -27,6 +27,7 @@
           <button class="settings-nav-btn" data-panel="general">General</button>
           <button class="settings-nav-btn" data-panel="device">Device</button>
           <button class="settings-nav-btn" data-panel="appearance">Appearance</button>
+          <button class="settings-nav-btn" data-panel="hotkey">Hotkey</button>
           <button class="settings-nav-btn" data-panel="other">Other</button>
           <button id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">&#x2715;</button>
         </nav>
@@ -112,6 +113,31 @@
             </div>
           </section>
 
+          <section class="settings-panel" data-panel="hotkey">
+            <h2>Hotkey</h2>
+            <p class="hint">
+              SteamVR経由でグリップ/トリガーの状態を読み取ります。手動モードでFinalが確定した状態で、割り当てた組み合わせを1秒押し続けるとその語尾で即送信、どちらも押されないまま3秒経つと破棄されます。
+            </p>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label" id="hotkey-status">VR: 未接続</span>
+              <button id="hotkey-reconnect-btn" type="button">再接続</button>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">グリップ+トリガー</span>
+              <select id="hotkey-both"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">グリップのみ</span>
+              <select id="hotkey-grip"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">トリガーのみ</span>
+              <select id="hotkey-trigger"></select>
+            </div>
+          </section>
+
           <section class="settings-panel" data-panel="other">
             <h2>Other</h2>
           </section>
@@ -173,61 +199,6 @@
       <div class="text-block">
         <div class="text-block-label">送信済み</div>
         <p id="sent-text"></p>
-      </div>
-
-      <hr />
-
-      <h2>語尾の管理</h2>
-      <p class="hint">語尾ごとにVOICEVOXのパラメータを設定できます。手動モードでこの語尾を選ぶと、そのパラメータで即座に送信されます。</p>
-      <div class="row">
-        <input id="ending-new" placeholder="語尾テキスト" size="12" />
-      </div>
-      <div class="row">
-        <label for="ending-speed">話速</label>
-        <input type="range" id="ending-speed" min="0.5" max="2" step="0.01" value="1" />
-        <span id="ending-speed-val">1.00</span>
-      </div>
-      <div class="row">
-        <label for="ending-pitch">音高</label>
-        <input type="range" id="ending-pitch" min="-0.15" max="0.15" step="0.01" value="0" />
-        <span id="ending-pitch-val">0.00</span>
-      </div>
-      <div class="row">
-        <label for="ending-intonation">抑揚</label>
-        <input type="range" id="ending-intonation" min="0" max="2" step="0.01" value="1" />
-        <span id="ending-intonation-val">1.00</span>
-      </div>
-      <div class="row">
-        <label for="ending-volume">音量</label>
-        <input type="range" id="ending-volume" min="0" max="2" step="0.01" value="1" />
-        <span id="ending-volume-val">1.00</span>
-      </div>
-      <div class="row">
-        <button id="ending-add-btn">語尾を追加</button>
-      </div>
-
-      <hr />
-
-      <h2>ホットキー(VRコントローラー)</h2>
-      <p class="hint">
-        SteamVR経由でグリップ/トリガーの状態を読み取ります。手動モードでFinalが確定した状態で、割り当てた組み合わせを1秒押し続けるとその語尾で即送信、
-        どちらも押されないまま3秒経つと破棄されます。
-      </p>
-      <p id="hotkey-status">VR: 未接続</p>
-      <div class="row">
-        <button id="hotkey-reconnect-btn">VRに再接続</button>
-      </div>
-      <div class="row">
-        <label for="hotkey-both">グリップ+トリガー</label>
-        <select id="hotkey-both"></select>
-      </div>
-      <div class="row">
-        <label for="hotkey-grip">グリップのみ</label>
-        <select id="hotkey-grip"></select>
-      </div>
-      <div class="row">
-        <label for="hotkey-trigger">トリガーのみ</label>
-        <select id="hotkey-trigger"></select>
       </div>
 
       <hr />
