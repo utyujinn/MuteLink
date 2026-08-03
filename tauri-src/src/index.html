@@ -28,16 +28,35 @@
           <button class="settings-nav-btn" data-panel="device">Device</button>
           <button class="settings-nav-btn" data-panel="appearance">Appearance</button>
           <button class="settings-nav-btn" data-panel="other">Other</button>
+          <button id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">&#x2715;</button>
         </nav>
         <div class="settings-content">
-          <button id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">&#x2715;</button>
-
           <section class="settings-panel" data-panel="general">
             <h2>General</h2>
           </section>
 
           <section class="settings-panel" data-panel="device">
             <h2>Device</h2>
+
+            <h3>マイク</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label">自動選択</span>
+              <label class="switch">
+                <input type="checkbox" id="mic-auto-toggle" checked />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <div id="mic-device-list" class="device-list"></div>
+
+            <h3>スピーカー</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label">自動選択</span>
+              <label class="switch">
+                <input type="checkbox" id="speaker-auto-toggle" checked />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <div id="speaker-device-list" class="device-list"></div>
           </section>
 
           <section class="settings-panel" data-panel="appearance">

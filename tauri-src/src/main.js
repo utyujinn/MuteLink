@@ -72,7 +72,12 @@ function rms(float32) {
 }
 
 async function startVoiceMonitor() {
-  monitorStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const deviceSettings = loadDeviceSettings();
+  const audioConstraints =
+    !deviceSettings.micAuto && deviceSettings.micDeviceId
+      ? { deviceId: { exact: deviceSettings.micDeviceId } }
+      : true;
+  monitorStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
   monitorCtx = new AudioContext();
   monitorSource = monitorCtx.createMediaStreamSource(monitorStream);
   monitorProcessor = monitorCtx.createScriptProcessor(4096, 1, 1);
@@ -231,6 +236,22 @@ let voicevoxBtn;
 let voicevoxStatusEl;
 let voicevoxOutputsSelect;
 
+const DEVICE_SETTINGS_KEY = "mutelink.deviceSettings";
+
+function loadDeviceSettings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DEVICE_SETTINGS_KEY) ?? "null");
+    if (raw && typeof raw === "object") return raw;
+  } catch {
+    // fall through to defaults
+  }
+  return { micAuto: true, micDeviceId: "", speakerAuto: true, speakerDeviceIds: [] };
+}
+
+function saveDeviceSettings(settings) {
+  localStorage.setItem(DEVICE_SETTINGS_KEY, JSON.stringify(settings));
+}
+
 // enumerateDevices() only returns real labels/ids once a media permission has
 // been granted on this page, so probe getUserMedia first (audio-only, we
 // immediately stop the track — we just need the permission side effect).
@@ -244,13 +265,16 @@ async function populateOutputDevices() {
 
   const devices = await navigator.mediaDevices.enumerateDevices();
   const outputs = devices.filter((d) => d.kind === "audiooutput");
+  const settings = loadDeviceSettings();
 
   voicevoxOutputsSelect.innerHTML = "";
   for (const d of outputs) {
     const opt = document.createElement("option");
     opt.value = d.deviceId;
     opt.textContent = d.label || d.deviceId;
-    opt.selected = d.label.includes("CABLE Input");
+    opt.selected = settings.speakerAuto
+      ? d.label.includes("CABLE Input")
+      : settings.speakerDeviceIds.includes(d.deviceId);
     voicevoxOutputsSelect.appendChild(opt);
   }
 }
@@ -299,6 +323,92 @@ async function speak(text, params = {}) {
   }
 }
 
+function buildDeviceLabel(text) {
+  const span = document.createElement("span");
+  span.className = "device-label";
+  span.textContent = text;
+  return span;
+}
+
+// Mic selection feeds startVoiceMonitor()'s getUserMedia constraint directly.
+// Speaker selection mirrors (and writes back to) the main screen's
+// #voicevox-outputs <select multiple> so there's one source of truth.
+async function setupDevicePanel() {
+  const micList = document.querySelector("#mic-device-list");
+  const speakerList = document.querySelector("#speaker-device-list");
+  const micAutoToggle = document.querySelector("#mic-auto-toggle");
+  const speakerAutoToggle = document.querySelector("#speaker-auto-toggle");
+
+  const settings = loadDeviceSettings();
+  micAutoToggle.checked = settings.micAuto;
+  speakerAutoToggle.checked = settings.speakerAuto;
+  micList.classList.toggle("disabled", settings.micAuto);
+  speakerList.classList.toggle("disabled", settings.speakerAuto);
+
+  micAutoToggle.addEventListener("change", () => {
+    const s = loadDeviceSettings();
+    s.micAuto = micAutoToggle.checked;
+    saveDeviceSettings(s);
+    micList.classList.toggle("disabled", s.micAuto);
+  });
+
+  speakerAutoToggle.addEventListener("change", () => {
+    const s = loadDeviceSettings();
+    s.speakerAuto = speakerAutoToggle.checked;
+    saveDeviceSettings(s);
+    speakerList.classList.toggle("disabled", s.speakerAuto);
+    if (s.speakerAuto) populateOutputDevices(); // re-apply the CABLE-Input heuristic
+  });
+
+  try {
+    const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+    probe.getTracks().forEach((t) => t.stop());
+  } catch {
+    // labels may come back blank; selection by id still works
+  }
+  const devices = await navigator.mediaDevices.enumerateDevices();
+
+  micList.innerHTML = "";
+  for (const d of devices.filter((d) => d.kind === "audioinput")) {
+    const row = document.createElement("label");
+    row.className = "device-row";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "mic-device";
+    radio.value = d.deviceId;
+    radio.checked = d.deviceId === settings.micDeviceId;
+    radio.addEventListener("change", () => {
+      const s = loadDeviceSettings();
+      s.micDeviceId = d.deviceId;
+      saveDeviceSettings(s);
+    });
+    row.append(radio, buildDeviceLabel(d.label || d.deviceId));
+    micList.appendChild(row);
+  }
+
+  speakerList.innerHTML = "";
+  for (const d of devices.filter((d) => d.kind === "audiooutput")) {
+    const row = document.createElement("label");
+    row.className = "device-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = d.deviceId;
+    const mainOption = Array.from(voicevoxOutputsSelect.options).find((o) => o.value === d.deviceId);
+    checkbox.checked = mainOption ? mainOption.selected : false;
+    checkbox.addEventListener("change", () => {
+      if (mainOption) mainOption.selected = checkbox.checked;
+      const s = loadDeviceSettings();
+      const ids = new Set(s.speakerDeviceIds);
+      if (checkbox.checked) ids.add(d.deviceId);
+      else ids.delete(d.deviceId);
+      s.speakerDeviceIds = [...ids];
+      saveDeviceSettings(s);
+    });
+    row.append(checkbox, buildDeviceLabel(d.label || d.deviceId));
+    speakerList.appendChild(row);
+  }
+}
+
 function setupTitlebar() {
   const appWindow = window.__TAURI__.window.getCurrentWindow();
 
@@ -319,6 +429,7 @@ function setupSettingsDialog() {
 
   setupSettingsNav();
   setupAppearancePanel();
+  setupDevicePanel();
 }
 
 const APPEARANCE_STORAGE_KEY = "mutelink.appearance";
@@ -688,7 +799,7 @@ function setupHotkeys() {
   }, HOTKEY_POLL_MS);
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+window.addEventListener("DOMContentLoaded", async () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
   sttLangSelect = document.querySelector("#stt-lang");
@@ -705,7 +816,9 @@ window.addEventListener("DOMContentLoaded", () => {
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
   voicevoxOutputsSelect = document.querySelector("#voicevox-outputs");
-  populateOutputDevices();
+  // setupDevicePanel() below mirrors this select's option state, so it must
+  // finish populating first.
+  await populateOutputDevices();
 
   setupTitlebar();
   setupSettingsDialog();
