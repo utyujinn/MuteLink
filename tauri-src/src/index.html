@@ -47,6 +47,30 @@
       <div class="row">
         <label><input type="checkbox" id="chatbox-toggle" /> VRCチャットボックスへ送信</label>
       </div>
+      <div class="row">
+        <label for="send-mode">送信モード</label>
+        <select id="send-mode">
+          <option value="auto" selected>Auto</option>
+          <option value="manual">手動</option>
+        </select>
+      </div>
+
+      <div class="text-block">
+        <div class="text-block-label">認識中</div>
+        <p id="interim-text"></p>
+      </div>
+      <div class="text-block">
+        <div class="text-block-label">Final</div>
+        <p id="final-text"></p>
+      </div>
+      <div class="row" id="manual-send-row" hidden>
+        <button id="manual-send-btn">送信</button>
+        <button id="manual-clear-btn">削除</button>
+      </div>
+      <div class="text-block">
+        <div class="text-block-label">送信済み</div>
+        <p id="sent-text"></p>
+      </div>
 
       <hr />
 

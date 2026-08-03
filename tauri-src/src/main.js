@@ -11,6 +11,14 @@ let googleBtn;
 let googleStatusEl;
 let sttLangSelect;
 let chatboxToggle;
+let sendModeSelect;
+let interimTextEl;
+let finalTextEl;
+let sentTextEl;
+let manualSendRow;
+let manualSendBtn;
+let manualClearBtn;
+let pendingFinalText = "";
 let logEl;
 
 async function sendChatbox(text) {
@@ -19,6 +27,19 @@ async function sendChatbox(text) {
     log(`[chatbox] sent: ${text}`);
   } catch (err) {
     log(`[chatbox] error: ${err}`);
+  }
+}
+
+// The one place that actually delivers a confirmed piece of text — called
+// either immediately (Auto mode) or from the manual send button (手動 mode).
+function dispatchText(text) {
+  sentTextEl.textContent = text;
+  if (chatboxToggle.checked) sendChatbox(text);
+  // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other scripts).
+  if (sttLangSelect.value === "ja-JP") {
+    speak(text);
+  } else {
+    log("[voicevox] skipped: recognition language is not Japanese");
   }
 }
 
@@ -88,19 +109,26 @@ function createRecognition() {
 
   r.onresult = (event) => {
     const result = event.results[event.results.length - 1];
-    const kind = result.isFinal ? "final" : "partial";
     const text = result[0].transcript;
-    log(`[google:${kind}] text=${text}`);
-    if (!result.isFinal) return;
 
-    if (chatboxToggle.checked) sendChatbox(text);
+    if (!result.isFinal) {
+      interimTextEl.textContent = text;
+      log(`[google:partial] text=${text}`);
+      return;
+    }
 
-    // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other
-    // scripts), so only auto-speak when recognizing in Japanese.
-    if (r.lang === "ja-JP") {
-      speak(text);
+    log(`[google:final] text=${text}`);
+    interimTextEl.textContent = "";
+
+    if (sendModeSelect.value === "manual") {
+      // A new Final can arrive before the pending one is sent — append
+      // rather than overwrite so nothing said in the meantime is lost.
+      pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
+      finalTextEl.textContent = pendingFinalText;
+      manualSendRow.hidden = false;
     } else {
-      log("[voicevox] skipped: recognition language is not Japanese");
+      dispatchText(text);
+      finalTextEl.textContent = "";
     }
   };
   r.onstart = () => {
@@ -281,6 +309,13 @@ window.addEventListener("DOMContentLoaded", () => {
   sttLangSelect = document.querySelector("#stt-lang");
   chatboxToggle = document.querySelector("#chatbox-toggle");
   googleStatusEl = document.querySelector("#google-status");
+  sendModeSelect = document.querySelector("#send-mode");
+  interimTextEl = document.querySelector("#interim-text");
+  finalTextEl = document.querySelector("#final-text");
+  sentTextEl = document.querySelector("#sent-text");
+  manualSendRow = document.querySelector("#manual-send-row");
+  manualSendBtn = document.querySelector("#manual-send-btn");
+  manualClearBtn = document.querySelector("#manual-clear-btn");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
@@ -296,6 +331,20 @@ window.addEventListener("DOMContentLoaded", () => {
     } else {
       startGoogleStt();
     }
+  });
+
+  manualSendBtn.addEventListener("click", () => {
+    if (!pendingFinalText) return;
+    dispatchText(pendingFinalText);
+    pendingFinalText = "";
+    finalTextEl.textContent = "";
+    manualSendRow.hidden = true;
+  });
+
+  manualClearBtn.addEventListener("click", () => {
+    pendingFinalText = "";
+    finalTextEl.textContent = "";
+    manualSendRow.hidden = true;
   });
 
   voicevoxBtn.addEventListener("click", () => speak());
