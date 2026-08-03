@@ -9,19 +9,53 @@
   margin: 0.25em auto 0.75em;
 }
 :root {
+  --color-text: #0f0f0f;
+  --color-bg: #f6f6f6;
+  --color-surface: #ffffff;
+  --color-surface-alt: #e8e8e8;
+  --color-border: #d4d4d4;
+  --color-sidebar-bg: #ececec;
+  --color-active-bg: #e8e8e8;
+  --color-link-hover: #535bf2;
+
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
   line-height: 24px;
   font-weight: 400;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
+  color: var(--color-text);
+  background-color: var(--color-bg);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+}
+
+/* Explicit overrides win over the system-based media query below regardless
+   of source order, since data-theme selectors are applied by JS only when the
+   user picks something other than "system default" in Appearance settings. */
+:root[data-theme="dark"] {
+  --color-text: #f6f6f6;
+  --color-bg: #2f2f2f;
+  --color-surface: #0f0f0f98;
+  --color-surface-alt: #1f1f1f;
+  --color-border: #3a3a3a;
+  --color-sidebar-bg: #262626;
+  --color-active-bg: #0f0f0f69;
+  --color-link-hover: #24c8db;
+}
+
+:root[data-theme="light"] {
+  --color-text: #0f0f0f;
+  --color-bg: #f6f6f6;
+  --color-surface: #ffffff;
+  --color-surface-alt: #e8e8e8;
+  --color-border: #d4d4d4;
+  --color-sidebar-bg: #ececec;
+  --color-active-bg: #e8e8e8;
+  --color-link-hover: #535bf2;
 }
 
 .container {
@@ -43,8 +77,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background-color: #e8e8e8;
-  border-bottom: 1px solid #d4d4d4;
+  background-color: var(--color-surface-alt);
+  border-bottom: 1px solid var(--color-border);
   user-select: none;
   z-index: 100;
 }
@@ -91,7 +125,7 @@
 }
 
 .titlebar-btn:hover {
-  background-color: #d4d4d4;
+  background-color: var(--color-border);
   border-color: transparent;
 }
 
@@ -103,19 +137,212 @@
 #settings-dialog {
   border: none;
   border-radius: 10px;
-  padding: 1.5em 2em;
+  padding: 0;
+  width: 700px;
+  max-width: 90vw;
+  height: 500px;
+  max-height: 85vh;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  color: var(--color-text);
+  background-color: var(--color-surface);
 }
 
 #settings-dialog::backdrop {
   background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  animation: settings-backdrop-in 0.28s ease;
+}
+
+@keyframes settings-backdrop-in {
+  from {
+    background-color: rgba(0, 0, 0, 0);
+    backdrop-filter: blur(0);
+  }
+  to {
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+  }
+}
+
+#settings-dialog {
+  animation: settings-dialog-in 0.22s ease;
+}
+
+@keyframes settings-dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.settings-layout {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.settings-sidebar {
+  flex: 0 0 20%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0.75em 0;
+  background-color: var(--color-sidebar-bg);
+  border-right: 1px solid var(--color-border);
+  border-radius: 10px 0 0 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.settings-nav-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  border-radius: 0;
+  padding: 0.6em 1em;
+  color: var(--color-text);
+  transition: color 0.3s ease;
+}
+
+/* Diagonal color sweep: a skewed panel slides in from the left on hover
+   instead of just flipping the background color. Selected uses the brightest
+   shade so it always reads as more prominent than a mere hover; hovering the
+   selected item stays at that same color (nothing further to indicate). */
+.settings-nav-btn::before {
+  content: "";
+  position: absolute;
+  inset: -20% -30%;
+  background: #396cd8;
+  transform: translateX(-115%) skewX(-18deg);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
+  z-index: -1;
+}
+
+.settings-nav-btn:hover {
+  color: #ffffff;
+}
+
+.settings-nav-btn:hover::before {
+  transform: translateX(0) skewX(-18deg);
+}
+
+.settings-nav-btn.active {
+  color: #ffffff;
+}
+
+.settings-nav-btn.active::before,
+.settings-nav-btn.active:hover::before {
+  background: #5c8fee;
+  transform: translateX(0) skewX(-18deg);
+}
+
+.settings-content {
+  position: relative;
+  flex: 1 1 auto;
+  padding: 1em 1.5em;
+  overflow-y: auto;
+  text-align: left;
+  box-sizing: border-box;
+}
+
+.settings-content h2 {
+  margin-top: 0;
+}
+
+.settings-content h3 {
+  margin-bottom: 0.4em;
+}
+
+.settings-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.8em 0.2em;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-list-row:last-child {
+  border-bottom: none;
+}
+
+.settings-list-label {
+  text-align: left;
+  font-weight: 500;
+}
+
+.settings-radio-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1.2em;
+}
+
+.settings-radio-row label {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+}
+
+.slider-wrap {
+  position: relative;
+  width: 180px;
+  padding-bottom: 1.3em;
+}
+
+.slider-ticks {
+  position: relative;
+  height: 14px;
+  margin-top: 3px;
+}
+
+.slider-tick {
+  position: absolute;
+  top: 0;
+  width: 1px;
+  height: 5px;
+  background: var(--color-border);
+  transform: translateX(-50%);
+}
+
+.slider-tick-label {
+  position: absolute;
+  top: 7px;
+  transform: translateX(-50%);
+  font-size: 0.65em;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.settings-panel[hidden] {
+  display: none;
+}
+
+.settings-close-btn {
+  position: absolute;
+  top: 0.6em;
+  right: 0.6em;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  box-shadow: none;
 }
 
 .text-block {
   margin: 0.5em auto;
   padding: 0.5em 1em;
   max-width: 480px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   text-align: left;
 }
@@ -131,12 +358,6 @@
   margin: 0;
   min-height: 1.5em;
   word-break: break-word;
-}
-
-@media (prefers-color-scheme: dark) {
-  .text-block {
-    border-color: #3a3a3a;
-  }
 }
 
 .logo {
@@ -169,7 +390,7 @@ a {
 }
 
 a:hover {
-  color: #535bf2;
+  color: var(--color-link-hover);
 }
 
 h1 {
@@ -177,6 +398,7 @@ h1 {
 }
 
 input,
+select,
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -184,8 +406,8 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
+  color: var(--color-text);
+  background-color: var(--color-surface);
   transition: border-color 0.25s;
   box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
 }
@@ -197,9 +419,100 @@ button {
 button:hover {
   border-color: #396cd8;
 }
+
+select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 2.2em;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888888' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.8em center;
+  background-size: 10px;
+}
+
+select:hover,
+select:focus-visible {
+  border-color: #396cd8;
+  outline: none;
+}
+
+select[multiple] {
+  background-image: none;
+  padding-right: 1.2em;
+}
+
+/* Custom radio: a bordered circle that fills with the accent color when checked. */
+input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  margin: 0;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  background-color: var(--color-surface);
+  box-shadow: none;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+  vertical-align: middle;
+}
+
+input[type="radio"]:hover {
+  border-color: #396cd8;
+}
+
+input[type="radio"]:checked {
+  border-color: #396cd8;
+}
+
+input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background-color: #396cd8;
+}
+
+/* Custom range slider: a thin plain pill track and a round accent thumb,
+   instead of the OS-native slider. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 140px;
+  height: 3px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  box-shadow: none;
+  background: var(--color-border);
+  cursor: pointer;
+}
+
+.slider-wrap input[type="range"] {
+  width: 100%;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #396cd8;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
 button:active {
   border-color: #396cd8;
-  background-color: #e8e8e8;
+  background-color: var(--color-active-bg);
 }
 
 input,
@@ -211,44 +524,17 @@ button {
   margin-right: 5px;
 }
 
+/* System-based dark mode — only applies when the user hasn't picked an
+   explicit theme in Appearance settings (data-theme unset = "system default"). */
 @media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-
-  .titlebar {
-    background-color: #1f1f1f;
-    border-bottom: 1px solid #3a3a3a;
-  }
-
-  .titlebar-icon-btn {
-    background-color: #0f0f0f98;
-  }
-
-  .titlebar-btn {
-    background-color: transparent;
-  }
-
-  .titlebar-btn:hover {
-    background-color: #3a3a3a;
-  }
-
-  #settings-dialog {
-    background-color: #2f2f2f;
-    color: #f6f6f6;
+  :root:not([data-theme]) {
+    --color-text: #f6f6f6;
+    --color-bg: #2f2f2f;
+    --color-surface: #0f0f0f98;
+    --color-surface-alt: #1f1f1f;
+    --color-border: #3a3a3a;
+    --color-sidebar-bg: #262626;
+    --color-active-bg: #0f0f0f69;
+    --color-link-hover: #24c8db;
   }
 }

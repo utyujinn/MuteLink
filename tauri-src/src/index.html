@@ -22,10 +22,68 @@
     </div>
 
     <dialog id="settings-dialog">
-      <h2>設定</h2>
-      <p>準備中です。</p>
-      <div class="row">
-        <button id="settings-close-btn">閉じる</button>
+      <div class="settings-layout">
+        <nav class="settings-sidebar">
+          <button class="settings-nav-btn" data-panel="general">General</button>
+          <button class="settings-nav-btn" data-panel="device">Device</button>
+          <button class="settings-nav-btn" data-panel="appearance">Appearance</button>
+          <button class="settings-nav-btn" data-panel="other">Other</button>
+        </nav>
+        <div class="settings-content">
+          <button id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">&#x2715;</button>
+
+          <section class="settings-panel" data-panel="general">
+            <h2>General</h2>
+          </section>
+
+          <section class="settings-panel" data-panel="device">
+            <h2>Device</h2>
+          </section>
+
+          <section class="settings-panel" data-panel="appearance">
+            <h2>Appearance</h2>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">カラーモード</span>
+              <div class="settings-radio-row">
+                <label><input type="radio" name="theme" value="system" checked /> システム既定</label>
+                <label><input type="radio" name="theme" value="light" /> ライト</label>
+                <label><input type="radio" name="theme" value="dark" /> ダーク</label>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">UIサイズ</span>
+              <div class="slider-wrap">
+                <input type="range" id="ui-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
+                <div class="slider-ticks" id="ui-scale-ticks"></div>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">フォントサイズ</span>
+              <div class="slider-wrap">
+                <input type="range" id="font-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
+                <div class="slider-ticks" id="font-scale-ticks"></div>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">フォント</span>
+              <select id="font-family-select">
+                <option value="">既定</option>
+                <option value="'Yu Gothic', sans-serif">游ゴシック</option>
+                <option value="'Meiryo', sans-serif">メイリオ</option>
+                <option value="'MS Gothic', monospace">MSゴシック</option>
+                <option value="serif">明朝体</option>
+              </select>
+            </div>
+          </section>
+
+          <section class="settings-panel" data-panel="other">
+            <h2>Other</h2>
+          </section>
+        </div>
       </div>
     </dialog>
 

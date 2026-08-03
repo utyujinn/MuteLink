@@ -311,6 +311,142 @@ function setupSettingsDialog() {
   const dialog = document.querySelector("#settings-dialog");
   document.querySelector("#settings-btn").addEventListener("click", () => dialog.showModal());
   document.querySelector("#settings-close-btn").addEventListener("click", () => dialog.close());
+  // Dialog has no padding of its own, so any click that lands directly on
+  // the <dialog> box (rather than a child) is a click on the backdrop area.
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+
+  setupSettingsNav();
+  setupAppearancePanel();
+}
+
+const APPEARANCE_STORAGE_KEY = "mutelink.appearance";
+
+function loadAppearance() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "null");
+    if (raw && typeof raw === "object") return raw;
+  } catch {
+    // fall through to defaults
+  }
+  return { uiScale: 1, fontScale: 1, fontFamily: "", theme: "system" };
+}
+
+function saveAppearance(appearance) {
+  localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance));
+}
+
+function applyAppearance(appearance) {
+  document.documentElement.style.zoom = appearance.uiScale;
+  document.documentElement.style.fontSize = `${16 * appearance.fontScale}px`;
+  document.documentElement.style.fontFamily = appearance.fontFamily || "";
+  if (appearance.theme === "system") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", appearance.theme);
+  }
+}
+
+// Must match .slider-wrap's width and the thumb width in styles.css. The
+// native thumb can't overflow past the track ends, so its center only
+// travels trackWidth - thumbWidth, not the full width — ticks/labels are
+// positioned in pixels using that same math so they land under the thumb
+// instead of drifting from it at both ends. (Measuring the real layout with
+// getBoundingClientRect isn't reliable here since this runs while the
+// <dialog> — and everything in it — is still closed/unlaid-out.)
+const SLIDER_TRACK_WIDTH = 180;
+const SLIDER_THUMB_WIDTH = 16;
+
+// Draws a tick line under every discrete step of a range input, with a
+// percentage label under every `labelEvery`-th one, instead of a single
+// numeric readout next to the slider.
+function buildSliderTicks(input, container, labelEvery = 2) {
+  const min = Number(input.min);
+  const max = Number(input.max);
+  const step = Number(input.step);
+  const steps = Math.round((max - min) / step) + 1;
+  const usableWidth = SLIDER_TRACK_WIDTH - SLIDER_THUMB_WIDTH;
+
+  container.innerHTML = "";
+  for (let i = 0; i < steps; i++) {
+    const value = min + step * i;
+    const fraction = i / (steps - 1);
+    const leftPx = SLIDER_THUMB_WIDTH / 2 + fraction * usableWidth;
+
+    const tick = document.createElement("div");
+    tick.className = "slider-tick";
+    tick.style.left = `${leftPx}px`;
+    container.appendChild(tick);
+
+    if (i % labelEvery === 0) {
+      const label = document.createElement("div");
+      label.className = "slider-tick-label";
+      label.style.left = `${leftPx}px`;
+      label.textContent = `${Math.round(value * 100)}%`;
+      container.appendChild(label);
+    }
+  }
+}
+
+function setupAppearancePanel() {
+  const appearance = loadAppearance();
+  applyAppearance(appearance);
+
+  const uiScaleInput = document.querySelector("#ui-scale-input");
+  const fontScaleInput = document.querySelector("#font-scale-input");
+  const fontFamilySelect = document.querySelector("#font-family-select");
+
+  buildSliderTicks(uiScaleInput, document.querySelector("#ui-scale-ticks"));
+  buildSliderTicks(fontScaleInput, document.querySelector("#font-scale-ticks"));
+
+  uiScaleInput.value = appearance.uiScale;
+  fontScaleInput.value = appearance.fontScale;
+  fontFamilySelect.value = appearance.fontFamily;
+  const themeRadio = document.querySelector(`input[name="theme"][value="${appearance.theme}"]`);
+  if (themeRadio) themeRadio.checked = true;
+
+  uiScaleInput.addEventListener("input", () => {
+    appearance.uiScale = Number(uiScaleInput.value);
+    applyAppearance(appearance);
+    saveAppearance(appearance);
+  });
+
+  fontScaleInput.addEventListener("input", () => {
+    appearance.fontScale = Number(fontScaleInput.value);
+    applyAppearance(appearance);
+    saveAppearance(appearance);
+  });
+
+  fontFamilySelect.addEventListener("change", () => {
+    appearance.fontFamily = fontFamilySelect.value;
+    applyAppearance(appearance);
+    saveAppearance(appearance);
+  });
+
+  for (const radio of document.querySelectorAll('input[name="theme"]')) {
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      appearance.theme = radio.value;
+      applyAppearance(appearance);
+      saveAppearance(appearance);
+    });
+  }
+}
+
+function setupSettingsNav() {
+  const buttons = document.querySelectorAll(".settings-nav-btn");
+  const panels = document.querySelectorAll(".settings-panel");
+
+  function showPanel(name) {
+    for (const btn of buttons) btn.classList.toggle("active", btn.dataset.panel === name);
+    for (const panel of panels) panel.hidden = panel.dataset.panel !== name;
+  }
+
+  for (const btn of buttons) {
+    btn.addEventListener("click", () => showPanel(btn.dataset.panel));
+  }
+  showPanel("general");
 }
 
 const ENDINGS_STORAGE_KEY = "mutelink.endings";
@@ -432,6 +568,7 @@ function setupEndings() {
     ]) {
       input.value = DEFAULT_ENDING_PARAMS[input.id.replace("ending-", "") + "Scale"];
       out.textContent = Number(input.value).toFixed(2);
+      input.dispatchEvent(new Event("input"));
     }
   });
 }
