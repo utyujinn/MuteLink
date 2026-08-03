@@ -1,6 +1,13 @@
 .logo.vanilla:hover {
   filter: drop-shadow(0 0 2em #ffe21c);
 }
+
+.hint {
+  font-size: 0.85em;
+  opacity: 0.7;
+  max-width: 480px;
+  margin: 0.25em auto 0.75em;
+}
 :root {
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -146,6 +153,13 @@
 .row {
   display: flex;
   justify-content: center;
+}
+
+.ending-buttons {
+  flex-wrap: wrap;
+  gap: 0.4em;
+  max-width: 480px;
+  margin: 0 auto;
 }
 
 a {

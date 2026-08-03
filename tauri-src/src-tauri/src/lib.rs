@@ -30,10 +30,34 @@ fn init_synthesizer() -> anyhow::Result<Synthesizer<OpenJtalk>> {
 }
 
 #[tauri::command]
-fn synthesize(text: String, state: State<VoicevoxState>) -> Result<Vec<u8>, String> {
+fn synthesize(
+    text: String,
+    speed_scale: Option<f32>,
+    pitch_scale: Option<f32>,
+    intonation_scale: Option<f32>,
+    volume_scale: Option<f32>,
+    state: State<VoicevoxState>,
+) -> Result<Vec<u8>, String> {
     let synth = state.0.lock().map_err(|e| e.to_string())?;
+
+    let mut query = synth
+        .create_audio_query(&text, SAYO_NORMAL_STYLE_ID)
+        .map_err(|e| e.to_string())?;
+    if let Some(v) = speed_scale {
+        query.speed_scale = v;
+    }
+    if let Some(v) = pitch_scale {
+        query.pitch_scale = v;
+    }
+    if let Some(v) = intonation_scale {
+        query.intonation_scale = v;
+    }
+    if let Some(v) = volume_scale {
+        query.volume_scale = v;
+    }
+
     synth
-        .tts(&text, SAYO_NORMAL_STYLE_ID)
+        .synthesis(&query, SAYO_NORMAL_STYLE_ID)
         .perform()
         .map_err(|e| e.to_string())
 }

@@ -31,13 +31,16 @@ async function sendChatbox(text) {
 }
 
 // The one place that actually delivers a confirmed piece of text — called
-// either immediately (Auto mode) or from the manual send button (手動 mode).
-function dispatchText(text) {
+// either immediately (Auto mode / picking an ending) or from the manual send
+// button (手動 mode, no ending). `params` carries a specific ending's VOICEVOX
+// scales; omitted entirely when there's no ending involved, so VOICEVOX just
+// uses its own defaults.
+function dispatchText(text, params) {
   sentTextEl.textContent = text;
   if (chatboxToggle.checked) sendChatbox(text);
   // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other scripts).
   if (sttLangSelect.value === "ja-JP") {
-    speak(text);
+    speak(text, params);
   } else {
     log("[voicevox] skipped: recognition language is not Japanese");
   }
@@ -251,14 +254,20 @@ async function populateOutputDevices() {
   }
 }
 
-async function speak(text) {
+async function speak(text, params = {}) {
   text = (text ?? voicevoxInput.value).trim();
   if (!text) return;
   voicevoxInput.value = text;
 
   voicevoxStatusEl.textContent = "synthesizing...";
   try {
-    const bytes = await window.__TAURI__.core.invoke("synthesize", { text });
+    const bytes = await window.__TAURI__.core.invoke("synthesize", {
+      text,
+      speedScale: params.speedScale,
+      pitchScale: params.pitchScale,
+      intonationScale: params.intonationScale,
+      volumeScale: params.volumeScale,
+    });
     const blob = new Blob([new Uint8Array(bytes)], { type: "audio/wav" });
     const url = URL.createObjectURL(blob);
 
@@ -303,6 +312,120 @@ function setupSettingsDialog() {
   document.querySelector("#settings-close-btn").addEventListener("click", () => dialog.close());
 }
 
+const ENDINGS_STORAGE_KEY = "mutelink.endings";
+const DEFAULT_ENDING_PARAMS = { speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1 };
+const DEFAULT_ENDINGS = [
+  "..o0",
+  "xwx",
+  "~",
+  "www",
+  "…",
+  "！",
+  "？",
+  "(笑)",
+  "❤",
+  "😳",
+  "><",
+  "(´・ω・`)",
+].map((text) => ({ text, ...DEFAULT_ENDING_PARAMS }));
+
+function loadEndings() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ENDINGS_STORAGE_KEY) ?? "null");
+    if (Array.isArray(raw) && raw.length > 0 && raw.every((e) => typeof e?.text === "string")) {
+      return raw;
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return DEFAULT_ENDINGS;
+}
+
+function saveEndings(endings) {
+  localStorage.setItem(ENDINGS_STORAGE_KEY, JSON.stringify(endings));
+}
+
+function renderEndingButtons(container, endings, onPick) {
+  container.innerHTML = "";
+  for (const ending of endings) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = ending.text;
+    btn.addEventListener("click", () => onPick(ending));
+    container.appendChild(btn);
+  }
+}
+
+// Picking a favorite appends it to whatever's pending in the Final block and
+// sends immediately, using that ending's own VOICEVOX parameters. A trailing
+// 。/. on the pending text is dropped first since the ending replaces it.
+function setupEndings() {
+  const endingButtons = document.querySelector("#ending-buttons");
+  const endingNewInput = document.querySelector("#ending-new");
+  const endingAddBtn = document.querySelector("#ending-add-btn");
+  const speedInput = document.querySelector("#ending-speed");
+  const pitchInput = document.querySelector("#ending-pitch");
+  const intonationInput = document.querySelector("#ending-intonation");
+  const volumeInput = document.querySelector("#ending-volume");
+  const speedVal = document.querySelector("#ending-speed-val");
+  const pitchVal = document.querySelector("#ending-pitch-val");
+  const intonationVal = document.querySelector("#ending-intonation-val");
+  const volumeVal = document.querySelector("#ending-volume-val");
+
+  for (const [input, out] of [
+    [speedInput, speedVal],
+    [pitchInput, pitchVal],
+    [intonationInput, intonationVal],
+    [volumeInput, volumeVal],
+  ]) {
+    input.addEventListener("input", () => {
+      out.textContent = Number(input.value).toFixed(2);
+    });
+  }
+
+  function applyEnding(ending) {
+    const base = pendingFinalText.replace(/[。.]$/, "");
+    const text = base ? `${base}${ending.text}` : ending.text;
+    dispatchText(text, {
+      speedScale: ending.speedScale,
+      pitchScale: ending.pitchScale,
+      intonationScale: ending.intonationScale,
+      volumeScale: ending.volumeScale,
+    });
+    pendingFinalText = "";
+    finalTextEl.textContent = "";
+    manualSendRow.hidden = true;
+  }
+
+  let endings = loadEndings();
+  saveEndings(endings); // persist defaults on first run
+  renderEndingButtons(endingButtons, endings, applyEnding);
+
+  endingAddBtn.addEventListener("click", () => {
+    const text = endingNewInput.value.trim();
+    if (!text) return;
+    endings.push({
+      text,
+      speedScale: Number(speedInput.value),
+      pitchScale: Number(pitchInput.value),
+      intonationScale: Number(intonationInput.value),
+      volumeScale: Number(volumeInput.value),
+    });
+    saveEndings(endings);
+    renderEndingButtons(endingButtons, endings, applyEnding);
+    endingNewInput.value = "";
+    for (const [input, out] of [
+      [speedInput, speedVal],
+      [pitchInput, pitchVal],
+      [intonationInput, intonationVal],
+      [volumeInput, volumeVal],
+    ]) {
+      input.value = DEFAULT_ENDING_PARAMS[input.id.replace("ending-", "") + "Scale"];
+      out.textContent = Number(input.value).toFixed(2);
+    }
+  });
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
@@ -324,6 +447,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   setupTitlebar();
   setupSettingsDialog();
+  setupEndings();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {
