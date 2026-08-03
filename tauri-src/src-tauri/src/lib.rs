@@ -1,10 +1,13 @@
+mod overlay;
+mod overlay_gpu;
+
 use std::fs;
 use std::net::UdpSocket;
 use std::path::Path;
 use std::sync::Mutex;
 
 use rosc::{OscMessage, OscPacket, OscType};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{Manager, State};
 use voicevox_core::blocking::{Onnxruntime, OpenJtalk, Synthesizer, VoiceModelFile};
 use voicevox_core::{StyleId, VoiceModelMeta};
@@ -214,17 +217,62 @@ fn send_chatbox(text: String) -> Result<(), String> {
     Ok(())
 }
 
+// The pieces needed to keep the confirm/discard HUD alive: the safe
+// `openvr` overlay handle for show/hide/positioning, plus our own D3D11
+// texture pair for pushing pixels via SetOverlayTexture (see overlay_gpu.rs
+// for why — SetOverlayRaw can't be called at hotkey-poll frequency).
+struct Hud {
+    overlay: openvr::Overlay,
+    handle: openvr::overlay::OverlayHandle,
+    gpu: overlay_gpu::GpuOverlay,
+}
+
 // Keeps OpenVR alive (dropping Context shuts it down) and the System handle
 // used to poll controller state. None if SteamVR wasn't reachable at init —
 // this is a best-effort feature, not something the app should fail over.
-struct OpenVrState(Mutex<Option<(openvr::Context, openvr::System)>>);
+// `hud` is a further best-effort layer on top: if overlay/D3D11 setup fails,
+// hotkeys should keep working without it rather than the whole VR connection
+// going down — but unlike the outer Option, this keeps the actual error
+// message around (surfaced through update_overlay's Err) instead of quietly
+// discarding it, since "nothing shows and nothing explains why" isn't
+// diagnosable from the frontend.
+struct VrHandles {
+    // Never read again after init, but dropping it shuts OpenVR down — kept
+    // alive purely for that side effect.
+    #[allow(dead_code)]
+    context: openvr::Context,
+    system: openvr::System,
+    hud: Result<Hud, String>,
+}
 
-fn init_openvr() -> Option<(openvr::Context, openvr::System)> {
+struct OpenVrState(Mutex<Option<VrHandles>>);
+
+fn init_openvr() -> Option<VrHandles> {
     // SAFETY: called once at startup before any other OpenVR call, per the
     // openvr crate's safety contract for `init`.
     let context = unsafe { openvr::init(openvr::ApplicationType::Background) }.ok()?;
     let system = context.system().ok()?;
-    Some((context, system))
+    let hud = init_hud_overlay(&context);
+    if let Err(e) = &hud {
+        eprintln!("[overlay] HUD init failed: {e}");
+    }
+    Some(VrHandles { context, system, hud })
+}
+
+fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
+    let mut overlay = context.overlay().map_err(|e| format!("overlay interface unavailable: {e:?}"))?;
+    let handle = overlay
+        .create_overlay("mutelink.hud", "Mutelink HUD")
+        .map_err(|e| format!("create_overlay failed: {e:?}"))?;
+    overlay.set_width(handle, 0.5).map_err(|e| format!("set_width failed: {e:?}"))?;
+    // Fixed ~1m in front of and slightly below the headset, so it reads like
+    // a HUD that always stays in view without covering the whole scene.
+    let transform = openvr::pose::Matrix3x4([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, -0.15], [0.0, 0.0, 1.0, -1.0]]);
+    overlay
+        .set_transform_tracked_device_relative(handle, openvr::tracked_device_index::HMD, &transform)
+        .map_err(|e| format!("set_transform failed: {e:?}"))?;
+    let gpu = overlay_gpu::GpuOverlay::new().map_err(|e| format!("D3D11/GPU overlay init failed: {e}"))?;
+    Ok(Hud { overlay, handle, gpu })
 }
 
 // Takes a precomputed bitmask (1 << button_id) rather than the button id
@@ -252,15 +300,48 @@ struct HotkeyState {
 #[tauri::command]
 fn hotkey_state(state: State<OpenVrState>) -> HotkeyState {
     let guard = state.0.lock().unwrap();
-    let Some((_, system)) = guard.as_ref() else {
+    let Some(handles) = guard.as_ref() else {
         return HotkeyState { available: false, grip: false, trigger: false };
     };
+    let system = &handles.system;
     let role = openvr::TrackedControllerRole::RightHand;
     HotkeyState {
         available: true,
         grip: controller_button_pressed(system, role, 1u64 << (openvr::button_id::GRIP as u64)),
         trigger: controller_button_pressed(system, role, 1u64 << (openvr::button_id::STEAM_VR_TRIGGER as u64)),
     }
+}
+
+#[derive(Deserialize)]
+struct OverlayProgressArg {
+    #[serde(rename = "isSend")]
+    is_send: bool,
+    fraction: f32,
+}
+
+// Polled from the frontend at the same cadence as hotkey_state (see
+// setupHotkeys() in main.js), which already tracks how long the current
+// combo has been held / how long it's been idle since Final appeared —
+// exactly the numbers the progress bar needs, so no timing state is
+// duplicated here. `text` empty hides the HUD.
+#[tauri::command]
+fn update_overlay(text: String, progress: Option<OverlayProgressArg>, state: State<OpenVrState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(handles) = guard.as_mut() else {
+        return Ok(()); // no headset connected — nothing to draw to
+    };
+    let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
+
+    if text.is_empty() {
+        hud.overlay.set_visibility(hud.handle, false).map_err(|e| format!("{e:?}"))?;
+        return Ok(());
+    }
+
+    let progress = progress.map(|p| overlay::OverlayProgress { is_send: p.is_send, fraction: p.fraction });
+    let pixels = overlay::render(&text, progress.as_ref());
+    hud.gpu.update(hud.handle.0, &pixels)?;
+    hud.overlay.set_visibility(hud.handle, true).map_err(|e| format!("{e:?}"))?;
+    Ok(())
 }
 
 // Lets the frontend retry OpenVR after the user starts SteamVR post-launch,
@@ -287,6 +368,7 @@ pub fn run() {
             send_chatbox,
             hotkey_state,
             reconnect_vr,
+            update_overlay,
             character_catalog,
             download_character,
             load_character

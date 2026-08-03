@@ -27,6 +27,9 @@ rosc = "0.11"
 openvr = "0.9"
 voicevox_core = { git = "https://github.com/VOICEVOX/voicevox_core", tag = "0.16.4", features = ["load-onnxruntime"] }
 reqwest = "0.12"
+fontdue = "0.9"
+openvr_sys = "2.1.4"
+windows = { version = "0.62", features = ["Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi_Common"] }
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

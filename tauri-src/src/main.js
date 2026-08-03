@@ -1022,59 +1022,122 @@ function setupHotkeys() {
     statusEl.textContent = ok ? "VR: 接続済み" : "VR: 未接続";
   });
 
-  let activeSlot = null; // which combo (if any) is currently held
+  const HOTKEY_DEBOUNCE_MS = 100; // absorb single-poll blips in the raw grip/trigger state
+
+  let candidateSlot = null; // most recent raw reading, not yet committed
+  let candidateSince = 0;
+  let activeSlot = null; // which combo (if any) is currently held, once debounced
   let activeSince = 0;
   let firedForThisHold = false;
   let lastActivityAt = 0; // last moment grip or trigger was pressed, since Final became pending
+  let overlayShown = false; // avoids spamming hide calls every frame while idle
+  let tickInFlight = false; // setInterval doesn't wait for the previous async tick's IPC round-trip
+  let vrAvailable = false; // updated by the poll below, read by the render loop
 
   setInterval(async () => {
-    let hotkeyState;
+    if (tickInFlight) return;
+    tickInFlight = true;
     try {
-      hotkeyState = await window.__TAURI__.core.invoke("hotkey_state");
-    } catch {
-      return;
-    }
+      let hotkeyState;
+      try {
+        hotkeyState = await window.__TAURI__.core.invoke("hotkey_state");
+      } catch {
+        return;
+      }
 
-    if (!hotkeyState.available) {
-      statusEl.textContent = "VR: 未接続";
-      return;
-    }
-    statusEl.textContent = "VR: 接続済み";
+      if (!hotkeyState.available) {
+        statusEl.textContent = "VR: 未接続";
+        vrAvailable = false;
+        return;
+      }
+      statusEl.textContent = "VR: 接続済み";
+      vrAvailable = true;
 
-    if (!pendingFinalText) {
-      activeSlot = null;
-      return;
-    }
+      if (!pendingFinalText) {
+        activeSlot = null;
+        candidateSlot = null;
+        return;
+      }
 
-    const { grip, trigger } = hotkeyState;
-    const slot = grip && trigger ? "both" : grip ? "grip" : trigger ? "trigger" : null;
-    const now = Date.now();
+      const { grip, trigger } = hotkeyState;
+      const rawSlot = grip && trigger ? "both" : grip ? "grip" : trigger ? "trigger" : null;
+      const now = Date.now();
 
-    if (slot) lastActivityAt = now;
-    else if (lastActivityAt === 0) lastActivityAt = now; // first tick since Final appeared
+      // The raw reading only "counts" once it's held steady for
+      // HOTKEY_DEBOUNCE_MS; a single flaky poll (SteamVR's legacy controller
+      // state is noisy) keeps whichever combo was already active instead of
+      // resetting progress or flickering the overlay off.
+      if (rawSlot !== candidateSlot) {
+        candidateSlot = rawSlot;
+        candidateSince = now;
+      }
+      const slot = now - candidateSince >= HOTKEY_DEBOUNCE_MS ? candidateSlot : activeSlot;
 
-    if (slot !== activeSlot) {
-      activeSlot = slot;
-      activeSince = now;
-      firedForThisHold = false;
-    }
+      if (slot) lastActivityAt = now;
+      else if (lastActivityAt === 0) lastActivityAt = now; // first tick since Final appeared
 
-    if (slot && !firedForThisHold && now - activeSince >= HOTKEY_HOLD_MS) {
-      firedForThisHold = true;
-      const assignments = loadHotkeyAssignments();
-      const ending = endings.find((e) => e.text === assignments[slot]);
-      if (ending) applyEnding(ending);
-      lastActivityAt = 0;
-      activeSlot = null;
-      return;
-    }
+      if (slot !== activeSlot) {
+        activeSlot = slot;
+        activeSince = now;
+        firedForThisHold = false;
+      }
 
-    if (!slot && now - lastActivityAt >= HOTKEY_ABANDON_MS) {
-      pendingFinalText = "";
-      finalTextEl.textContent = "";
-      lastActivityAt = 0;
+      if (slot && !firedForThisHold && now - activeSince >= HOTKEY_HOLD_MS) {
+        firedForThisHold = true;
+        const assignments = loadHotkeyAssignments();
+        const ending = endings.find((e) => e.text === assignments[slot]);
+        if (ending) applyEnding(ending);
+        lastActivityAt = 0;
+        activeSlot = null;
+        candidateSlot = null;
+        return;
+      }
+
+      if (!slot && now - lastActivityAt >= HOTKEY_ABANDON_MS) {
+        pendingFinalText = "";
+        finalTextEl.textContent = "";
+        lastActivityAt = 0;
+      }
+    } finally {
+      tickInFlight = false;
     }
   }, HOTKEY_POLL_MS);
+
+  // Renders on its own fast timer instead of the much coarser hotkey-poll
+  // cadence above, so the progress bar advances smoothly instead of visibly
+  // stepping every 50ms. Only interpolates elapsed time against whatever
+  // activeSlot/activeSince/lastActivityAt the poll loop above last computed
+  // — it never re-reads the controller itself, so it stays cheap even at a
+  // high rate. Uses setInterval rather than requestAnimationFrame because
+  // rAF is capped to the desktop monitor's refresh rate (commonly 60Hz),
+  // which is slower than the VR headset's — the HUD is seen in the
+  // headset, not on the desktop window, so there's no reason to cap there.
+  const OVERLAY_RENDER_MS = 8; // ~125Hz
+  let renderInFlight = false;
+
+  setInterval(() => {
+    if (renderInFlight) return;
+    renderInFlight = true;
+
+    let promise;
+    if (vrAvailable && pendingFinalText) {
+      overlayShown = true;
+      const now = Date.now();
+      const progress = activeSlot
+        ? { isSend: true, fraction: (now - activeSince) / HOTKEY_HOLD_MS }
+        : { isSend: false, fraction: (now - lastActivityAt) / HOTKEY_ABANDON_MS };
+      promise = window.__TAURI__.core.invoke("update_overlay", { text: pendingFinalText, progress });
+    } else if (overlayShown) {
+      overlayShown = false;
+      promise = window.__TAURI__.core.invoke("update_overlay", { text: "", progress: null });
+    } else {
+      renderInFlight = false;
+      return;
+    }
+    promise.catch((err) => log(`[overlay] ${err}`)).finally(() => {
+      renderInFlight = false;
+    });
+  }, OVERLAY_RENDER_MS);
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
