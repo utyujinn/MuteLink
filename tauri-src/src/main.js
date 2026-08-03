@@ -1,5 +1,5 @@
 const GOOGLE_RETRY_MS = 3000;
-const SILENCE_TIMEOUT_MS = 10000;
+const SILENCE_TIMEOUT_MS = 5000;
 const VOICE_RMS_THRESHOLD = 0.01;
 
 let recognition;
@@ -78,7 +78,9 @@ function createRecognition() {
   r.onresult = (event) => {
     const result = event.results[event.results.length - 1];
     const kind = result.isFinal ? "final" : "partial";
-    log(`[google:${kind}] text=${result[0].transcript}`);
+    const text = result[0].transcript;
+    log(`[google:${kind}] text=${text}`);
+    if (result.isFinal) speak(text);
   };
   r.onstart = () => {
     googleHadError = false;
@@ -169,10 +171,82 @@ function stopGoogleStt() {
   googleBtn.textContent = "Google STT Start";
 }
 
+let voicevoxInput;
+let voicevoxBtn;
+let voicevoxStatusEl;
+let voicevoxOutputsSelect;
+
+// enumerateDevices() only returns real labels/ids once a media permission has
+// been granted on this page, so probe getUserMedia first (audio-only, we
+// immediately stop the track — we just need the permission side effect).
+async function populateOutputDevices() {
+  try {
+    const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+    probe.getTracks().forEach((t) => t.stop());
+  } catch (err) {
+    log(`[voicevox] mic permission probe failed, device labels may be blank: ${err}`);
+  }
+
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const outputs = devices.filter((d) => d.kind === "audiooutput");
+
+  voicevoxOutputsSelect.innerHTML = "";
+  for (const d of outputs) {
+    const opt = document.createElement("option");
+    opt.value = d.deviceId;
+    opt.textContent = d.label || d.deviceId;
+    opt.selected = d.label.includes("CABLE Input");
+    voicevoxOutputsSelect.appendChild(opt);
+  }
+}
+
+async function speak(text) {
+  text = (text ?? voicevoxInput.value).trim();
+  if (!text) return;
+  voicevoxInput.value = text;
+
+  voicevoxStatusEl.textContent = "synthesizing...";
+  try {
+    const bytes = await window.__TAURI__.core.invoke("synthesize", { text });
+    const blob = new Blob([new Uint8Array(bytes)], { type: "audio/wav" });
+    const url = URL.createObjectURL(blob);
+
+    const sinkIds = Array.from(voicevoxOutputsSelect.selectedOptions).map((o) => o.value);
+    const targets = sinkIds.length > 0 ? sinkIds : [""]; // no selection = default device
+
+    let remaining = targets.length;
+    const players = targets.map((sinkId) => {
+      const audio = new Audio(url);
+      audio.onended = () => {
+        remaining -= 1;
+        if (remaining === 0) {
+          URL.revokeObjectURL(url);
+          voicevoxStatusEl.textContent = "idle";
+        }
+      };
+      return { audio, sinkId };
+    });
+
+    for (const { audio, sinkId } of players) {
+      if (sinkId && audio.setSinkId) await audio.setSinkId(sinkId);
+    }
+    await Promise.all(players.map(({ audio }) => audio.play()));
+
+    voicevoxStatusEl.textContent = `playing (${targets.length} output${targets.length > 1 ? "s" : ""})`;
+  } catch (err) {
+    voicevoxStatusEl.textContent = `error: ${err}`;
+  }
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
   googleStatusEl = document.querySelector("#google-status");
+  voicevoxInput = document.querySelector("#voicevox-text");
+  voicevoxBtn = document.querySelector("#voicevox-btn");
+  voicevoxStatusEl = document.querySelector("#voicevox-status");
+  voicevoxOutputsSelect = document.querySelector("#voicevox-outputs");
+  populateOutputDevices();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {
@@ -181,4 +255,6 @@ window.addEventListener("DOMContentLoaded", () => {
       startGoogleStt();
     }
   });
+
+  voicevoxBtn.addEventListener("click", () => speak());
 });
