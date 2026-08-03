@@ -19,11 +19,89 @@
 
 .container {
   margin: 0;
+  margin-top: 30px;
   padding-top: 10vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
   text-align: center;
+}
+
+.titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #e8e8e8;
+  border-bottom: 1px solid #d4d4d4;
+  user-select: none;
+  z-index: 100;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 10px;
+}
+
+.titlebar-title {
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.titlebar-controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar button {
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.titlebar-icon-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 0.75em;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.titlebar-btn {
+  width: 32px;
+  height: 100%;
+  padding: 0;
+  font-size: 0.7em;
+  line-height: 1;
+  background-color: transparent;
+  border: none;
+}
+
+.titlebar-btn:hover {
+  background-color: #d4d4d4;
+  border-color: transparent;
+}
+
+.titlebar-btn-close:hover {
+  background-color: #e81123;
+  color: #ffffff;
+}
+
+#settings-dialog {
+  border: none;
+  border-radius: 10px;
+  padding: 1.5em 2em;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+}
+
+#settings-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.3);
 }
 
 .logo {
@@ -108,5 +186,27 @@ button {
   }
   button:active {
     background-color: #0f0f0f69;
+  }
+
+  .titlebar {
+    background-color: #1f1f1f;
+    border-bottom: 1px solid #3a3a3a;
+  }
+
+  .titlebar-icon-btn {
+    background-color: #0f0f0f98;
+  }
+
+  .titlebar-btn {
+    background-color: transparent;
+  }
+
+  .titlebar-btn:hover {
+    background-color: #3a3a3a;
+  }
+
+  #settings-dialog {
+    background-color: #2f2f2f;
+    color: #f6f6f6;
   }
 }

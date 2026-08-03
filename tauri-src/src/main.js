@@ -238,6 +238,20 @@ async function speak(text) {
   }
 }
 
+function setupTitlebar() {
+  const appWindow = window.__TAURI__.window.getCurrentWindow();
+
+  document.querySelector("#titlebar-minimize").addEventListener("click", () => appWindow.minimize());
+  document.querySelector("#titlebar-maximize").addEventListener("click", () => appWindow.toggleMaximize());
+  document.querySelector("#titlebar-close").addEventListener("click", () => appWindow.close());
+}
+
+function setupSettingsDialog() {
+  const dialog = document.querySelector("#settings-dialog");
+  document.querySelector("#settings-btn").addEventListener("click", () => dialog.showModal());
+  document.querySelector("#settings-close-btn").addEventListener("click", () => dialog.close());
+}
+
 window.addEventListener("DOMContentLoaded", () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
@@ -247,6 +261,9 @@ window.addEventListener("DOMContentLoaded", () => {
   voicevoxStatusEl = document.querySelector("#voicevox-status");
   voicevoxOutputsSelect = document.querySelector("#voicevox-outputs");
   populateOutputDevices();
+
+  setupTitlebar();
+  setupSettingsDialog();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {

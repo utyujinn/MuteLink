@@ -4,11 +4,31 @@
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ASR test</title>
+    <title>Mutelink</title>
     <script type="module" src="/main.js" defer></script>
   </head>
 
   <body>
+    <div class="titlebar" data-tauri-drag-region>
+      <div class="titlebar-left">
+        <span class="titlebar-title">Mutelink</span>
+        <button id="settings-btn" class="titlebar-icon-btn" title="設定" aria-label="設定">⚙</button>
+      </div>
+      <div class="titlebar-controls">
+        <button id="titlebar-minimize" class="titlebar-btn" title="最小化" aria-label="最小化">&#x2013;</button>
+        <button id="titlebar-maximize" class="titlebar-btn" title="最大化" aria-label="最大化">&#x25A1;</button>
+        <button id="titlebar-close" class="titlebar-btn titlebar-btn-close" title="閉じる" aria-label="閉じる">&#x2715;</button>
+      </div>
+    </div>
+
+    <dialog id="settings-dialog">
+      <h2>設定</h2>
+      <p>準備中です。</p>
+      <div class="row">
+        <button id="settings-close-btn">閉じる</button>
+      </div>
+    </dialog>
+
     <main class="container">
       <h1>ASR test</h1>
 
