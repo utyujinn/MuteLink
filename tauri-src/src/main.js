@@ -428,6 +428,7 @@ function setupSettingsDialog() {
   });
 
   setupSettingsNav();
+  setupGeneralPanel();
   setupAppearancePanel();
   setupDevicePanel();
 }
@@ -670,6 +671,7 @@ function setupEndings() {
     saveEndings(endings);
     renderEndingButtons(endingButtons, endings, applyEnding);
     renderHotkeyAssignmentOptions();
+    renderGeneralEndingsList();
     endingNewInput.value = "";
     for (const [input, out] of [
       [speedInput, speedVal],
@@ -681,6 +683,155 @@ function setupEndings() {
       out.textContent = Number(input.value).toFixed(2);
       input.dispatchEvent(new Event("input"));
     }
+  });
+}
+
+const ENDING_PARAM_DEFS = [
+  { key: "speedScale", label: "話速", min: 0.5, max: 2, step: 0.01 },
+  { key: "pitchScale", label: "音高", min: -0.15, max: 0.15, step: 0.01 },
+  { key: "intonationScale", label: "抑揚", min: 0, max: 2, step: 0.01 },
+  { key: "volumeScale", label: "音量", min: 0, max: 2, step: 0.01 },
+];
+
+function formatEndingSummary(ending) {
+  return ENDING_PARAM_DEFS.map((def) => `${def.label}${Number(ending[def.key]).toFixed(2)}`).join(" / ");
+}
+
+// Rebuilt from the shared `endings` array whenever it changes (param edits
+// here, or a new favorite added from the main screen), so the two views of
+// the same data never drift apart.
+function renderGeneralEndingsList() {
+  const list = document.querySelector("#ending-settings-list");
+  list.innerHTML = "";
+
+  for (const ending of endings) {
+    const row = document.createElement("div");
+    row.className = "ending-settings-row";
+
+    const summary = document.createElement("button");
+    summary.type = "button";
+    summary.className = "ending-settings-summary";
+
+    const textSpan = document.createElement("span");
+    textSpan.className = "ending-settings-text";
+    textSpan.textContent = ending.text;
+
+    const valuesSpan = document.createElement("span");
+    valuesSpan.className = "ending-settings-values";
+    valuesSpan.textContent = formatEndingSummary(ending);
+
+    const chevron = document.createElement("span");
+    chevron.className = "ending-settings-chevron";
+    chevron.textContent = "▾";
+
+    summary.append(textSpan, valuesSpan, chevron);
+
+    const detail = document.createElement("div");
+    detail.className = "ending-settings-detail";
+    detail.hidden = true;
+
+    for (const def of ENDING_PARAM_DEFS) {
+      const paramRow = document.createElement("div");
+      paramRow.className = "ending-param-row";
+
+      const label = document.createElement("span");
+      label.className = "ending-param-label";
+      label.textContent = def.label;
+
+      const input = document.createElement("input");
+      input.type = "range";
+      input.min = def.min;
+      input.max = def.max;
+      input.step = def.step;
+      input.value = ending[def.key];
+
+      const val = document.createElement("input");
+      val.type = "number";
+      val.className = "ending-param-val";
+      val.min = def.min;
+      val.max = def.max;
+      val.step = def.step;
+      val.value = Number(ending[def.key]).toFixed(2);
+
+      input.addEventListener("input", () => {
+        ending[def.key] = Number(input.value);
+        val.value = ending[def.key].toFixed(2);
+        valuesSpan.textContent = formatEndingSummary(ending);
+        saveEndings(endings);
+      });
+
+      val.addEventListener("change", () => {
+        let v = Number(val.value);
+        if (Number.isNaN(v)) v = ending[def.key];
+        v = Math.min(def.max, Math.max(def.min, v));
+        ending[def.key] = v;
+        val.value = v.toFixed(2);
+        input.value = v;
+        valuesSpan.textContent = formatEndingSummary(ending);
+        saveEndings(endings);
+      });
+
+      paramRow.append(label, input, val);
+      detail.appendChild(paramRow);
+    }
+
+    summary.addEventListener("click", () => {
+      const willOpen = detail.hidden;
+      detail.hidden = !willOpen;
+      row.classList.toggle("open", willOpen);
+    });
+
+    row.append(summary, detail);
+    list.appendChild(row);
+  }
+}
+
+// In-app replacement for window.confirm(), styled to match the settings
+// dialog (native browser confirm() looks out of place next to it).
+function showConfirmDialog(message) {
+  const dialog = document.querySelector("#confirm-dialog");
+  const okBtn = document.querySelector("#confirm-dialog-ok");
+  const cancelBtn = document.querySelector("#confirm-dialog-cancel");
+  document.querySelector("#confirm-dialog-message").textContent = message;
+
+  return new Promise((resolve) => {
+    const finish = (result) => {
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      dialog.removeEventListener("click", onBackdrop);
+      dialog.removeEventListener("cancel", onCancelEvent);
+      dialog.close();
+      resolve(result);
+    };
+    const onOk = () => finish(true);
+    const onCancel = () => finish(false);
+    const onCancelEvent = (event) => {
+      event.preventDefault();
+      finish(false);
+    };
+    const onBackdrop = (event) => {
+      if (event.target === dialog) finish(false);
+    };
+
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    dialog.addEventListener("cancel", onCancelEvent);
+    dialog.addEventListener("click", onBackdrop);
+    dialog.showModal();
+  });
+}
+
+function setupGeneralPanel() {
+  renderGeneralEndingsList();
+
+  document.querySelector("#settings-reset-btn").addEventListener("click", async () => {
+    const ok = await showConfirmDialog("設定を全てリセットします。よろしいですか？");
+    if (!ok) return;
+    localStorage.removeItem(ENDINGS_STORAGE_KEY);
+    localStorage.removeItem(HOTKEY_ASSIGNMENTS_KEY);
+    localStorage.removeItem(APPEARANCE_STORAGE_KEY);
+    localStorage.removeItem(DEVICE_SETTINGS_KEY);
+    location.reload();
   });
 }
 
@@ -821,8 +972,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   await populateOutputDevices();
 
   setupTitlebar();
-  setupSettingsDialog();
   setupEndings();
+  setupSettingsDialog();
   setupHotkeys();
 
   googleBtn.addEventListener("click", () => {

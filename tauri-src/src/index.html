@@ -33,6 +33,19 @@
         <div class="settings-content">
           <section class="settings-panel" data-panel="general">
             <h2>General</h2>
+
+            <h3>出力音声キャラクター</h3>
+            <div class="character-placeholder">
+              <p class="hint">今後ここでキャラクターを選択できるようになります。</p>
+            </div>
+
+            <h3>語尾</h3>
+            <div id="ending-settings-list" class="ending-settings-list"></div>
+
+            <h3>リセット</h3>
+            <div class="row">
+              <button id="settings-reset-btn" class="danger-btn" type="button">設定を全てリセット</button>
+            </div>
           </section>
 
           <section class="settings-panel" data-panel="device">
@@ -102,6 +115,16 @@
           <section class="settings-panel" data-panel="other">
             <h2>Other</h2>
           </section>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="confirm-dialog" class="confirm-dialog">
+      <div class="confirm-dialog-inner">
+        <p id="confirm-dialog-message"></p>
+        <div class="row confirm-dialog-actions">
+          <button id="confirm-dialog-cancel" type="button">キャンセル</button>
+          <button id="confirm-dialog-ok" type="button" class="danger-btn">OK</button>
         </div>
       </div>
     </dialog>
