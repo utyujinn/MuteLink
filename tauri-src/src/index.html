@@ -108,6 +108,30 @@
 
       <hr />
 
+      <h2>ホットキー(VRコントローラー)</h2>
+      <p class="hint">
+        SteamVR経由でグリップ/トリガーの状態を読み取ります。手動モードでFinalが確定した状態で、割り当てた組み合わせを1秒押し続けるとその語尾で即送信、
+        どちらも押されないまま3秒経つと破棄されます。
+      </p>
+      <p id="hotkey-status">VR: 未接続</p>
+      <div class="row">
+        <button id="hotkey-reconnect-btn">VRに再接続</button>
+      </div>
+      <div class="row">
+        <label for="hotkey-both">グリップ+トリガー</label>
+        <select id="hotkey-both"></select>
+      </div>
+      <div class="row">
+        <label for="hotkey-grip">グリップのみ</label>
+        <select id="hotkey-grip"></select>
+      </div>
+      <div class="row">
+        <label for="hotkey-trigger">トリガーのみ</label>
+        <select id="hotkey-trigger"></select>
+      </div>
+
+      <hr />
+
       <h2>VOICEVOX (小夜/SAYO)</h2>
       <div class="row">
         <input id="voicevox-text" size="36" value="こんにちは" />

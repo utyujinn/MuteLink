@@ -32,15 +32,16 @@ async function sendChatbox(text) {
 
 // The one place that actually delivers a confirmed piece of text — called
 // either immediately (Auto mode / picking an ending) or from the manual send
-// button (手動 mode, no ending). `params` carries a specific ending's VOICEVOX
-// scales; omitted entirely when there's no ending involved, so VOICEVOX just
-// uses its own defaults.
-function dispatchText(text, params) {
-  sentTextEl.textContent = text;
-  if (chatboxToggle.checked) sendChatbox(text);
+// button (手動 mode, no ending). `outputText` is what goes to the chatbox and
+// the 送信済み block; `spokenText` is what VOICEVOX actually reads (the plain
+// Final sentence, even when an ending was attached to the output). `params`
+// carries a specific ending's VOICEVOX scales; omitted when there's no ending.
+function dispatchText(outputText, spokenText, params) {
+  sentTextEl.textContent = outputText;
+  if (chatboxToggle.checked) sendChatbox(outputText);
   // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other scripts).
   if (sttLangSelect.value === "ja-JP") {
-    speak(text, params);
+    speak(spokenText, params);
   } else {
     log("[voicevox] skipped: recognition language is not Japanese");
   }
@@ -130,7 +131,7 @@ function createRecognition() {
       finalTextEl.textContent = pendingFinalText;
       manualSendRow.hidden = false;
     } else {
-      dispatchText(text);
+      dispatchText(text, text);
       finalTextEl.textContent = "";
     }
   };
@@ -356,9 +357,30 @@ function renderEndingButtons(container, endings, onPick) {
   }
 }
 
-// Picking a favorite appends it to whatever's pending in the Final block and
+// Populated by setupEndings(); read by setupHotkeys() too, since hotkeys
+// trigger the exact same "pick this favorite" action as clicking its button.
+let endings = [];
+
+// Applying a favorite appends it to whatever's pending in the Final block and
 // sends immediately, using that ending's own VOICEVOX parameters. A trailing
-// 。/. on the pending text is dropped first since the ending replaces it.
+// 。/. on the pending text is dropped first since the ending replaces it in
+// the chatbox output — but VOICEVOX still reads the plain Final sentence,
+// the ending is not spoken.
+function applyEnding(ending) {
+  const spokenText = pendingFinalText;
+  const base = spokenText.replace(/[。.]$/, "");
+  const outputText = base ? `${base}${ending.text}` : ending.text;
+  dispatchText(outputText, spokenText, {
+    speedScale: ending.speedScale,
+    pitchScale: ending.pitchScale,
+    intonationScale: ending.intonationScale,
+    volumeScale: ending.volumeScale,
+  });
+  pendingFinalText = "";
+  finalTextEl.textContent = "";
+  manualSendRow.hidden = true;
+}
+
 function setupEndings() {
   const endingButtons = document.querySelector("#ending-buttons");
   const endingNewInput = document.querySelector("#ending-new");
@@ -383,23 +405,10 @@ function setupEndings() {
     });
   }
 
-  function applyEnding(ending) {
-    const base = pendingFinalText.replace(/[。.]$/, "");
-    const text = base ? `${base}${ending.text}` : ending.text;
-    dispatchText(text, {
-      speedScale: ending.speedScale,
-      pitchScale: ending.pitchScale,
-      intonationScale: ending.intonationScale,
-      volumeScale: ending.volumeScale,
-    });
-    pendingFinalText = "";
-    finalTextEl.textContent = "";
-    manualSendRow.hidden = true;
-  }
-
-  let endings = loadEndings();
+  endings = loadEndings();
   saveEndings(endings); // persist defaults on first run
   renderEndingButtons(endingButtons, endings, applyEnding);
+  renderHotkeyAssignmentOptions();
 
   endingAddBtn.addEventListener("click", () => {
     const text = endingNewInput.value.trim();
@@ -413,6 +422,7 @@ function setupEndings() {
     });
     saveEndings(endings);
     renderEndingButtons(endingButtons, endings, applyEnding);
+    renderHotkeyAssignmentOptions();
     endingNewInput.value = "";
     for (const [input, out] of [
       [speedInput, speedVal],
@@ -424,6 +434,121 @@ function setupEndings() {
       out.textContent = Number(input.value).toFixed(2);
     }
   });
+}
+
+const HOTKEY_HOLD_MS = 1000;
+const HOTKEY_ABANDON_MS = 3000;
+const HOTKEY_POLL_MS = 50;
+const HOTKEY_ASSIGNMENTS_KEY = "mutelink.hotkeyAssignments";
+
+// Assignments are stored by ending text (not index) so they survive the
+// favorites list being reordered or extended.
+function loadHotkeyAssignments() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HOTKEY_ASSIGNMENTS_KEY) ?? "null");
+    if (raw && typeof raw === "object") return raw;
+  } catch {
+    // fall through
+  }
+  return { both: "", grip: "", trigger: "" };
+}
+
+function saveHotkeyAssignments(assignments) {
+  localStorage.setItem(HOTKEY_ASSIGNMENTS_KEY, JSON.stringify(assignments));
+}
+
+function renderHotkeyAssignmentOptions() {
+  const assignments = loadHotkeyAssignments();
+  for (const slot of ["both", "grip", "trigger"]) {
+    const select = document.querySelector(`#hotkey-${slot}`);
+    select.innerHTML = '<option value="">(未設定)</option>';
+    for (const ending of endings) {
+      const opt = document.createElement("option");
+      opt.value = ending.text;
+      opt.textContent = ending.text;
+      opt.selected = ending.text === assignments[slot];
+      select.appendChild(opt);
+    }
+  }
+}
+
+function setupHotkeys() {
+  const statusEl = document.querySelector("#hotkey-status");
+  const reconnectBtn = document.querySelector("#hotkey-reconnect-btn");
+  const selects = {
+    both: document.querySelector("#hotkey-both"),
+    grip: document.querySelector("#hotkey-grip"),
+    trigger: document.querySelector("#hotkey-trigger"),
+  };
+
+  for (const [slot, select] of Object.entries(selects)) {
+    select.addEventListener("change", () => {
+      const assignments = loadHotkeyAssignments();
+      assignments[slot] = select.value;
+      saveHotkeyAssignments(assignments);
+    });
+  }
+
+  reconnectBtn.addEventListener("click", async () => {
+    statusEl.textContent = "VR: 接続試行中...";
+    const ok = await window.__TAURI__.core.invoke("reconnect_vr");
+    statusEl.textContent = ok ? "VR: 接続済み" : "VR: 未接続";
+  });
+
+  let activeSlot = null; // which combo (if any) is currently held
+  let activeSince = 0;
+  let firedForThisHold = false;
+  let lastActivityAt = 0; // last moment grip or trigger was pressed, since Final became pending
+
+  setInterval(async () => {
+    let hotkeyState;
+    try {
+      hotkeyState = await window.__TAURI__.core.invoke("hotkey_state");
+    } catch {
+      return;
+    }
+
+    if (!hotkeyState.available) {
+      statusEl.textContent = "VR: 未接続";
+      return;
+    }
+    statusEl.textContent = "VR: 接続済み";
+
+    if (!pendingFinalText) {
+      activeSlot = null;
+      return;
+    }
+
+    const { grip, trigger } = hotkeyState;
+    const slot = grip && trigger ? "both" : grip ? "grip" : trigger ? "trigger" : null;
+    const now = Date.now();
+
+    if (slot) lastActivityAt = now;
+    else if (lastActivityAt === 0) lastActivityAt = now; // first tick since Final appeared
+
+    if (slot !== activeSlot) {
+      activeSlot = slot;
+      activeSince = now;
+      firedForThisHold = false;
+    }
+
+    if (slot && !firedForThisHold && now - activeSince >= HOTKEY_HOLD_MS) {
+      firedForThisHold = true;
+      const assignments = loadHotkeyAssignments();
+      const ending = endings.find((e) => e.text === assignments[slot]);
+      if (ending) applyEnding(ending);
+      lastActivityAt = 0;
+      activeSlot = null;
+      return;
+    }
+
+    if (!slot && now - lastActivityAt >= HOTKEY_ABANDON_MS) {
+      pendingFinalText = "";
+      finalTextEl.textContent = "";
+      manualSendRow.hidden = true;
+      lastActivityAt = 0;
+    }
+  }, HOTKEY_POLL_MS);
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -448,6 +573,7 @@ window.addEventListener("DOMContentLoaded", () => {
   setupTitlebar();
   setupSettingsDialog();
   setupEndings();
+  setupHotkeys();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {
@@ -459,7 +585,7 @@ window.addEventListener("DOMContentLoaded", () => {
 
   manualSendBtn.addEventListener("click", () => {
     if (!pendingFinalText) return;
-    dispatchText(pendingFinalText);
+    dispatchText(pendingFinalText, pendingFinalText);
     pendingFinalText = "";
     finalTextEl.textContent = "";
     manualSendRow.hidden = true;

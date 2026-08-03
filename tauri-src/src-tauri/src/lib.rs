@@ -2,6 +2,7 @@ use std::net::UdpSocket;
 use std::sync::Mutex;
 
 use rosc::{OscMessage, OscPacket, OscType};
+use serde::Serialize;
 use tauri::{Manager, State};
 use voicevox_core::blocking::{Onnxruntime, OpenJtalk, Synthesizer, VoiceModelFile};
 use voicevox_core::StyleId;
@@ -77,6 +78,64 @@ fn send_chatbox(text: String) -> Result<(), String> {
     Ok(())
 }
 
+// Keeps OpenVR alive (dropping Context shuts it down) and the System handle
+// used to poll controller state. None if SteamVR wasn't reachable at init —
+// this is a best-effort feature, not something the app should fail over.
+struct OpenVrState(Mutex<Option<(openvr::Context, openvr::System)>>);
+
+fn init_openvr() -> Option<(openvr::Context, openvr::System)> {
+    // SAFETY: called once at startup before any other OpenVR call, per the
+    // openvr crate's safety contract for `init`.
+    let context = unsafe { openvr::init(openvr::ApplicationType::Background) }.ok()?;
+    let system = context.system().ok()?;
+    Some((context, system))
+}
+
+// Takes a precomputed bitmask (1 << button_id) rather than the button id
+// itself, since `openvr::sys` (and thus the id's type) isn't publicly exported.
+fn controller_button_pressed(system: &openvr::System, role: openvr::TrackedControllerRole, mask: u64) -> bool {
+    let Some(index) = system.tracked_device_index_for_controller_role(role) else {
+        return false;
+    };
+    let Some(state) = system.controller_state(index) else {
+        return false;
+    };
+    state.button_pressed & mask != 0
+}
+
+#[derive(Serialize)]
+struct HotkeyState {
+    available: bool,
+    grip: bool,
+    trigger: bool,
+}
+
+// Polled from the frontend on a timer; the hold-to-confirm / abandon-timeout
+// logic lives there (same pattern as the existing silence timers), this just
+// reports the raw current button state for the right-hand controller only.
+#[tauri::command]
+fn hotkey_state(state: State<OpenVrState>) -> HotkeyState {
+    let guard = state.0.lock().unwrap();
+    let Some((_, system)) = guard.as_ref() else {
+        return HotkeyState { available: false, grip: false, trigger: false };
+    };
+    let role = openvr::TrackedControllerRole::RightHand;
+    HotkeyState {
+        available: true,
+        grip: controller_button_pressed(system, role, 1u64 << (openvr::button_id::GRIP as u64)),
+        trigger: controller_button_pressed(system, role, 1u64 << (openvr::button_id::STEAM_VR_TRIGGER as u64)),
+    }
+}
+
+// Lets the frontend retry OpenVR after the user starts SteamVR post-launch,
+// without having to restart the whole app.
+#[tauri::command]
+fn reconnect_vr(state: State<OpenVrState>) -> bool {
+    let mut guard = state.0.lock().unwrap();
+    *guard = init_openvr();
+    guard.is_some()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -84,9 +143,15 @@ pub fn run() {
         .setup(|app| {
             let synth = init_synthesizer().expect("failed to initialize VOICEVOX synthesizer");
             app.manage(VoicevoxState(Mutex::new(synth)));
+            app.manage(OpenVrState(Mutex::new(init_openvr())));
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![synthesize, send_chatbox])
+        .invoke_handler(tauri::generate_handler![
+            synthesize,
+            send_chatbox,
+            hotkey_state,
+            reconnect_vr
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
