@@ -9,17 +9,27 @@ let googleHadError = false;
 let googleRetryTimer;
 let googleBtn;
 let googleStatusEl;
-let sttLangSelect;
-let chatboxToggle;
-let sendModeSelect;
+let statusDotEl;
+let chatboxEnabled = false;
+let ttsEnabled = true;
+let sendMode = "auto"; // "auto" | "manual", mirrors the old <select id="send-mode">
 let interimTextEl;
 let finalTextEl;
 let sentTextEl;
-let manualSendRow;
-let manualSendBtn;
-let manualClearBtn;
 let pendingFinalText = "";
 let logEl;
+
+// The STT language is a radio group now (image.png), not a <select>; these
+// two helpers stand in for `.value`/`.disabled` on the old element.
+function getSttLang() {
+  return document.querySelector('input[name="stt-lang"]:checked').value;
+}
+
+function setSttLangDisabled(disabled) {
+  for (const radio of document.querySelectorAll('input[name="stt-lang"]')) {
+    radio.disabled = disabled;
+  }
+}
 
 async function sendChatbox(text) {
   try {
@@ -38,9 +48,10 @@ async function sendChatbox(text) {
 // carries a specific ending's VOICEVOX scales; omitted when there's no ending.
 function dispatchText(outputText, spokenText, params) {
   sentTextEl.textContent = outputText;
-  if (chatboxToggle.checked) sendChatbox(outputText);
+  if (chatboxEnabled) sendChatbox(outputText);
+  if (!ttsEnabled) return;
   // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other scripts).
-  if (sttLangSelect.value === "ja-JP") {
+  if (getSttLang() === "ja-JP") {
     speak(spokenText, params);
   } else {
     log("[voicevox] skipped: recognition language is not Japanese");
@@ -112,7 +123,7 @@ async function stopVoiceMonitor() {
 function createRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const r = new SpeechRecognition();
-  r.lang = sttLangSelect.value;
+  r.lang = getSttLang();
   r.continuous = true;
   r.interimResults = true;
 
@@ -129,12 +140,11 @@ function createRecognition() {
     log(`[google:final] text=${text}`);
     interimTextEl.textContent = "";
 
-    if (sendModeSelect.value === "manual") {
+    if (sendMode === "manual") {
       // A new Final can arrive before the pending one is sent — append
       // rather than overwrite so nothing said in the meantime is lost.
       pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
       finalTextEl.textContent = pendingFinalText;
-      manualSendRow.hidden = false;
     } else {
       dispatchText(text, text);
       finalTextEl.textContent = "";
@@ -214,8 +224,10 @@ async function startGoogleStt() {
 
   recognition = createRecognition();
   armed = true;
-  googleBtn.textContent = "Google STT Stop";
-  sttLangSelect.disabled = true;
+  googleBtn.textContent = "停止";
+  googleBtn.classList.add("listening");
+  statusDotEl.classList.add("active");
+  setSttLangDisabled(true);
   resumeRecognition();
 }
 
@@ -227,8 +239,10 @@ function stopGoogleStt() {
   if (recognition) recognition.stop();
   stopVoiceMonitor();
   googleStatusEl.textContent = "idle";
-  googleBtn.textContent = "Google STT Start";
-  sttLangSelect.disabled = false;
+  googleBtn.textContent = "開始";
+  googleBtn.classList.remove("listening");
+  statusDotEl.classList.remove("active");
+  setSttLangDisabled(false);
 }
 
 let voicevoxInput;
@@ -626,7 +640,6 @@ function applyEnding(ending) {
   });
   pendingFinalText = "";
   finalTextEl.textContent = "";
-  manualSendRow.hidden = true;
 }
 
 function setupEndings() {
@@ -896,7 +909,6 @@ function setupHotkeys() {
     if (!slot && now - lastActivityAt >= HOTKEY_ABANDON_MS) {
       pendingFinalText = "";
       finalTextEl.textContent = "";
-      manualSendRow.hidden = true;
       lastActivityAt = 0;
     }
   }, HOTKEY_POLL_MS);
@@ -905,16 +917,11 @@ function setupHotkeys() {
 window.addEventListener("DOMContentLoaded", async () => {
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
-  sttLangSelect = document.querySelector("#stt-lang");
-  chatboxToggle = document.querySelector("#chatbox-toggle");
+  statusDotEl = document.querySelector("#status-dot");
   googleStatusEl = document.querySelector("#google-status");
-  sendModeSelect = document.querySelector("#send-mode");
   interimTextEl = document.querySelector("#interim-text");
   finalTextEl = document.querySelector("#final-text");
   sentTextEl = document.querySelector("#sent-text");
-  manualSendRow = document.querySelector("#manual-send-row");
-  manualSendBtn = document.querySelector("#manual-send-btn");
-  manualClearBtn = document.querySelector("#manual-clear-btn");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
@@ -936,19 +943,35 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  manualSendBtn.addEventListener("click", () => {
-    if (!pendingFinalText) return;
-    dispatchText(pendingFinalText, pendingFinalText);
+  document.querySelector("#final-clear-btn").addEventListener("click", () => {
     pendingFinalText = "";
     finalTextEl.textContent = "";
-    manualSendRow.hidden = true;
   });
 
-  manualClearBtn.addEventListener("click", () => {
-    pendingFinalText = "";
-    finalTextEl.textContent = "";
-    manualSendRow.hidden = true;
+  document.querySelector("#sent-clear-btn").addEventListener("click", () => {
+    sentTextEl.textContent = "";
   });
 
   voicevoxBtn.addEventListener("click", () => speak());
+
+  const modeToggleBtn = document.querySelector("#mode-toggle-btn");
+  modeToggleBtn.addEventListener("click", () => {
+    sendMode = sendMode === "auto" ? "manual" : "auto";
+    modeToggleBtn.classList.toggle("active", sendMode === "auto");
+    modeToggleBtn.setAttribute("aria-pressed", String(sendMode === "auto"));
+  });
+
+  const chatboxToggleBtn = document.querySelector("#chatbox-toggle-btn");
+  chatboxToggleBtn.addEventListener("click", () => {
+    chatboxEnabled = !chatboxEnabled;
+    chatboxToggleBtn.classList.toggle("active", chatboxEnabled);
+    chatboxToggleBtn.setAttribute("aria-pressed", String(chatboxEnabled));
+  });
+
+  const ttsToggleBtn = document.querySelector("#tts-toggle-btn");
+  ttsToggleBtn.addEventListener("click", () => {
+    ttsEnabled = !ttsEnabled;
+    ttsToggleBtn.classList.toggle("active", ttsEnabled);
+    ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
+  });
 });

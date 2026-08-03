@@ -1,3 +1,12 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 .logo.vanilla:hover {
   filter: drop-shadow(0 0 2em #ffe21c);
 }
@@ -84,14 +93,181 @@
   background-color: #396cd8;
 }
 
-.container {
-  margin: 0;
-  margin-top: 30px;
-  padding-top: 10vh;
+.app-main {
   display: flex;
   flex-direction: column;
+  gap: 0.3em;
+  height: calc(100vh - 30px);
+  margin-top: 30px;
+  padding: 0.4em 0.4em 0.4em;
+  box-sizing: border-box;
+  overflow: hidden;
+  background-color: var(--color-surface);
+}
+
+.status-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-size: 0.9em;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-border);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.status-dot.active {
+  background-color: #2ecc71;
+  box-shadow: 0 0 6px #2ecc71;
+}
+
+.status-lang-group {
+  display: flex;
+  gap: 0.9em;
+}
+
+.status-lang-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.3em;
+  white-space: nowrap;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+
+.app-main .text-block {
+  display: flex;
+  flex: 1 1 0;
+  align-items: stretch;
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0.4em 0.6em;
+  overflow-y: auto;
+}
+
+.app-main .text-block p {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+}
+
+.app-main .text-block-final p,
+.app-main .text-block-sent p {
+  flex: 0 0 80%;
+}
+
+.text-block-interim {
+  background-color: var(--color-surface-alt);
+}
+
+.text-block-final {
+  background-color: rgba(46, 160, 67, 0.55);
+  border-color: rgba(46, 160, 67, 0.95);
+}
+
+.text-block-sent {
+  background-color: rgba(168, 85, 247, 0.55);
+  border-color: rgba(168, 85, 247, 0.95);
+}
+
+.text-block-clear {
+  flex: 0 0 20%;
+  display: flex;
+  align-items: center;
   justify-content: center;
-  text-align: center;
+  margin: 0 -0.6em 0 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background-color: var(--color-surface);
+  line-height: 1;
+  opacity: 0.75;
+}
+
+.text-block-clear:hover {
+  color: #ffffff;
+  background-color: #e81123;
+  opacity: 1;
+}
+
+.ending-grid,
+.control-bar {
+  display: grid;
+  flex: 0 0 auto;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  background-color: var(--color-border);
+  border: 6px solid var(--color-border);
+}
+
+/* Simple hover feedback: the tile just grows slightly, no color sweep. */
+.ending-grid button,
+.control-btn {
+  position: relative;
+  margin: 0;
+  padding: 0.9em 0.4em;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  font-size: 0.85em;
+  transition: transform 0.15s ease;
+}
+
+.ending-grid button {
+  color: #123a4a;
+  background-color: #56c8f0;
+}
+
+.ending-grid button:hover,
+.control-btn:hover {
+  z-index: 1;
+  transform: scale(1.06);
+}
+
+.control-btn-start {
+  color: #ffffff;
+  background-color: #229955;
+}
+
+.control-btn-start.listening {
+  background-color: #d81123;
+}
+
+.control-btn-toggle {
+  color: var(--color-text);
+  background-color: var(--color-surface-alt);
+}
+
+.control-btn-toggle.active {
+  color: #ffffff;
+  background-color: #396cd8;
+}
+
+.log-panel {
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 0.5em;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  text-align: left;
+  font-size: 0.75em;
+}
+
+.log-panel p {
+  margin: 0.2em 0;
 }
 
 .titlebar {
@@ -717,13 +893,6 @@ input[type="checkbox"]:checked::after {
 .row {
   display: flex;
   justify-content: center;
-}
-
-.ending-buttons {
-  flex-wrap: wrap;
-  gap: 0.4em;
-  max-width: 480px;
-  margin: 0 auto;
 }
 
 a {
