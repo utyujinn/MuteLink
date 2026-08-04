@@ -874,6 +874,27 @@ input[type="checkbox"]:checked::after {
   margin: 0 0 0.9em;
 }
 
+.link-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  color: #396cd8;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.link-btn:hover {
+  color: #5b8ff0;
+}
+
+.about-placeholder {
+  margin: 0;
+  opacity: 0.6;
+  font-style: italic;
+}
+
 .character-style-list {
   display: flex;
   flex-wrap: wrap;

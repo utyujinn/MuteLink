@@ -179,6 +179,11 @@ const I18N = {
 
   logHeading: { ja: "ログ", en: "Log", zh: "日志", ko: "로그" },
 
+  aboutHeading: { ja: "情報", en: "About", zh: "关于", ko: "정보" },
+  aboutCreatorLabel: { ja: "作成者", en: "Creator", zh: "作者", ko: "제작자" },
+  aboutRepoLabel: { ja: "GitHubリポジトリ", en: "GitHub Repository", zh: "GitHub 仓库", ko: "GitHub 저장소" },
+  aboutComingSoon: { ja: "準備中", en: "Coming soon", zh: "即将上线", ko: "준비 중" },
+
   cancelButton: { ja: "キャンセル", en: "Cancel", zh: "取消", ko: "취소" },
 
   settingsLabel: { ja: "設定", en: "Settings", zh: "设置", ko: "설정" },
@@ -811,6 +816,20 @@ function setupSettingsDialog() {
   setupPresetPanel();
   setupAppearancePanel();
   setupDevicePanel();
+  setupAboutLinks();
+}
+
+// Generic external-link handling for [data-open-url] elements (currently
+// just the 情報 section) — routes through the opener plugin's openUrl()
+// rather than a plain <a href target="_blank">, since the latter tends to
+// just navigate the app's own webview instead of the system browser inside
+// a Tauri window.
+function setupAboutLinks() {
+  for (const el of document.querySelectorAll("[data-open-url]")) {
+    el.addEventListener("click", () => {
+      window.__TAURI__.opener.openUrl(el.dataset.openUrl);
+    });
+  }
 }
 
 const APPEARANCE_STORAGE_KEY = "mutelink.appearance";
