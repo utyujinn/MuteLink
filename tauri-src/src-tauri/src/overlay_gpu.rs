@@ -29,9 +29,9 @@ use windows::Win32::Foundation::HMODULE;
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC};
 use windows::core::Interface;
 
-use crate::overlay::{CANVAS_HEIGHT, CANVAS_WIDTH};
-
 pub struct GpuOverlay {
+    width: usize,
+    height: usize,
     context: ID3D11DeviceContext,
     staging: ID3D11Texture2D,
     shared: ID3D11Texture2D,
@@ -57,7 +57,10 @@ fn load_overlay_fn_table() -> Result<&'static sys::VR_IVROverlay_FnTable, String
 }
 
 impl GpuOverlay {
-    pub fn new() -> Result<Self, String> {
+    /// `width`/`height` are the exact pixel dimensions of whatever texture
+    /// this instance will manage — callers pass a different size per
+    /// overlay (the main HUD box vs. the small language tag).
+    pub fn new(width: usize, height: usize) -> Result<Self, String> {
         let overlay_fn_table = load_overlay_fn_table()?;
 
         let mut device: Option<ID3D11Device> = None;
@@ -80,8 +83,8 @@ impl GpuOverlay {
         let context = context.ok_or("D3D11CreateDevice returned no context")?;
 
         let base_desc = D3D11_TEXTURE2D_DESC {
-            Width: CANVAS_WIDTH as u32,
-            Height: CANVAS_HEIGHT as u32,
+            Width: width as u32,
+            Height: height as u32,
             MipLevels: 1,
             ArraySize: 1,
             Format: DXGI_FORMAT_R8G8B8A8_UNORM,
@@ -122,6 +125,8 @@ impl GpuOverlay {
         };
 
         Ok(GpuOverlay {
+            width,
+            height,
             context,
             staging: staging.ok_or("CreateTexture2D (staging) returned no texture")?,
             shared: shared.ok_or("CreateTexture2D (shared) returned no texture")?,
@@ -129,8 +134,9 @@ impl GpuOverlay {
         })
     }
 
-    /// Uploads `pixels` (tightly packed RGBA8, CANVAS_WIDTH*CANVAS_HEIGHT*4
-    /// bytes) into the shared texture and tells SteamVR it's ready.
+    /// Uploads `pixels` (tightly packed RGBA8, width*height*4 bytes, using
+    /// the dimensions passed to `new()`) into the shared texture and tells
+    /// SteamVR it's ready.
     pub fn update(&self, overlay_handle: sys::VROverlayHandle_t, pixels: &[u8]) -> Result<(), String> {
         unsafe {
             let mut mapped = D3D11_MAPPED_SUBRESOURCE::default();
@@ -138,14 +144,24 @@ impl GpuOverlay {
                 .Map(&self.staging, 0, D3D11_MAP_WRITE_DISCARD, 0, Some(&mut mapped))
                 .map_err(|e| e.to_string())?;
 
-            let row_bytes = CANVAS_WIDTH * 4;
-            for y in 0..CANVAS_HEIGHT {
+            let row_bytes = self.width * 4;
+            for y in 0..self.height {
                 let src = &pixels[y * row_bytes..(y + 1) * row_bytes];
                 let dst = (mapped.pData as *mut u8).add(y * mapped.RowPitch as usize);
                 std::ptr::copy_nonoverlapping(src.as_ptr(), dst, row_bytes);
             }
             self.context.Unmap(&self.staging, 0);
             self.context.CopyResource(&self.shared, &self.staging);
+            // Without this, the driver can batch/delay actually submitting
+            // the copy to the GPU. That's invisible for the box (redrawn
+            // continuously while held), but the language tag sits static for
+            // a full 1.5s between abrupt content changes — long enough for
+            // SteamVR's compositor (a separate process reading the same
+            // shared texture) to sample a still-pending old frame, which
+            // shows up as the previous label briefly flashing before the
+            // new one appears. Flush forces the copy onto the GPU timeline
+            // now instead of whenever the driver next feels like it.
+            self.context.Flush();
 
             let mut texture = sys::Texture_t {
                 handle: self.shared.as_raw() as *mut c_void,

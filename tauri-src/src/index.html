@@ -114,8 +114,25 @@
 
           <section class="settings-panel" data-panel="hotkey">
             <h2>Hotkey</h2>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">保持時間</span>
+              <div class="hotkey-hold-duration-control">
+                <input type="range" id="hotkey-hold-duration-input" min="0.3" max="3" step="0.1" value="1" />
+                <span id="hotkey-hold-duration-val" class="hotkey-hold-duration-val">1.0秒</span>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label">優先する手</span>
+              <div class="settings-radio-row">
+                <label><input type="radio" name="hotkey-priority-hand" value="right" checked /> 右手</label>
+                <label><input type="radio" name="hotkey-priority-hand" value="left" /> 左手</label>
+              </div>
+            </div>
+
             <p class="hint">
-              SteamVR経由でグリップ/トリガーの状態を読み取ります。手動モードでFinalが確定した状態で、割り当てた組み合わせを1秒押し続けるとその語尾で即送信、どちらも押されないまま3秒経つと破棄されます。
+              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンで音声認識の開始/停止を切り替えられます。
             </p>
 
             <div class="settings-list-row">
@@ -123,22 +140,73 @@
               <button id="hotkey-reconnect-btn" type="button">再接続</button>
             </div>
 
+            <h3>右手</h3>
             <div class="settings-list-row">
               <span class="settings-list-label">グリップ+トリガー</span>
-              <select id="hotkey-both"></select>
+              <select id="hotkey-right-both"></select>
             </div>
             <div class="settings-list-row">
               <span class="settings-list-label">グリップのみ</span>
-              <select id="hotkey-grip"></select>
+              <select id="hotkey-right-grip"></select>
             </div>
             <div class="settings-list-row">
               <span class="settings-list-label">トリガーのみ</span>
-              <select id="hotkey-trigger"></select>
+              <select id="hotkey-right-trigger"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">どちらも押していない</span>
+              <select id="hotkey-right-none"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">スティック押し込み</span>
+              <select id="hotkey-right-stick"></select>
+            </div>
+
+            <h3>左手</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label">グリップ+トリガー</span>
+              <select id="hotkey-left-both"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">グリップのみ</span>
+              <select id="hotkey-left-grip"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">トリガーのみ</span>
+              <select id="hotkey-left-trigger"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">どちらも押していない</span>
+              <select id="hotkey-left-none"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">スティック押し込み</span>
+              <select id="hotkey-left-stick"></select>
             </div>
           </section>
 
           <section class="settings-panel" data-panel="other">
             <h2>Other</h2>
+
+            <h3>VRChat連携</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label">マイクミュート状態と連動して開始/停止</span>
+              <label class="switch">
+                <input type="checkbox" id="vrc-mute-sync-toggle" />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label">切り替え対象の言語</span>
+              <div class="settings-radio-row">
+                <label><input type="checkbox" name="vrc-mute-sync-lang" value="ja-JP" checked /> 日本語</label>
+                <label><input type="checkbox" name="vrc-mute-sync-lang" value="en-US" checked /> English</label>
+                <label><input type="checkbox" name="vrc-mute-sync-lang" value="zh-CN" checked /> 中文</label>
+              </div>
+            </div>
+            <p class="hint">
+              VRChatのOSC出力(既定でポート9001)からマイクミュートの切り替えを受け取り、ミュート解除で認識開始、ミュートで停止します。VRChat側のOSCが有効になっている必要があります。ミュートしてから0.5秒未満で解除すると、認識言語が上の「切り替え対象の言語」内で日本語→English→中文の順に切り替わります(0.5秒以上ミュートしていた場合は言語はそのままです)。
+            </p>
 
             <h3>VOICEVOXテスト</h3>
             <div class="row">

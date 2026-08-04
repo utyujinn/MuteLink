@@ -4,11 +4,12 @@ mod overlay_gpu;
 use std::fs;
 use std::net::UdpSocket;
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 use rosc::{OscMessage, OscPacket, OscType};
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Emitter, Manager, State};
 use voicevox_core::blocking::{Onnxruntime, OpenJtalk, Synthesizer, VoiceModelFile};
 use voicevox_core::{StyleId, VoiceModelMeta};
 
@@ -217,14 +218,90 @@ fn send_chatbox(text: String) -> Result<(), String> {
     Ok(())
 }
 
+// VRChat sends its own OSC output (avatar parameters, not just accepting
+// chatbox input) to 127.0.0.1:9001 by default. `MuteSelf` is one of the
+// built-in parameters it always sends (not avatar-specific) — true/false
+// whenever the local player toggles their own mic mute. The frontend
+// listens for the "vrc-mute-changed" event and decides whether to act on it.
+// Nothing binds port 9001 unless the VRChat連携 toggle in Other settings is
+// actually on (see set_vrc_mute_sync below) — most users won't want this
+// running, and it shouldn't hold the port open for no reason.
+struct VrcMuteSyncState(Mutex<Option<Arc<AtomicBool>>>);
+
+fn spawn_vrc_osc_listener(app_handle: tauri::AppHandle) -> Arc<AtomicBool> {
+    let running = Arc::new(AtomicBool::new(true));
+    let running_for_thread = running.clone();
+    std::thread::spawn(move || {
+        let socket = match UdpSocket::bind("127.0.0.1:9001") {
+            Ok(socket) => socket,
+            Err(e) => {
+                eprintln!("[vrc-osc] failed to bind 127.0.0.1:9001: {e}");
+                return;
+            }
+        };
+        // recv_from() blocks indefinitely by default, which would keep this
+        // thread (and the socket/port) alive even after the toggle is
+        // turned off. Waking up periodically to recheck `running` lets
+        // set_vrc_mute_sync(false) actually release the port promptly
+        // instead of only being able to ask nicely.
+        let _ = socket.set_read_timeout(Some(std::time::Duration::from_millis(300)));
+        let mut buf = [0u8; 4096];
+        while running_for_thread.load(Ordering::Relaxed) {
+            let Ok((size, _)) = socket.recv_from(&mut buf) else {
+                continue; // timeout (expected) or a transient error — just recheck `running`
+            };
+            let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) else {
+                continue;
+            };
+            handle_vrc_osc_packet(&packet, &app_handle);
+        }
+    });
+    running
+}
+
+#[tauri::command]
+fn set_vrc_mute_sync(enabled: bool, state: State<VrcMuteSyncState>, app_handle: tauri::AppHandle) {
+    let mut guard = state.0.lock().unwrap();
+    if enabled {
+        if guard.is_none() {
+            *guard = Some(spawn_vrc_osc_listener(app_handle));
+        }
+    } else if let Some(running) = guard.take() {
+        running.store(false, Ordering::Relaxed);
+    }
+}
+
+fn handle_vrc_osc_packet(packet: &OscPacket, app_handle: &tauri::AppHandle) {
+    match packet {
+        OscPacket::Message(msg) => {
+            if msg.addr == "/avatar/parameters/MuteSelf" {
+                if let Some(OscType::Bool(muted)) = msg.args.first() {
+                    let _ = app_handle.emit("vrc-mute-changed", *muted);
+                }
+            }
+        }
+        OscPacket::Bundle(bundle) => {
+            for inner in &bundle.content {
+                handle_vrc_osc_packet(inner, app_handle);
+            }
+        }
+    }
+}
+
 // The pieces needed to keep the confirm/discard HUD alive: the safe
 // `openvr` overlay handle for show/hide/positioning, plus our own D3D11
 // texture pair for pushing pixels via SetOverlayTexture (see overlay_gpu.rs
 // for why — SetOverlayRaw can't be called at hotkey-poll frequency).
+// `lang_tag_*` is a second, independent overlay for the "EN"/"JP"/"CN"
+// language-switch indicator (see lang_tag_placement) — kept fully separate
+// from the box so the box's own size/position never has to change to make
+// room for it.
 struct Hud {
     overlay: openvr::Overlay,
     handle: openvr::overlay::OverlayHandle,
     gpu: overlay_gpu::GpuOverlay,
+    lang_tag_handle: openvr::overlay::OverlayHandle,
+    lang_tag_gpu: overlay_gpu::GpuOverlay,
 }
 
 // Keeps OpenVR alive (dropping Context shuts it down) and the System handle
@@ -259,20 +336,82 @@ fn init_openvr() -> Option<VrHandles> {
     Some(VrHandles { context, system, hud })
 }
 
+// Fixed ~1m in front of and slightly below the headset, so the box reads
+// like a HUD that always stays in view without covering the whole scene.
+// The language tag overlay (see lang_tag_placement) is derived from these
+// same two values, so the box itself never needs to change to make room
+// for it.
+const HUD_WORLD_WIDTH: f32 = 0.5;
+const METERS_PER_PIXEL: f32 = HUD_WORLD_WIDTH / overlay::CANVAS_WIDTH as f32;
+// How much further from the headset (more negative Z) both overlays sit
+// than the box's original -1.0m resting depth — the tag inherits this Z
+// straight from HUD_TRANSFORM (see lang_tag_placement), so bumping it here
+// moves both together. Plain meters, hand-tuned — nudge directly to taste.
+const HUD_DEPTH_PUSH: f32 = 0.12;
+const HUD_TRANSFORM: [[f32; 4]; 3] =
+    [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, -0.15], [0.0, 0.0, 1.0, -1.0 - HUD_DEPTH_PUSH]];
+
 fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
     let mut overlay = context.overlay().map_err(|e| format!("overlay interface unavailable: {e:?}"))?;
+
     let handle = overlay
         .create_overlay("mutelink.hud", "Mutelink HUD")
         .map_err(|e| format!("create_overlay failed: {e:?}"))?;
-    overlay.set_width(handle, 0.5).map_err(|e| format!("set_width failed: {e:?}"))?;
-    // Fixed ~1m in front of and slightly below the headset, so it reads like
-    // a HUD that always stays in view without covering the whole scene.
-    let transform = openvr::pose::Matrix3x4([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, -0.15], [0.0, 0.0, 1.0, -1.0]]);
+    overlay.set_width(handle, HUD_WORLD_WIDTH).map_err(|e| format!("set_width failed: {e:?}"))?;
+    let transform = openvr::pose::Matrix3x4(HUD_TRANSFORM);
     overlay
         .set_transform_tracked_device_relative(handle, openvr::tracked_device_index::HMD, &transform)
         .map_err(|e| format!("set_transform failed: {e:?}"))?;
-    let gpu = overlay_gpu::GpuOverlay::new().map_err(|e| format!("D3D11/GPU overlay init failed: {e}"))?;
-    Ok(Hud { overlay, handle, gpu })
+    let gpu = overlay_gpu::GpuOverlay::new(overlay::CANVAS_WIDTH, overlay::CANVAS_HEIGHT)
+        .map_err(|e| format!("D3D11/GPU overlay init failed: {e}"))?;
+
+    let lang_tag_handle = overlay
+        .create_overlay("mutelink.hud.langtag", "Mutelink Language Tag")
+        .map_err(|e| format!("create_overlay (lang tag) failed: {e:?}"))?;
+    let (lang_tag_width, lang_tag_transform) = lang_tag_placement();
+    overlay
+        .set_width(lang_tag_handle, lang_tag_width)
+        .map_err(|e| format!("set_width (lang tag) failed: {e:?}"))?;
+    overlay
+        .set_transform_tracked_device_relative(lang_tag_handle, openvr::tracked_device_index::HMD, &lang_tag_transform)
+        .map_err(|e| format!("set_transform (lang tag) failed: {e:?}"))?;
+    let lang_tag_gpu = overlay_gpu::GpuOverlay::new(overlay::LANG_TAG_CANVAS_WIDTH, overlay::LANG_TAG_CANVAS_HEIGHT)
+        .map_err(|e| format!("D3D11/GPU overlay init failed (lang tag): {e}"))?;
+
+    Ok(Hud { overlay, handle, gpu, lang_tag_handle, lang_tag_gpu })
+}
+
+// Tag's top-left corner, as a flat offset (plain meters) from the box's own
+// bottom-left corner — hand-tuned, nudge these two numbers directly rather
+// than reasoning through box-percentage or font-size math.
+const TAG_OFFSET_X: f32 = -0.15; // negative = left of the box's left edge
+const TAG_OFFSET_Y: f32 = -0.06; // negative = below the box's bottom edge
+
+// Computes the language tag overlay's world width and HMD-relative
+// transform so that its texture's own top-left corner (its pixel (0, 0))
+// lands at the box's own (unchanged) bottom-left corner plus TAG_OFFSET_X/Y.
+// OpenVR overlays are centered on their transform, so this works backward
+// from that target corner to the tag's own center point.
+fn lang_tag_placement() -> (f32, openvr::pose::Matrix3x4) {
+    let box_world_height = HUD_WORLD_WIDTH * (overlay::CANVAS_HEIGHT as f32 / overlay::CANVAS_WIDTH as f32);
+    let box_left = HUD_TRANSFORM[0][3] - HUD_WORLD_WIDTH / 2.0;
+    let box_bottom = HUD_TRANSFORM[1][3] - box_world_height / 2.0;
+
+    let tag_top_left_x = box_left + TAG_OFFSET_X;
+    let tag_top_left_y = box_bottom + TAG_OFFSET_Y;
+
+    let tag_world_width = overlay::LANG_TAG_CANVAS_WIDTH as f32 * METERS_PER_PIXEL;
+    let tag_world_height = overlay::LANG_TAG_CANVAS_HEIGHT as f32 * METERS_PER_PIXEL;
+
+    let tag_center_x = tag_top_left_x + tag_world_width / 2.0;
+    let tag_center_y = tag_top_left_y - tag_world_height / 2.0;
+
+    let transform = openvr::pose::Matrix3x4([
+        [1.0, 0.0, 0.0, tag_center_x],
+        [0.0, 1.0, 0.0, tag_center_y],
+        [0.0, 0.0, 1.0, HUD_TRANSFORM[2][3]],
+    ]);
+    (tag_world_width, transform)
 }
 
 // Takes a precomputed bitmask (1 << button_id) rather than the button id
@@ -288,27 +427,50 @@ fn controller_button_pressed(system: &openvr::System, role: openvr::TrackedContr
 }
 
 #[derive(Serialize)]
-struct HotkeyState {
-    available: bool,
+struct HandState {
     grip: bool,
     trigger: bool,
+    stick: bool,
+    // Legacy input's generic "A" button — the lower face button on each
+    // controller (X on Quest's left controller, A on the right).
+    a: bool,
 }
 
-// Polled from the frontend on a timer; the hold-to-confirm / abandon-timeout
-// logic lives there (same pattern as the existing silence timers), this just
-// reports the raw current button state for the right-hand controller only.
+#[derive(Serialize)]
+struct HotkeyState {
+    available: bool,
+    right: HandState,
+    left: HandState,
+}
+
+fn read_hand_state(system: &openvr::System, role: openvr::TrackedControllerRole) -> HandState {
+    HandState {
+        grip: controller_button_pressed(system, role, 1u64 << (openvr::button_id::GRIP as u64)),
+        trigger: controller_button_pressed(system, role, 1u64 << (openvr::button_id::STEAM_VR_TRIGGER as u64)),
+        stick: controller_button_pressed(system, role, 1u64 << (openvr::button_id::STEAM_VR_TOUCHPAD as u64)),
+        a: controller_button_pressed(system, role, 1u64 << (openvr::button_id::A as u64)),
+    }
+}
+
+// Polled from the frontend on a timer; the hold-to-confirm / discard logic
+// and the left/right priority resolution both live there (same pattern as
+// the existing silence timers), this just reports the raw current button
+// state for both controllers. `stick` (thumbstick click) reads
+// SteamVR_Touchpad — legacy input reports a joystick click there regardless
+// of whether the physical control is a trackpad or a stick, which is the
+// usual (if confusing) OpenVR mapping.
 #[tauri::command]
 fn hotkey_state(state: State<OpenVrState>) -> HotkeyState {
     let guard = state.0.lock().unwrap();
+    let empty = || HandState { grip: false, trigger: false, stick: false, a: false };
     let Some(handles) = guard.as_ref() else {
-        return HotkeyState { available: false, grip: false, trigger: false };
+        return HotkeyState { available: false, right: empty(), left: empty() };
     };
     let system = &handles.system;
-    let role = openvr::TrackedControllerRole::RightHand;
     HotkeyState {
         available: true,
-        grip: controller_button_pressed(system, role, 1u64 << (openvr::button_id::GRIP as u64)),
-        trigger: controller_button_pressed(system, role, 1u64 << (openvr::button_id::STEAM_VR_TRIGGER as u64)),
+        right: read_hand_state(system, openvr::TrackedControllerRole::RightHand),
+        left: read_hand_state(system, openvr::TrackedControllerRole::LeftHand),
     }
 }
 
@@ -325,7 +487,12 @@ struct OverlayProgressArg {
 // exactly the numbers the progress bar needs, so no timing state is
 // duplicated here. `text` empty hides the HUD.
 #[tauri::command]
-fn update_overlay(text: String, progress: Option<OverlayProgressArg>, state: State<OpenVrState>) -> Result<(), String> {
+fn update_overlay(
+    text: String,
+    ending_preview: Option<String>,
+    progress: Option<OverlayProgressArg>,
+    state: State<OpenVrState>,
+) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     let Some(handles) = guard.as_mut() else {
         return Ok(()); // no headset connected — nothing to draw to
@@ -338,9 +505,32 @@ fn update_overlay(text: String, progress: Option<OverlayProgressArg>, state: Sta
     }
 
     let progress = progress.map(|p| overlay::OverlayProgress { is_send: p.is_send, fraction: p.fraction });
-    let pixels = overlay::render(&text, progress.as_ref());
+    let pixels = overlay::render(&text, ending_preview.as_deref(), progress.as_ref());
     hud.gpu.update(hud.handle.0, &pixels)?;
     hud.overlay.set_visibility(hud.handle, true).map_err(|e| format!("{e:?}"))?;
+    Ok(())
+}
+
+// A separate, independent overlay (see Hud.lang_tag_* / lang_tag_placement)
+// so the language-switch indicator can show up on its own — e.g. right
+// after a VRChat mute-sync language cycle when there's no pending Final and
+// so no confirm/discard box to show it alongside.
+#[tauri::command]
+fn update_lang_tag(label: Option<String>, elapsed_secs: f32, state: State<OpenVrState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(handles) = guard.as_mut() else {
+        return Ok(());
+    };
+    let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
+
+    let Some(label) = label else {
+        hud.overlay.set_visibility(hud.lang_tag_handle, false).map_err(|e| format!("{e:?}"))?;
+        return Ok(());
+    };
+
+    let pixels = overlay::render_lang_tag(&label, elapsed_secs);
+    hud.lang_tag_gpu.update(hud.lang_tag_handle.0, &pixels)?;
+    hud.overlay.set_visibility(hud.lang_tag_handle, true).map_err(|e| format!("{e:?}"))?;
     Ok(())
 }
 
@@ -361,6 +551,7 @@ pub fn run() {
             let synth = init_synthesizer().expect("failed to initialize VOICEVOX synthesizer");
             app.manage(VoicevoxState(Mutex::new(synth)));
             app.manage(OpenVrState(Mutex::new(init_openvr())));
+            app.manage(VrcMuteSyncState(Mutex::new(None)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -369,9 +560,11 @@ pub fn run() {
             hotkey_state,
             reconnect_vr,
             update_overlay,
+            update_lang_tag,
             character_catalog,
             download_character,
-            load_character
+            load_character,
+            set_vrc_mute_sync
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

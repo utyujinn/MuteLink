@@ -145,6 +145,9 @@ function createRecognition() {
       // rather than overwrite so nothing said in the meantime is lost.
       pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
       finalTextEl.textContent = pendingFinalText;
+      // The content just changed, so restart any in-progress hold instead
+      // of letting it fire against stale timing.
+      resetHotkeyHold();
     } else {
       dispatchText(text, text);
       finalTextEl.textContent = "";
@@ -963,21 +966,70 @@ function setupGeneralPanel() {
   });
 }
 
-const HOTKEY_HOLD_MS = 1000;
-const HOTKEY_ABANDON_MS = 3000;
 const HOTKEY_POLL_MS = 50;
 const HOTKEY_ASSIGNMENTS_KEY = "mutelink.hotkeyAssignments";
+const HOTKEY_SLOTS = ["both", "grip", "trigger", "none", "stick"];
+// Sentinel assignment value meaning "discard the pending text", alongside
+// the ending texts a slot can otherwise be assigned to.
+const HOTKEY_CANCEL_ACTION = "__cancel__";
+
+const HOTKEY_HOLD_DURATION_KEY = "mutelink.hotkeyHoldMs";
+const DEFAULT_HOTKEY_HOLD_MS = 1000;
+
+function loadHotkeyHoldMs() {
+  const raw = Number(localStorage.getItem(HOTKEY_HOLD_DURATION_KEY));
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_HOTKEY_HOLD_MS;
+}
+
+function saveHotkeyHoldMs(ms) {
+  localStorage.setItem(HOTKEY_HOLD_DURATION_KEY, String(ms));
+}
+
+// Both hands act independently now (each can be bound to a different
+// ending), but only one hand's hold can be shown on the overlay at once —
+// this picks which one wins when both happen to be mid-hold simultaneously.
+const HOTKEY_PRIORITY_HAND_KEY = "mutelink.hotkeyPriorityHand";
+
+function loadHotkeyPriorityHand() {
+  return localStorage.getItem(HOTKEY_PRIORITY_HAND_KEY) === "left" ? "left" : "right";
+}
+
+function saveHotkeyPriorityHand(hand) {
+  localStorage.setItem(HOTKEY_PRIORITY_HAND_KEY, hand);
+}
+
+const HOTKEY_HANDS = ["right", "left"];
 
 // Assignments are stored by ending text (not index) so they survive the
-// favorites list being reordered or extended.
+// favorites list being reordered or extended, and separately per hand so
+// each hand can be bound to different endings. `stick` defaults to cancel
+// on both hands (a deliberate press-in is a good "never mind" gesture); the
+// other four default to the first four favorites so there's something to
+// try out-of-the-box instead of every slot doing nothing until configured.
+function defaultHotkeyHandAssignments() {
+  return {
+    both: DEFAULT_ENDINGS[0].text,
+    grip: DEFAULT_ENDINGS[1].text,
+    trigger: DEFAULT_ENDINGS[2].text,
+    none: DEFAULT_ENDINGS[3].text,
+    stick: HOTKEY_CANCEL_ACTION,
+  };
+}
+
 function loadHotkeyAssignments() {
+  const defaults = { right: defaultHotkeyHandAssignments(), left: defaultHotkeyHandAssignments() };
   try {
     const raw = JSON.parse(localStorage.getItem(HOTKEY_ASSIGNMENTS_KEY) ?? "null");
-    if (raw && typeof raw === "object") return raw;
+    if (raw && typeof raw === "object") {
+      return {
+        right: { ...defaults.right, ...raw.right },
+        left: { ...defaults.left, ...raw.left },
+      };
+    }
   } catch {
     // fall through
   }
-  return { both: "", grip: "", trigger: "" };
+  return defaults;
 }
 
 function saveHotkeyAssignments(assignments) {
@@ -986,33 +1038,151 @@ function saveHotkeyAssignments(assignments) {
 
 function renderHotkeyAssignmentOptions() {
   const assignments = loadHotkeyAssignments();
-  for (const slot of ["both", "grip", "trigger"]) {
-    const select = document.querySelector(`#hotkey-${slot}`);
-    select.innerHTML = '<option value="">(未設定)</option>';
-    for (const ending of endings) {
-      const opt = document.createElement("option");
-      opt.value = ending.text;
-      opt.textContent = ending.text;
-      opt.selected = ending.text === assignments[slot];
-      select.appendChild(opt);
+  for (const hand of HOTKEY_HANDS) {
+    for (const slot of HOTKEY_SLOTS) {
+      const select = document.querySelector(`#hotkey-${hand}-${slot}`);
+      select.innerHTML = '<option value="">(未設定)</option><option value="__cancel__">送信取り消し</option>';
+      for (const ending of endings) {
+        const opt = document.createElement("option");
+        opt.value = ending.text;
+        opt.textContent = ending.text;
+        select.appendChild(opt);
+      }
+      // Falls back to "(未設定)" automatically if the saved value no longer
+      // matches any option (e.g. the assigned ending was since deleted).
+      select.value = assignments[hand][slot];
     }
   }
 }
 
+// Which of the four grip/trigger-combo slots a hand is currently making.
+// Excludes "stick" — that fires on press instead of after a hold (see
+// setupHotkeys()), since a quick click is often shorter than the
+// hold-debounce window below and was going unnoticed.
+function gestureFor(hand) {
+  if (hand.grip && hand.trigger) return "both";
+  if (hand.grip) return "grip";
+  if (hand.trigger) return "trigger";
+  return "none";
+}
+
+function newHotkeyHoldState() {
+  return {
+    candidateSlot: null, // most recent raw gesture reading, not yet committed
+    candidateSince: 0,
+    activeSlot: null, // one of both/grip/trigger/none, once debounced
+    activeSince: 0,
+    activeAssignment: "", // assignments[hand][activeSlot], cached when it last changed
+    firedForThisHold: false,
+    stickWasPressed: false,
+  };
+}
+
+// Hoisted to module scope (rather than local to setupHotkeys()) so that
+// createRecognition()'s onresult handler can reset the hold timers whenever
+// pendingFinalText changes — a fresh/appended Final means whatever hold was
+// in progress should restart from 0 rather than firing based on stale
+// timing. Each hand tracks its own independent state since they can now be
+// bound to different actions.
+let rightHotkeyHold = newHotkeyHoldState();
+let leftHotkeyHold = newHotkeyHoldState();
+
+// Called whenever the pending text changes (new Final, or one appended to
+// an existing pending Final) so an in-progress hold restarts against the
+// new content instead of firing on stale timing. Leaves stick-press edge
+// tracking alone — that's about physical button transitions, not content.
+function resetHotkeyHold() {
+  rightHotkeyHold.activeSlot = null;
+  rightHotkeyHold.candidateSlot = null;
+  leftHotkeyHold.activeSlot = null;
+  leftHotkeyHold.candidateSlot = null;
+}
+
+function fireHotkeyAssignment(assignment) {
+  if (assignment === HOTKEY_CANCEL_ACTION) {
+    pendingFinalText = "";
+    finalTextEl.textContent = "";
+  } else if (assignment) {
+    const ending = endings.find((e) => e.text === assignment);
+    if (ending) applyEnding(ending);
+  }
+}
+
+const HOTKEY_DEBOUNCE_MS = 100; // absorb single-poll blips in the raw grip/trigger state
+
+// Advances one hand's independent hold state machine by one tick: edge-fires
+// the stick, then debounces/holds the grip+trigger gesture against that
+// hand's own assignment table. Both hands run this every tick, so each can
+// fire its own action independently of what the other hand is doing.
+function processHandHotkey(hold, hand, handAssignments, now) {
+  if (hand.stick && !hold.stickWasPressed) {
+    fireHotkeyAssignment(handAssignments.stick);
+  }
+  hold.stickWasPressed = hand.stick;
+  if (!pendingFinalText) return; // the stick fire above may have just cleared it
+
+  const rawSlot = gestureFor(hand);
+  if (rawSlot !== hold.candidateSlot) {
+    hold.candidateSlot = rawSlot;
+    hold.candidateSince = now;
+  }
+  const slot = now - hold.candidateSince >= HOTKEY_DEBOUNCE_MS ? hold.candidateSlot : hold.activeSlot;
+
+  if (slot !== hold.activeSlot) {
+    hold.activeSlot = slot;
+    hold.activeSince = now;
+    hold.firedForThisHold = false;
+    hold.activeAssignment = handAssignments[slot] || "";
+  }
+
+  if (!hold.firedForThisHold && now - hold.activeSince >= hotkeyHoldMsCache) {
+    hold.firedForThisHold = true;
+    fireHotkeyAssignment(hold.activeAssignment);
+    hold.activeSlot = null;
+    hold.candidateSlot = null;
+  }
+}
+
+// Set by setupHotkeys() and updated live from its slider/radios; read by
+// processHandHotkey() above and the render loop below, both of which run
+// outside setupHotkeys()'s own closure timing-wise but are defined inside
+// it — module-level so the value assigned there is visible to itself.
+let hotkeyHoldMsCache = DEFAULT_HOTKEY_HOLD_MS;
+let hotkeyPriorityHandCache = "right";
+
 function setupHotkeys() {
   const statusEl = document.querySelector("#hotkey-status");
   const reconnectBtn = document.querySelector("#hotkey-reconnect-btn");
-  const selects = {
-    both: document.querySelector("#hotkey-both"),
-    grip: document.querySelector("#hotkey-grip"),
-    trigger: document.querySelector("#hotkey-trigger"),
-  };
+  const holdInput = document.querySelector("#hotkey-hold-duration-input");
+  const holdVal = document.querySelector("#hotkey-hold-duration-val");
 
-  for (const [slot, select] of Object.entries(selects)) {
-    select.addEventListener("change", () => {
-      const assignments = loadHotkeyAssignments();
-      assignments[slot] = select.value;
-      saveHotkeyAssignments(assignments);
+  for (const hand of HOTKEY_HANDS) {
+    for (const slot of HOTKEY_SLOTS) {
+      const select = document.querySelector(`#hotkey-${hand}-${slot}`);
+      select.addEventListener("change", () => {
+        const assignments = loadHotkeyAssignments();
+        assignments[hand][slot] = select.value;
+        saveHotkeyAssignments(assignments);
+      });
+    }
+  }
+
+  hotkeyHoldMsCache = loadHotkeyHoldMs();
+  holdInput.value = hotkeyHoldMsCache / 1000;
+  holdVal.textContent = `${(hotkeyHoldMsCache / 1000).toFixed(1)}秒`;
+  holdInput.addEventListener("input", () => {
+    hotkeyHoldMsCache = Math.round(Number(holdInput.value) * 1000);
+    holdVal.textContent = `${Number(holdInput.value).toFixed(1)}秒`;
+    saveHotkeyHoldMs(hotkeyHoldMsCache);
+  });
+
+  hotkeyPriorityHandCache = loadHotkeyPriorityHand();
+  for (const radio of document.querySelectorAll('input[name="hotkey-priority-hand"]')) {
+    radio.checked = radio.value === hotkeyPriorityHandCache;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      hotkeyPriorityHandCache = radio.value;
+      saveHotkeyPriorityHand(hotkeyPriorityHandCache);
     });
   }
 
@@ -1022,17 +1192,11 @@ function setupHotkeys() {
     statusEl.textContent = ok ? "VR: 接続済み" : "VR: 未接続";
   });
 
-  const HOTKEY_DEBOUNCE_MS = 100; // absorb single-poll blips in the raw grip/trigger state
-
-  let candidateSlot = null; // most recent raw reading, not yet committed
-  let candidateSince = 0;
-  let activeSlot = null; // which combo (if any) is currently held, once debounced
-  let activeSince = 0;
-  let firedForThisHold = false;
-  let lastActivityAt = 0; // last moment grip or trigger was pressed, since Final became pending
   let overlayShown = false; // avoids spamming hide calls every frame while idle
+  let langTagShown = false; // same, for the separate language-tag overlay
   let tickInFlight = false; // setInterval doesn't wait for the previous async tick's IPC round-trip
   let vrAvailable = false; // updated by the poll below, read by the render loop
+  let leftAWasPressed = false; // left controller's lower face button (X on Quest) — toggles STT start/stop
 
   setInterval(async () => {
     if (tickInFlight) return;
@@ -1053,51 +1217,31 @@ function setupHotkeys() {
       statusEl.textContent = "VR: 接続済み";
       vrAvailable = true;
 
+      // Left controller's lower face button (X on Quest) toggles
+      // recognition start/stop, independent of whether a Final is pending —
+      // unless VRChat mute sync is on, in which case VRC's own mic mute
+      // state is the only thing allowed to start/stop recognition, so this
+      // is disabled entirely to avoid the two fighting each other.
+      if (hotkeyState.left.a && !leftAWasPressed && !loadVrcMuteSync()) {
+        if (armed) stopGoogleStt();
+        else startGoogleStt();
+      }
+      leftAWasPressed = hotkeyState.left.a;
+
       if (!pendingFinalText) {
-        activeSlot = null;
-        candidateSlot = null;
+        resetHotkeyHold();
+        rightHotkeyHold.stickWasPressed = hotkeyState.right.stick;
+        leftHotkeyHold.stickWasPressed = hotkeyState.left.stick;
         return;
       }
 
-      const { grip, trigger } = hotkeyState;
-      const rawSlot = grip && trigger ? "both" : grip ? "grip" : trigger ? "trigger" : null;
+      const assignments = loadHotkeyAssignments();
       const now = Date.now();
-
-      // The raw reading only "counts" once it's held steady for
-      // HOTKEY_DEBOUNCE_MS; a single flaky poll (SteamVR's legacy controller
-      // state is noisy) keeps whichever combo was already active instead of
-      // resetting progress or flickering the overlay off.
-      if (rawSlot !== candidateSlot) {
-        candidateSlot = rawSlot;
-        candidateSince = now;
-      }
-      const slot = now - candidateSince >= HOTKEY_DEBOUNCE_MS ? candidateSlot : activeSlot;
-
-      if (slot) lastActivityAt = now;
-      else if (lastActivityAt === 0) lastActivityAt = now; // first tick since Final appeared
-
-      if (slot !== activeSlot) {
-        activeSlot = slot;
-        activeSince = now;
-        firedForThisHold = false;
-      }
-
-      if (slot && !firedForThisHold && now - activeSince >= HOTKEY_HOLD_MS) {
-        firedForThisHold = true;
-        const assignments = loadHotkeyAssignments();
-        const ending = endings.find((e) => e.text === assignments[slot]);
-        if (ending) applyEnding(ending);
-        lastActivityAt = 0;
-        activeSlot = null;
-        candidateSlot = null;
-        return;
-      }
-
-      if (!slot && now - lastActivityAt >= HOTKEY_ABANDON_MS) {
-        pendingFinalText = "";
-        finalTextEl.textContent = "";
-        lastActivityAt = 0;
-      }
+      processHandHotkey(rightHotkeyHold, hotkeyState.right, assignments.right, now);
+      // The right hand's processing above may have just fired (sent an
+      // ending or discarded), clearing pendingFinalText — don't let the
+      // left hand act on now-stale text in the same tick.
+      if (pendingFinalText) processHandHotkey(leftHotkeyHold, hotkeyState.left, assignments.left, now);
     } finally {
       tickInFlight = false;
     }
@@ -1106,12 +1250,12 @@ function setupHotkeys() {
   // Renders on its own fast timer instead of the much coarser hotkey-poll
   // cadence above, so the progress bar advances smoothly instead of visibly
   // stepping every 50ms. Only interpolates elapsed time against whatever
-  // activeSlot/activeSince/lastActivityAt the poll loop above last computed
-  // — it never re-reads the controller itself, so it stays cheap even at a
-  // high rate. Uses setInterval rather than requestAnimationFrame because
-  // rAF is capped to the desktop monitor's refresh rate (commonly 60Hz),
-  // which is slower than the VR headset's — the HUD is seen in the
-  // headset, not on the desktop window, so there's no reason to cap there.
+  // the poll loop above last computed for each hand — it never re-reads the
+  // controller itself, so it stays cheap even at a high rate. Uses
+  // setInterval rather than requestAnimationFrame because rAF is capped to
+  // the desktop monitor's refresh rate (commonly 60Hz), which is slower
+  // than the VR headset's — the HUD is seen in the headset, not on the
+  // desktop window, so there's no reason to cap there.
   const OVERLAY_RENDER_MS = 8; // ~125Hz
   let renderInFlight = false;
 
@@ -1119,25 +1263,202 @@ function setupHotkeys() {
     if (renderInFlight) return;
     renderInFlight = true;
 
-    let promise;
+    const now = Date.now();
+
+    let boxPromise = null;
     if (vrAvailable && pendingFinalText) {
       overlayShown = true;
-      const now = Date.now();
-      const progress = activeSlot
-        ? { isSend: true, fraction: (now - activeSince) / HOTKEY_HOLD_MS }
-        : { isSend: false, fraction: (now - lastActivityAt) / HOTKEY_ABANDON_MS };
-      promise = window.__TAURI__.core.invoke("update_overlay", { text: pendingFinalText, progress });
+      // Both hands can be mid-hold at once with different actions; only one
+      // can be shown, so the priority hand wins when both have something
+      // assigned to their current gesture, falling back to whichever one
+      // does if only one does. Green = this hold will send an ending (with
+      // a preview of that ending shown below the main text), red = it'll
+      // discard, no bar at all if neither hand's current gesture is
+      // assigned to anything.
+      const priorityHold = hotkeyPriorityHandCache === "left" ? leftHotkeyHold : rightHotkeyHold;
+      const otherHold = hotkeyPriorityHandCache === "left" ? rightHotkeyHold : leftHotkeyHold;
+      const display = priorityHold.activeAssignment ? priorityHold : otherHold.activeAssignment ? otherHold : null;
+      let progress = null;
+      let endingPreview = null;
+      if (display && display.activeAssignment === HOTKEY_CANCEL_ACTION) {
+        progress = { isSend: false, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
+      } else if (display) {
+        progress = { isSend: true, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
+        endingPreview = display.activeAssignment;
+      }
+      boxPromise = window.__TAURI__.core.invoke("update_overlay", {
+        text: pendingFinalText,
+        endingPreview,
+        progress,
+      });
     } else if (overlayShown) {
       overlayShown = false;
-      promise = window.__TAURI__.core.invoke("update_overlay", { text: "", progress: null });
-    } else {
+      boxPromise = window.__TAURI__.core.invoke("update_overlay", {
+        text: "",
+        endingPreview: null,
+        progress: null,
+      });
+    }
+
+    // The language tag is a separate overlay positioned relative to the
+    // box's own (unchanged) geometry — it flashes on its own schedule and
+    // doesn't need the confirm/discard box to be showing.
+    let tagPromise = null;
+    const langTagActive = vrAvailable && now < langTagUntil;
+    if (langTagActive) {
+      langTagShown = true;
+      tagPromise = window.__TAURI__.core.invoke("update_lang_tag", {
+        label: langTagLabel,
+        elapsedSecs: (now - langTagShownAt) / 1000,
+      });
+    } else if (langTagShown) {
+      langTagShown = false;
+      tagPromise = window.__TAURI__.core.invoke("update_lang_tag", { label: null, elapsedSecs: 0 });
+    }
+
+    if (!boxPromise && !tagPromise) {
       renderInFlight = false;
       return;
     }
-    promise.catch((err) => log(`[overlay] ${err}`)).finally(() => {
-      renderInFlight = false;
-    });
+    Promise.all([boxPromise, tagPromise].filter(Boolean))
+      .catch((err) => log(`[overlay] ${err}`))
+      .finally(() => {
+        renderInFlight = false;
+      });
   }, OVERLAY_RENDER_MS);
+}
+
+const VRC_MUTE_SYNC_KEY = "mutelink.vrcMuteSync";
+
+function loadVrcMuteSync() {
+  return localStorage.getItem(VRC_MUTE_SYNC_KEY) === "true";
+}
+
+function saveVrcMuteSync(enabled) {
+  localStorage.setItem(VRC_MUTE_SYNC_KEY, String(enabled));
+}
+
+// While mute sync is on, VRChat's own mic mute state should be the only
+// thing that starts/stops recognition — both the left controller's X button
+// (see setupHotkeys()) and this on-screen button are locked out so they
+// can't fight with it.
+function applyVrcMuteSyncLock(enabled) {
+  googleBtn.disabled = enabled;
+  googleBtn.title = enabled ? "VRChatのマイク連動が有効なため無効化されています" : "";
+}
+
+// A quick mute→unmute (VRChat's own mic button, under this threshold) cycles
+// the recognition language instead of just restarting recognition — a
+// deliberate double-tap-style gesture, easy to do without touching the
+// desktop window. A slower mute→unmute is treated as a normal toggle and
+// leaves the language exactly as it was.
+const VRC_MUTE_SYNC_CYCLE_THRESHOLD_MS = 2000;
+const STT_LANG_ORDER = ["ja-JP", "en-US", "zh-CN"];
+const VRC_MUTE_SYNC_LANGS_KEY = "mutelink.vrcMuteSyncLangs";
+
+function loadVrcMuteSyncLangs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(VRC_MUTE_SYNC_LANGS_KEY) ?? "null");
+    if (Array.isArray(raw) && raw.length > 0) return raw.filter((lang) => STT_LANG_ORDER.includes(lang));
+  } catch {
+    // fall through
+  }
+  return [...STT_LANG_ORDER]; // default: cycle through all three
+}
+
+function saveVrcMuteSyncLangs(langs) {
+  localStorage.setItem(VRC_MUTE_SYNC_LANGS_KEY, JSON.stringify(langs));
+}
+
+function setSttLang(lang) {
+  const radio = document.querySelector(`input[name="stt-lang"][value="${lang}"]`);
+  if (radio) radio.checked = true;
+}
+
+// Hoisted to module scope: set here, read by setupHotkeys()'s overlay
+// render loop, which is defined in a different function but needs to know
+// whether a language switch just happened to flash the "EN"/"JP"/"CN" tag
+// in VR — even if there's no pending Final (and so no confirm/discard box)
+// at the moment the switch occurs.
+let langTagLabel = null;
+let langTagShownAt = 0;
+let langTagUntil = 0;
+// Matches overlay.rs's render_lang_tag animation: pop-in/settle finishes by
+// 0.3s, holds fully opaque until 2.5s, then fades out linearly through 3.5s.
+const LANG_TAG_DISPLAY_MS = 3500;
+const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN" };
+
+function flashLangTag(lang) {
+  langTagLabel = STT_LANG_TAG_LABELS[lang] ?? null;
+  langTagShownAt = Date.now();
+  langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
+}
+
+// Advances to the next language after the currently-selected one, among
+// only the languages enabled in settings, wrapping back to the first. Falls
+// back to the first enabled language if the current one isn't in the
+// enabled set (e.g. it was unchecked in settings since it was picked).
+function cycleSttLang() {
+  const enabledOrder = STT_LANG_ORDER.filter((lang) => loadVrcMuteSyncLangs().includes(lang));
+  if (enabledOrder.length === 0) return;
+  const currentIndex = enabledOrder.indexOf(getSttLang());
+  const next = enabledOrder[(currentIndex + 1) % enabledOrder.length];
+  setSttLang(next);
+  flashLangTag(next);
+}
+
+// The Rust side listens for VRChat's own OSC output (127.0.0.1:9001,
+// separate from the port we send chatbox text to) and forwards
+// /avatar/parameters/MuteSelf — a built-in parameter VRChat always sends,
+// not something specific to any one avatar — as this event, regardless of
+// whether the toggle below is on. Only react to it here so flipping the
+// toggle doesn't need to restart any listener.
+function setupVrcMuteSync() {
+  const toggle = document.querySelector("#vrc-mute-sync-toggle");
+  toggle.checked = loadVrcMuteSync();
+  applyVrcMuteSyncLock(toggle.checked);
+  // Rust doesn't bind VRChat's OSC output port (9001) at all unless this is
+  // on — sync the listener's running state to whatever was last saved, and
+  // again on every change, instead of it always running in the background.
+  window.__TAURI__.core.invoke("set_vrc_mute_sync", { enabled: toggle.checked });
+  toggle.addEventListener("change", () => {
+    saveVrcMuteSync(toggle.checked);
+    applyVrcMuteSyncLock(toggle.checked);
+    window.__TAURI__.core.invoke("set_vrc_mute_sync", { enabled: toggle.checked });
+  });
+
+  const enabledLangs = loadVrcMuteSyncLangs();
+  for (const checkbox of document.querySelectorAll('input[name="vrc-mute-sync-lang"]')) {
+    checkbox.checked = enabledLangs.includes(checkbox.value);
+    checkbox.addEventListener("change", () => {
+      const langs = [...document.querySelectorAll('input[name="vrc-mute-sync-lang"]:checked')].map((c) => c.value);
+      saveVrcMuteSyncLangs(langs);
+    });
+  }
+
+  let lastMuteAt = 0;
+
+  window.__TAURI__.event.listen("vrc-mute-changed", (event) => {
+    if (!loadVrcMuteSync()) return;
+    const muted = event.payload;
+    const now = Date.now();
+
+    if (muted) {
+      lastMuteAt = now;
+      if (armed) stopGoogleStt();
+      return;
+    }
+
+    if (lastMuteAt && now - lastMuteAt < VRC_MUTE_SYNC_CYCLE_THRESHOLD_MS) {
+      cycleSttLang();
+    } else if (loadVrcMuteSyncLangs().length > 1) {
+      // Nothing changed this time, but with more than one language enabled
+      // for rotation, showing which one is currently active on every unmute
+      // (not just when a cycle just switched it) avoids having to guess.
+      flashLangTag(getSttLang());
+    }
+    if (!armed) startGoogleStt();
+  });
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -1160,6 +1481,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupEndings();
   setupSettingsDialog();
   setupHotkeys();
+  setupVrcMuteSync();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {
