@@ -14,46 +14,92 @@
         <span class="titlebar-title">Mutelink</span>
       </div>
       <div class="titlebar-controls">
-        <button id="titlebar-minimize" class="titlebar-btn" title="最小化" aria-label="最小化">&#x2013;</button>
-        <button id="titlebar-maximize" class="titlebar-btn" title="最大化" aria-label="最大化">&#x25A1;</button>
-        <button id="titlebar-close" class="titlebar-btn titlebar-btn-close" title="閉じる" aria-label="閉じる">&#x2715;</button>
+        <button
+          id="titlebar-minimize"
+          class="titlebar-btn"
+          title="最小化"
+          aria-label="最小化"
+          data-i18n-title="minimize"
+          data-i18n-aria-label="minimize"
+        >
+          &#x2013;
+        </button>
+        <button
+          id="titlebar-maximize"
+          class="titlebar-btn"
+          title="最大化"
+          aria-label="最大化"
+          data-i18n-title="maximize"
+          data-i18n-aria-label="maximize"
+        >
+          &#x25A1;
+        </button>
+        <button
+          id="titlebar-close"
+          class="titlebar-btn titlebar-btn-close"
+          title="閉じる"
+          aria-label="閉じる"
+          data-i18n-title="close"
+          data-i18n-aria-label="close"
+        >
+          &#x2715;
+        </button>
       </div>
     </div>
 
     <dialog id="settings-dialog">
       <div class="settings-layout">
         <nav class="settings-sidebar">
-          <button class="settings-nav-btn" data-panel="general">General</button>
-          <button class="settings-nav-btn" data-panel="character">キャラクター</button>
-          <button class="settings-nav-btn" data-panel="endings">語尾</button>
-          <button class="settings-nav-btn" data-panel="device">Device</button>
-          <button class="settings-nav-btn" data-panel="appearance">Appearance</button>
-          <button class="settings-nav-btn" data-panel="hotkey">Hotkey</button>
-          <button class="settings-nav-btn" data-panel="other">Other</button>
-          <button id="settings-close-btn" class="settings-close-btn" aria-label="閉じる">&#x2715;</button>
+          <button class="settings-nav-btn" data-panel="general" data-i18n="navGeneral">General</button>
+          <button class="settings-nav-btn" data-panel="character" data-i18n="navCharacter">キャラクター</button>
+          <button class="settings-nav-btn" data-panel="endings" data-i18n="navEndings">語尾</button>
+          <button class="settings-nav-btn" data-panel="device" data-i18n="navDevice">Device</button>
+          <button class="settings-nav-btn" data-panel="appearance" data-i18n="navAppearance">Appearance</button>
+          <button class="settings-nav-btn" data-panel="hotkey" data-i18n="navHotkey">Hotkey</button>
+          <button class="settings-nav-btn" data-panel="other" data-i18n="navOther">Other</button>
+          <button
+            id="settings-close-btn"
+            class="settings-close-btn"
+            aria-label="閉じる"
+            data-i18n-aria-label="close"
+          >
+            &#x2715;
+          </button>
         </nav>
         <div class="settings-content">
           <section class="settings-panel" data-panel="general">
-            <h2>General</h2>
+            <h2 data-i18n="navGeneral">General</h2>
 
-            <h3>リセット</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="uiLangLabel">UIの言語</span>
+              <select id="ui-lang-select">
+                <option value="ja">日本語</option>
+                <option value="en">English</option>
+                <option value="zh">中文</option>
+                <option value="ko">한국어</option>
+              </select>
+            </div>
+
+            <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
-              <button id="settings-reset-btn" class="danger-btn" type="button">設定を全てリセット</button>
+              <button id="settings-reset-btn" class="danger-btn" type="button" data-i18n="resetButton">
+                設定を全てリセット
+              </button>
             </div>
           </section>
 
           <section class="settings-panel" data-panel="character">
-            <h2>キャラクター</h2>
+            <h2 data-i18n="navCharacter">キャラクター</h2>
 
-            <h3>出力音声キャラクター</h3>
+            <h3 data-i18n="characterHeading">出力音声キャラクター</h3>
             <p class="hint" id="current-character-label">読み込み中...</p>
             <div id="character-catalog-list" class="ending-settings-list"></div>
           </section>
 
           <section class="settings-panel" data-panel="endings">
-            <h2>語尾</h2>
+            <h2 data-i18n="navEndings">語尾</h2>
 
-            <p class="hint">
+            <p class="hint" data-i18n="endingsHint">
               語尾は1〜10の番号で固定されたスロットです。ホットキーは番号で語尾を参照するので、ここでテキストを書き換えると、その番号を割り当てているホットキーの内容もすぐに切り替わります。番号がすでにどこかのホットキーに割り当てられている場合、行に「→ 右手: トリガーのみ」のように表示されます。語尾ごとに、送信時にVOICEVOXでその語尾を読み上げるかどうかと、読み上げる場合の読み方も設定できます(既定はオフ = 元のテキストだけ読み上げ)。絵文字や顔文字はそのままだと発音が崩れるので、読み方欄にひらがな/カタカナなどを入力してください。
             </p>
 
@@ -61,11 +107,11 @@
           </section>
 
           <section class="settings-panel" data-panel="device">
-            <h2>Device</h2>
+            <h2 data-i18n="navDevice">Device</h2>
 
-            <h3>マイク</h3>
+            <h3 data-i18n="micHeading">マイク</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">自動選択</span>
+              <span class="settings-list-label" data-i18n="autoSelect">自動選択</span>
               <label class="switch">
                 <input type="checkbox" id="mic-auto-toggle" checked />
                 <span class="switch-track"></span>
@@ -73,9 +119,9 @@
             </div>
             <div id="mic-device-list" class="device-list"></div>
 
-            <h3>スピーカー</h3>
+            <h3 data-i18n="speakerHeading">スピーカー</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">自動選択</span>
+              <span class="settings-list-label" data-i18n="autoSelect">自動選択</span>
               <label class="switch">
                 <input type="checkbox" id="speaker-auto-toggle" checked />
                 <span class="switch-track"></span>
@@ -85,19 +131,26 @@
           </section>
 
           <section class="settings-panel" data-panel="appearance">
-            <h2>Appearance</h2>
+            <h2 data-i18n="navAppearance">Appearance</h2>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">カラーモード</span>
+              <span class="settings-list-label" data-i18n="colorModeLabel">カラーモード</span>
               <div class="settings-radio-row">
-                <label><input type="radio" name="theme" value="system" checked /> システム既定</label>
-                <label><input type="radio" name="theme" value="light" /> ライト</label>
-                <label><input type="radio" name="theme" value="dark" /> ダーク</label>
+                <label
+                  ><input type="radio" name="theme" value="system" checked />
+                  <span data-i18n="themeSystem">システム既定</span></label
+                >
+                <label
+                  ><input type="radio" name="theme" value="light" /> <span data-i18n="themeLight">ライト</span></label
+                >
+                <label
+                  ><input type="radio" name="theme" value="dark" /> <span data-i18n="themeDark">ダーク</span></label
+                >
               </div>
             </div>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">UIサイズ</span>
+              <span class="settings-list-label" data-i18n="uiScaleLabel">UIサイズ</span>
               <div class="slider-wrap">
                 <input type="range" id="ui-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
                 <div class="slider-ticks" id="ui-scale-ticks"></div>
@@ -105,7 +158,7 @@
             </div>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">フォントサイズ</span>
+              <span class="settings-list-label" data-i18n="fontScaleLabel">フォントサイズ</span>
               <div class="slider-wrap">
                 <input type="range" id="font-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
                 <div class="slider-ticks" id="font-scale-ticks"></div>
@@ -113,9 +166,9 @@
             </div>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">フォント</span>
+              <span class="settings-list-label" data-i18n="fontFamilyLabel">フォント</span>
               <select id="font-family-select">
-                <option value="">既定</option>
+                <option value="" data-i18n="fontDefault">既定</option>
                 <option value="'Yu Gothic', sans-serif">游ゴシック</option>
                 <option value="'Meiryo', sans-serif">メイリオ</option>
                 <option value="'MS Gothic', monospace">MSゴシック</option>
@@ -125,10 +178,10 @@
           </section>
 
           <section class="settings-panel" data-panel="hotkey">
-            <h2>Hotkey</h2>
+            <h2 data-i18n="navHotkey">Hotkey</h2>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">保持時間</span>
+              <span class="settings-list-label" data-i18n="holdDurationLabel">保持時間</span>
               <div class="hotkey-hold-duration-control">
                 <input type="range" id="hotkey-hold-duration-input" min="0.3" max="3" step="0.1" value="1" />
                 <span id="hotkey-hold-duration-val" class="hotkey-hold-duration-val">1.0秒</span>
@@ -136,92 +189,99 @@
             </div>
 
             <div class="settings-list-row">
-              <span class="settings-list-label">優先する手</span>
+              <span class="settings-list-label" data-i18n="priorityHandLabel">優先する手</span>
               <div class="settings-radio-row">
-                <label><input type="radio" name="hotkey-priority-hand" value="right" checked /> 右手</label>
-                <label><input type="radio" name="hotkey-priority-hand" value="left" /> 左手</label>
+                <label
+                  ><input type="radio" name="hotkey-priority-hand" value="right" checked />
+                  <span data-i18n="handRight">右手</span></label
+                >
+                <label
+                  ><input type="radio" name="hotkey-priority-hand" value="left" />
+                  <span data-i18n="handLeft">左手</span></label
+                >
               </div>
             </div>
 
-            <p class="hint">
-              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。
+            <p class="hint" data-i18n="hotkeyHint">
+              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→한국어→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。
             </p>
 
             <div class="settings-list-row">
               <span class="settings-list-label" id="hotkey-status">VR: 未接続</span>
-              <button id="hotkey-reconnect-btn" type="button">再接続</button>
+              <button id="hotkey-reconnect-btn" type="button" data-i18n="reconnectButton">再接続</button>
             </div>
 
-            <h3>右手</h3>
+            <h3 data-i18n="handRight">右手</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">グリップ+トリガー</span>
+              <span class="settings-list-label" data-i18n="slotBoth">グリップ+トリガー</span>
               <select id="hotkey-right-both"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">グリップのみ</span>
+              <span class="settings-list-label" data-i18n="slotGrip">グリップのみ</span>
               <select id="hotkey-right-grip"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">トリガーのみ</span>
+              <span class="settings-list-label" data-i18n="slotTrigger">トリガーのみ</span>
               <select id="hotkey-right-trigger"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">どちらも押していない</span>
+              <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>
               <select id="hotkey-right-none"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">スティック押し込み</span>
+              <span class="settings-list-label" data-i18n="slotStick">スティック押し込み</span>
               <select id="hotkey-right-stick"></select>
             </div>
 
-            <h3>左手</h3>
+            <h3 data-i18n="handLeft">左手</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">グリップ+トリガー</span>
+              <span class="settings-list-label" data-i18n="slotBoth">グリップ+トリガー</span>
               <select id="hotkey-left-both"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">グリップのみ</span>
+              <span class="settings-list-label" data-i18n="slotGrip">グリップのみ</span>
               <select id="hotkey-left-grip"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">トリガーのみ</span>
+              <span class="settings-list-label" data-i18n="slotTrigger">トリガーのみ</span>
               <select id="hotkey-left-trigger"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">どちらも押していない</span>
+              <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>
               <select id="hotkey-left-none"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label">スティック押し込み</span>
+              <span class="settings-list-label" data-i18n="slotStick">スティック押し込み</span>
               <select id="hotkey-left-stick"></select>
             </div>
           </section>
 
           <section class="settings-panel" data-panel="other">
-            <h2>Other</h2>
+            <h2 data-i18n="navOther">Other</h2>
 
-            <h3>読み上げ言語</h3>
+            <h3 data-i18n="ttsLangHeading">読み上げ言語</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">VOICEVOXで読み上げる言語</span>
+              <span class="settings-list-label" data-i18n="ttsLangListLabel">VOICEVOXで読み上げる言語</span>
               <div class="settings-radio-row">
                 <label><input type="checkbox" name="tts-lang" value="ja-JP" checked /> 日本語</label>
                 <label><input type="checkbox" name="tts-lang" value="en-US" checked /> English</label>
                 <label><input type="checkbox" name="tts-lang" value="zh-CN" checked /> 中文</label>
+                <label><input type="checkbox" name="tts-lang" value="ko-KR" checked /> 한국어</label>
               </div>
             </div>
-            <p class="hint">
-              オフにした言語は認識結果をVOICEVOXに送らず、読み上げをスキップします。English/中文はOpenJTalk(VOICEVOXのテキスト解析)が対応していないため発音が崩れますが、そのまま送信されます。
+            <p class="hint" data-i18n="ttsLangHint">
+              オフにした言語は認識結果をVOICEVOXに送らず、読み上げをスキップします。English/中文/한국어はOpenJTalk(VOICEVOXのテキスト解析)が対応していないため発音が崩れますが、そのまま送信されます。
             </p>
 
-            <h3>VOICEVOXテスト</h3>
+            <h3 data-i18n="voicevoxTestHeading">VOICEVOXテスト</h3>
             <div class="row">
               <input id="voicevox-text" size="28" value="こんにちは" />
-              <button id="voicevox-btn" type="button">Speak</button>
+              <button id="voicevox-btn" type="button" data-i18n="speakButton">Speak</button>
             </div>
             <p id="voicevox-status" class="hint">idle</p>
             <select id="voicevox-outputs" multiple hidden></select>
 
-            <h3>ログ</h3>
+            <h3 data-i18n="logHeading">ログ</h3>
             <div id="log" class="log-panel"></div>
           </section>
         </div>
@@ -232,7 +292,7 @@
       <div class="confirm-dialog-inner">
         <p id="confirm-dialog-message"></p>
         <div class="row confirm-dialog-actions">
-          <button id="confirm-dialog-cancel" type="button">キャンセル</button>
+          <button id="confirm-dialog-cancel" type="button" data-i18n="cancelButton">キャンセル</button>
           <button id="confirm-dialog-ok" type="button" class="danger-btn">OK</button>
         </div>
       </div>
@@ -259,14 +319,25 @@
         <label><input type="radio" name="stt-lang" value="ja-JP" /> 日本語</label>
         <label><input type="radio" name="stt-lang" value="en-US" /> English</label>
         <label><input type="radio" name="stt-lang" value="zh-CN" /> 中文</label>
-        <label><input type="radio" name="stt-lang" value="off" checked /> オフ</label>
+        <label><input type="radio" name="stt-lang" value="ko-KR" /> 한국어</label>
+        <label><input type="radio" name="stt-lang" value="off" checked /> <span data-i18n="sttOff">オフ</span></label>
       </div>
 
       <div class="ending-grid desktop-hidden" id="ending-buttons"></div>
 
       <div class="control-bar">
-        <button id="settings-btn" class="round-btn" type="button" title="設定" aria-label="設定">⚙</button>
-        <button id="mode-toggle-btn" class="round-btn" type="button" aria-pressed="false">Auto</button>
+        <button
+          id="settings-btn"
+          class="round-btn"
+          type="button"
+          title="設定"
+          aria-label="設定"
+          data-i18n-title="settingsLabel"
+          data-i18n-aria-label="settingsLabel"
+        >
+          ⚙
+        </button>
+        <button id="mode-toggle-btn" class="round-btn" type="button" aria-pressed="false" data-i18n="autoLabel">Auto</button>
         <button id="chatbox-toggle-btn" class="round-btn active" type="button" aria-pressed="true">Chatbox</button>
         <button id="tts-toggle-btn" class="round-btn active" type="button" aria-pressed="true">TTS</button>
       </div>

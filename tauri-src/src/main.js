@@ -1,3 +1,236 @@
+// UI localization (independent of STT/TTS recognition language — this is
+// the app's own chrome: labels, hints, buttons, dynamic status text). Each
+// entry is one distinct source string, keyed by a short id and reused
+// everywhere that exact string appeared before this existed. Language *names*
+// themselves (日本語/English/中文/한국어, and font family names) are
+// deliberately left untranslated — those are proper nouns that always read
+// the same regardless of UI language, matching how language pickers work
+// almost everywhere.
+const I18N = {
+  minimize: { ja: "最小化", en: "Minimize", zh: "最小化", ko: "최소화" },
+  maximize: { ja: "最大化", en: "Maximize", zh: "最大化", ko: "최대화" },
+  close: { ja: "閉じる", en: "Close", zh: "关闭", ko: "닫기" },
+
+  navGeneral: { ja: "一般", en: "General", zh: "常规", ko: "일반" },
+  navCharacter: { ja: "キャラクター", en: "Character", zh: "角色", ko: "캐릭터" },
+  navEndings: { ja: "語尾", en: "Endings", zh: "语尾", ko: "어미" },
+  navDevice: { ja: "デバイス", en: "Device", zh: "设备", ko: "장치" },
+  navAppearance: { ja: "外観", en: "Appearance", zh: "外观", ko: "외관" },
+  navHotkey: { ja: "ホットキー", en: "Hotkey", zh: "快捷键", ko: "단축키" },
+  navOther: { ja: "その他", en: "Other", zh: "其他", ko: "기타" },
+
+  resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
+  resetButton: { ja: "設定を全てリセット", en: "Reset all settings", zh: "重置所有设置", ko: "모든 설정 초기화" },
+  resetConfirm: {
+    ja: "設定を全てリセットします。よろしいですか？",
+    en: "This will reset all settings. Continue?",
+    zh: "将重置所有设置，确定吗？",
+    ko: "모든 설정을 초기화합니다. 계속하시겠습니까?",
+  },
+
+  characterHeading: {
+    ja: "出力音声キャラクター",
+    en: "Output Voice Character",
+    zh: "输出语音角色",
+    ko: "출력 음성 캐릭터",
+  },
+  loading: { ja: "読み込み中...", en: "Loading...", zh: "加载中...", ko: "불러오는 중..." },
+  characterLoadFailedPrefix: {
+    ja: "読み込みに失敗しました: ",
+    en: "Failed to load: ",
+    zh: "加载失败：",
+    ko: "불러오기 실패: ",
+  },
+  currentVoicePrefix: { ja: "現在の音声: ", en: "Current voice: ", zh: "当前语音：", ko: "현재 음성: " },
+  currentVoiceUnset: { ja: "未設定", en: "Not set", zh: "未设置", ko: "미설정" },
+  downloaded: { ja: "追加済み", en: "Added", zh: "已添加", ko: "추가됨" },
+  notDownloaded: { ja: "未追加", en: "Not added", zh: "未添加", ko: "추가 안 됨" },
+  addSiblingsHintPrefix: {
+    ja: "追加すると同じ音声データに含まれる次のキャラも一緒に追加されます: ",
+    en: "Adding this will also add these characters bundled in the same voice data: ",
+    zh: "添加后将同时添加同一语音数据中包含的以下角色：",
+    ko: "추가하면 같은 음성 데이터에 포함된 다음 캐릭터도 함께 추가됩니다: ",
+  },
+  addAloneHint: {
+    ja: "このキャラクターはまだ追加されていません。",
+    en: "This character hasn't been added yet.",
+    zh: "此角色尚未添加。",
+    ko: "이 캐릭터는 아직 추가되지 않았습니다.",
+  },
+  addButton: { ja: "追加", en: "Add", zh: "添加", ko: "추가" },
+  downloadingButton: { ja: "ダウンロード中...", en: "Downloading...", zh: "下载中...", ko: "다운로드 중..." },
+
+  endingsHint: {
+    ja: "語尾は1〜10の番号で固定されたスロットです。ホットキーは番号で語尾を参照するので、ここでテキストを書き換えると、その番号を割り当てているホットキーの内容もすぐに切り替わります。番号がすでにどこかのホットキーに割り当てられている場合、行に「→ 右手: トリガーのみ」のように表示されます。語尾ごとに、送信時にVOICEVOXでその語尾を読み上げるかどうかと、読み上げる場合の読み方も設定できます(既定はオフ = 元のテキストだけ読み上げ)。絵文字や顔文字はそのままだと発音が崩れるので、読み方欄にひらがな/カタカナなどを入力してください。",
+    en: 'Endings are 10 fixed slots numbered 1-10. Hotkeys reference an ending by its number, so editing the text here immediately updates any hotkey assigned to that number. If a number is already assigned to a hotkey, the row shows it directly, e.g. "→ Right hand: Trigger only". For each ending you can also choose whether VOICEVOX reads it aloud when sent, and what to read instead (off by default — only the original text is read). Emoji and kaomoji tend to be mispronounced as-is, so enter a phonetic reading (hiragana/katakana, etc.) in the reading field.',
+    zh: "语尾固定为1〜10号共10个位置。快捷键通过编号引用语尾，所以在这里修改文本后，指定该编号的快捷键内容也会立即更新。如果某个编号已被某个快捷键使用，该行会直接显示，例如「→ 右手：仅扳机」。每个语尾还可以单独设置发送时VOICEVOX是否朗读该语尾，以及朗读时使用的读音(默认关闭 = 只朗读原文)。表情符号和颜文字直接朗读容易发音错误，请在读音栏中输入平假名/片假名等。",
+    ko: "어미는 1~10번으로 고정된 슬롯입니다. 단축키는 번호로 어미를 참조하므로, 여기서 텍스트를 수정하면 그 번호가 할당된 단축키의 내용도 바로 바뀝니다. 번호가 이미 어떤 단축키에 할당되어 있으면 행에 「→ 오른손: 트리거만」과 같이 바로 표시됩니다. 어미별로 전송 시 VOICEVOX가 그 어미를 읽을지 여부와, 읽을 경우의 읽는 방법도 설정할 수 있습니다(기본값은 꺼짐 = 원문만 읽음). 이모지나 이모티콘은 그대로면 발음이 깨지므로, 읽는 방법 칸에 히라가나/가타카나 등을 입력하세요.",
+  },
+
+  endingTextFieldLabel: { ja: "テキスト", en: "Text", zh: "文本", ko: "텍스트" },
+  endingSpeakLabel: { ja: "読み上げる", en: "Speak aloud", zh: "朗读", ko: "읽어주기" },
+  endingReadingLabel: { ja: "読み方", en: "Reading", zh: "读音", ko: "읽는 방법" },
+  paramSpeed: { ja: "話速", en: "Speed", zh: "语速", ko: "속도" },
+  paramPitch: { ja: "音高", en: "Pitch", zh: "音高", ko: "음높이" },
+  paramIntonation: { ja: "抑揚", en: "Intonation", zh: "抑扬", ko: "억양" },
+  paramVolume: { ja: "音量", en: "Volume", zh: "音量", ko: "음량" },
+
+  micHeading: { ja: "マイク", en: "Microphone", zh: "麦克风", ko: "마이크" },
+  autoSelect: { ja: "自動選択", en: "Auto-select", zh: "自动选择", ko: "자동 선택" },
+  speakerHeading: { ja: "スピーカー", en: "Speaker", zh: "扬声器", ko: "스피커" },
+
+  colorModeLabel: { ja: "カラーモード", en: "Color mode", zh: "颜色模式", ko: "색상 모드" },
+  themeSystem: { ja: "システム既定", en: "System default", zh: "系统默认", ko: "시스템 기본값" },
+  themeLight: { ja: "ライト", en: "Light", zh: "浅色", ko: "라이트" },
+  themeDark: { ja: "ダーク", en: "Dark", zh: "深色", ko: "다크" },
+  uiScaleLabel: { ja: "UIサイズ", en: "UI size", zh: "界面大小", ko: "UI 크기" },
+  fontScaleLabel: { ja: "フォントサイズ", en: "Font size", zh: "字体大小", ko: "글꼴 크기" },
+  fontFamilyLabel: { ja: "フォント", en: "Font", zh: "字体", ko: "글꼴" },
+  fontDefault: { ja: "既定", en: "Default", zh: "默认", ko: "기본값" },
+
+  holdDurationLabel: { ja: "保持時間", en: "Hold duration", zh: "按住时长", ko: "유지 시간" },
+  secondsSuffix: { ja: "秒", en: "s", zh: "秒", ko: "초" },
+  priorityHandLabel: { ja: "優先する手", en: "Priority hand", zh: "优先手", ko: "우선 손" },
+  handRight: { ja: "右手", en: "Right hand", zh: "右手", ko: "오른손" },
+  handLeft: { ja: "左手", en: "Left hand", zh: "左手", ko: "왼손" },
+  hotkeyHint: {
+    ja: "SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→한국어→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。",
+    en: "Reads both controllers' grip/trigger/stick-press state via SteamVR. Each hand can be assigned its own ending (or cancel-send). In manual mode, once a Final is confirmed, holding the assigned combo for the hold duration immediately sends that ending, or cancels (stick fires the instant it's pressed). If both hands are held at once, the priority hand's state is shown in the overlay. Pressing the lower button on the left controller cycles the recognition language: Japanese → English → Chinese → Korean → OFF → Japanese... (OFF stops recognition).",
+    zh: "通过SteamVR读取双手手柄的握把/扳机/摇杆按下状态。可以为左右手分别指定不同的语尾(或取消发送)。在手动模式下，Final确定后，按住指定的组合达到按住时长即可立即发送该语尾，或执行取消发送(摇杆按下的瞬间触发)。双手同时按住时，优先手的状态会显示在悬浮窗中。按左手下方按钮可依次切换识别语言：日语→英语→中文→韩语→关闭→日语……(关闭会停止语音识别)。",
+    ko: "SteamVR을 통해 양손 컨트롤러의 그립/트리거/스틱 누름 상태를 읽습니다. 좌우 손에 각각 다른 어미(또는 전송 취소)를 할당할 수 있습니다. 수동 모드에서 Final이 확정된 상태로, 할당한 조합을 유지 시간만큼 누르고 있으면 그 어미로 즉시 전송되거나 전송이 취소됩니다(스틱은 누르는 순간 발동). 양손을 동시에 누르고 있으면 우선 손의 상태가 오버레이에 표시됩니다. 왼손 아래쪽 버튼을 누를 때마다 인식 언어가 일본어→English→中文→한국어→OFF→일본어…순으로 전환됩니다(OFF는 음성 인식 정지).",
+  },
+  vrStatusDisconnected: { ja: "VR: 未接続", en: "VR: Disconnected", zh: "VR：未连接", ko: "VR: 연결 안 됨" },
+  vrStatusConnected: { ja: "VR: 接続済み", en: "VR: Connected", zh: "VR：已连接", ko: "VR: 연결됨" },
+  vrStatusConnecting: { ja: "VR: 接続試行中...", en: "VR: Connecting...", zh: "VR：正在连接...", ko: "VR: 연결 시도 중..." },
+  reconnectButton: { ja: "再接続", en: "Reconnect", zh: "重新连接", ko: "재연결" },
+
+  slotBoth: { ja: "グリップ+トリガー", en: "Grip + Trigger", zh: "握把+扳机", ko: "그립+트리거" },
+  slotGrip: { ja: "グリップのみ", en: "Grip only", zh: "仅握把", ko: "그립만" },
+  slotTrigger: { ja: "トリガーのみ", en: "Trigger only", zh: "仅扳机", ko: "트리거만" },
+  slotNone: { ja: "どちらも押していない", en: "Neither pressed", zh: "都未按下", ko: "아무것도 안 누름" },
+  slotStick: { ja: "スティック押し込み", en: "Stick press", zh: "摇杆按下", ko: "스틱 누름" },
+
+  unset: { ja: "(未設定)", en: "(Unset)", zh: "（未设置）", ko: "(미설정)" },
+  cancelSend: { ja: "送信取り消し", en: "Cancel send", zh: "取消发送", ko: "전송 취소" },
+
+  ttsLangHeading: { ja: "読み上げ言語", en: "Read-aloud languages", zh: "朗读语言", ko: "읽어주기 언어" },
+  ttsLangListLabel: {
+    ja: "VOICEVOXで読み上げる言語",
+    en: "Languages VOICEVOX reads aloud",
+    zh: "由VOICEVOX朗读的语言",
+    ko: "VOICEVOX가 읽어줄 언어",
+  },
+  ttsLangHint: {
+    ja: "オフにした言語は認識結果をVOICEVOXに送らず、読み上げをスキップします。English/中文/한국어はOpenJTalk(VOICEVOXのテキスト解析)が対応していないため発音が崩れますが、そのまま送信されます。",
+    en: "Languages turned off won't have their recognized text sent to VOICEVOX at all — read-aloud is skipped. English/中文/한국어 aren't supported by OpenJTalk (VOICEVOX's text analyzer), so pronunciation may be off, but the text is still sent as-is.",
+    zh: "关闭的语言不会将识别结果发送给VOICEVOX，会跳过朗读。English/中文/한국어由于OpenJTalk(VOICEVOX的文本解析器)不支持，发音可能会不准确，但仍会照常发送。",
+    ko: "꺼진 언어는 인식 결과를 VOICEVOX로 보내지 않고 읽어주기를 건너뜁니다. English/中文/한국어는 OpenJTalk(VOICEVOX의 텍스트 분석기)가 지원하지 않아 발음이 깨질 수 있지만, 그대로 전송됩니다.",
+  },
+
+  voicevoxTestHeading: { ja: "VOICEVOXテスト", en: "VOICEVOX Test", zh: "VOICEVOX测试", ko: "VOICEVOX 테스트" },
+  speakButton: { ja: "Speak", en: "Speak", zh: "朗读", ko: "말하기" },
+  voicevoxSynthesizing: { ja: "音声合成中...", en: "Synthesizing...", zh: "合成中...", ko: "합성 중..." },
+  voicevoxPlaying: { ja: "再生中", en: "Playing", zh: "播放中", ko: "재생 중" },
+
+  logHeading: { ja: "ログ", en: "Log", zh: "日志", ko: "로그" },
+
+  cancelButton: { ja: "キャンセル", en: "Cancel", zh: "取消", ko: "취소" },
+
+  settingsLabel: { ja: "設定", en: "Settings", zh: "设置", ko: "설정" },
+  autoLabel: { ja: "Auto", en: "Auto", zh: "自动", ko: "자동" },
+  startButton: { ja: "開始", en: "Start", zh: "开始", ko: "시작" },
+  stopButton: { ja: "停止", en: "Stop", zh: "停止", ko: "정지" },
+
+  statusIdle: { ja: "待機中", en: "Idle", zh: "空闲", ko: "대기 중" },
+  statusListening: { ja: "認識中", en: "Listening", zh: "识别中", ko: "인식 중" },
+  statusConnecting: { ja: "接続中...", en: "Connecting...", zh: "连接中...", ko: "연결 중..." },
+  statusReconnecting: { ja: "再接続中...", en: "Reconnecting...", zh: "重新连接中...", ko: "재연결 중..." },
+  statusDisconnectedRetrying: {
+    ja: "切断されました。再試行中...",
+    en: "Disconnected, retrying...",
+    zh: "已断开，正在重试...",
+    ko: "연결 끊김, 재시도 중...",
+  },
+  statusWaitingForVoice: { ja: "発話待ち...", en: "Waiting for voice...", zh: "等待语音...", ko: "음성 대기 중..." },
+  statusSpeechNotSupported: {
+    ja: "エラー: 音声認識に対応していません",
+    en: "Error: Speech recognition not supported",
+    zh: "错误：不支持语音识别",
+    ko: "오류: 음성 인식이 지원되지 않습니다",
+  },
+  statusErrorPrefix: { ja: "エラー: ", en: "Error: ", zh: "错误：", ko: "오류: " },
+
+  uiLangLabel: { ja: "UIの言語", en: "UI Language", zh: "界面语言", ko: "UI 언어" },
+  sttOff: { ja: "オフ", en: "Off", zh: "关闭", ko: "꺼짐" },
+};
+
+const UI_LANGS = ["ja", "en", "zh", "ko"];
+const UI_LANG_KEY = "mutelink.uiLang";
+
+function loadUiLang() {
+  const raw = localStorage.getItem(UI_LANG_KEY);
+  return UI_LANGS.includes(raw) ? raw : "ja";
+}
+
+function saveUiLang(lang) {
+  localStorage.setItem(UI_LANG_KEY, lang);
+}
+
+// Overwritten from storage by applyUiLang() before anything else runs —
+// module-load-time default only matters for code that (incorrectly) called
+// t() before that, which would be a bug worth seeing as broken Japanese
+// rather than silently falling back.
+let uiLang = "ja";
+
+function t(key) {
+  return I18N[key]?.[uiLang] ?? I18N[key]?.ja ?? key;
+}
+
+// Applies `lang` to every static [data-i18n]/[data-i18n-title]/
+// [data-i18n-aria-label] element and re-runs whatever dynamic renderers
+// exist at call time (endings list, hotkey dropdowns, character panel, VR
+// hotkey-status/google-status text) so already-visible text updates
+// immediately instead of only affecting new content going forward.
+function applyUiLang(lang) {
+  uiLang = UI_LANGS.includes(lang) ? lang : "ja";
+  document.documentElement.lang = uiLang;
+
+  for (const el of document.querySelectorAll("[data-i18n]")) el.textContent = t(el.dataset.i18n);
+  for (const el of document.querySelectorAll("[data-i18n-title]")) el.title = t(el.dataset.i18nTitle);
+  for (const el of document.querySelectorAll("[data-i18n-aria-label]")) el.setAttribute("aria-label", t(el.dataset.i18nAriaLabel));
+
+  refreshDynamicI18nText();
+}
+
+// True once every setup*() call in DOMContentLoaded has run — guards
+// refreshDynamicI18nText() against running (and erroring on missing
+// state/DOM) during the very first applyUiLang() call, which happens before
+// any of that exists yet. That first call still translates static
+// [data-i18n] text fine; the dynamic pieces below just render correctly the
+// first time on their own once their own setup*() runs, using the uiLang
+// applyUiLang() already set — no re-render needed until the user actually
+// changes the language later, once appReady is true.
+let appReady = false;
+
+function refreshDynamicI18nText() {
+  if (!appReady) return;
+  // googleStatusKey is null while a one-off raw error message (e.g. a
+  // getUserMedia() failure's own .message) is being shown instead of a
+  // translatable state — leave it alone rather than blowing it away.
+  if (googleStatusEl && googleStatusKey) googleStatusEl.textContent = t(googleStatusKey);
+  if (googleBtn) googleBtn.textContent = t(armed ? "stopButton" : "startButton");
+  if (sttStateLabelEl) {
+    sttStateLabelEl.textContent = sttStateValue === "off" ? t("sttOff") : (STT_STATE_LABELS[sttStateValue] ?? sttStateValue);
+  }
+  const hotkeyStatusEl = document.querySelector("#hotkey-status");
+  if (hotkeyStatusEl) hotkeyStatusEl.textContent = t(hotkeyStatusKey);
+  const holdVal = document.querySelector("#hotkey-hold-duration-val");
+  if (holdVal) holdVal.textContent = `${(loadHotkeyHoldMs() / 1000).toFixed(1)}${t("secondsSuffix")}`;
+  renderGeneralEndingsList();
+  renderHotkeyAssignmentOptions();
+  setupCharacterPanel();
+}
+
 const GOOGLE_RETRY_MS = 3000;
 const SILENCE_TIMEOUT_MS = 5000;
 const VOICE_RMS_THRESHOLD = 0.01;
@@ -11,6 +244,12 @@ let googleRetryFailures = 0; // consecutive failed restarts of the *current* rec
 const GOOGLE_RETRY_RECREATE_AFTER = 3; // after this many, rebuild the SpeechRecognition object instead of retrying a possibly-wedged one forever
 let googleBtn;
 let googleStatusEl;
+let googleStatusKey = "statusIdle"; // tracks the *key*, not just the rendered text, so refreshDynamicI18nText() can re-translate whatever's currently shown
+function setGoogleStatus(key) {
+  googleStatusKey = key;
+  googleStatusEl.textContent = t(key);
+}
+let hotkeyStatusKey = "vrStatusDisconnected"; // same idea as googleStatusKey, for #hotkey-status
 let statusDotEl;
 let sttStateLabelEl;
 let chatboxEnabled = true; // overwritten from storage on load — see loadChatboxEnabled()
@@ -210,7 +449,7 @@ function createRecognition() {
   r.onstart = () => {
     googleHadError = false;
     googleRetryFailures = 0;
-    googleStatusEl.textContent = "listening";
+    setGoogleStatus("statusListening");
   };
   r.onerror = (event) => {
     googleHadError = true;
@@ -221,7 +460,7 @@ function createRecognition() {
     // pauseRecognition()/stopGoogleStt() clear `recognizing` before calling
     // stop(), so their own end events land here as a no-op.
     if (!armed || !recognizing) return;
-    googleStatusEl.textContent = googleHadError ? "disconnected, retrying..." : "reconnecting...";
+    setGoogleStatus(googleHadError ? "statusDisconnectedRetrying" : "statusReconnecting");
     // Restarting synchronously here is prone to InvalidStateError — the
     // browser doesn't always finish tearing down the previous session by
     // the time onend fires. Deferring one tick avoids that in most cases.
@@ -248,7 +487,7 @@ function resumeRecognition() {
   if (recognizing) return;
   recognizing = true;
   googleHadError = false;
-  googleStatusEl.textContent = "connecting...";
+  setGoogleStatus("statusConnecting");
   try {
     recognition.start();
   } catch {
@@ -265,7 +504,7 @@ function pauseRecognition() {
   recognizing = false;
   clearTimeout(googleRetryTimer);
   recognition.stop();
-  googleStatusEl.textContent = "waiting for voice...";
+  setGoogleStatus("statusWaitingForVoice");
 }
 
 function scheduleGoogleRetry() {
@@ -290,20 +529,21 @@ function scheduleGoogleRetry() {
 
 async function startGoogleStt() {
   if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
-    googleStatusEl.textContent = "error: SpeechRecognition not supported";
+    setGoogleStatus("statusSpeechNotSupported");
     return;
   }
 
   try {
     await startVoiceMonitor();
   } catch (err) {
-    googleStatusEl.textContent = `error: ${err.message}`;
+    googleStatusKey = null; // one-off message, not a translatable state to restore later
+    googleStatusEl.textContent = `${t("statusErrorPrefix")}${err.message}`;
     return;
   }
 
   recognition = createRecognition();
   armed = true;
-  googleBtn.textContent = "停止";
+  googleBtn.textContent = t("stopButton");
   googleBtn.classList.add("listening");
   statusDotEl.classList.add("active");
   resumeRecognition();
@@ -316,8 +556,8 @@ function stopGoogleStt() {
   clearTimeout(googleRetryTimer);
   if (recognition) recognition.stop();
   stopVoiceMonitor();
-  googleStatusEl.textContent = "idle";
-  googleBtn.textContent = "開始";
+  setGoogleStatus("statusIdle");
+  googleBtn.textContent = t("startButton");
   googleBtn.classList.remove("listening");
   statusDotEl.classList.remove("active");
 }
@@ -375,7 +615,7 @@ async function speak(text, params = {}) {
   if (!text) return;
   voicevoxInput.value = text;
 
-  voicevoxStatusEl.textContent = "synthesizing...";
+  voicevoxStatusEl.textContent = t("voicevoxSynthesizing");
   try {
     const bytes = await window.__TAURI__.core.invoke("synthesize", {
       text,
@@ -398,7 +638,7 @@ async function speak(text, params = {}) {
         remaining -= 1;
         if (remaining === 0) {
           URL.revokeObjectURL(url);
-          voicevoxStatusEl.textContent = "idle";
+          voicevoxStatusEl.textContent = t("statusIdle");
         }
       };
       return { audio, sinkId };
@@ -409,9 +649,9 @@ async function speak(text, params = {}) {
     }
     await Promise.all(players.map(({ audio }) => audio.play()));
 
-    voicevoxStatusEl.textContent = `playing (${targets.length} output${targets.length > 1 ? "s" : ""})`;
+    voicevoxStatusEl.textContent = `${t("voicevoxPlaying")} (${targets.length})`;
   } catch (err) {
-    voicevoxStatusEl.textContent = `error: ${err}`;
+    voicevoxStatusEl.textContent = `${t("statusErrorPrefix")}${err}`;
   }
 }
 
@@ -751,15 +991,17 @@ function setupEndings() {
   renderHotkeyAssignmentOptions();
 }
 
+// `labelKey` (not translated text directly) so formatEndingSummary()/the
+// param rows below always reflect the current uiLang via t().
 const ENDING_PARAM_DEFS = [
-  { key: "speedScale", label: "話速", min: 0.5, max: 2, step: 0.01 },
-  { key: "pitchScale", label: "音高", min: -0.15, max: 0.15, step: 0.01 },
-  { key: "intonationScale", label: "抑揚", min: 0, max: 2, step: 0.01 },
-  { key: "volumeScale", label: "音量", min: 0, max: 2, step: 0.01 },
+  { key: "speedScale", labelKey: "paramSpeed", min: 0.5, max: 2, step: 0.01 },
+  { key: "pitchScale", labelKey: "paramPitch", min: -0.15, max: 0.15, step: 0.01 },
+  { key: "intonationScale", labelKey: "paramIntonation", min: 0, max: 2, step: 0.01 },
+  { key: "volumeScale", labelKey: "paramVolume", min: 0, max: 2, step: 0.01 },
 ];
 
 function formatEndingSummary(ending) {
-  return ENDING_PARAM_DEFS.map((def) => `${def.label}${Number(ending[def.key]).toFixed(2)}`).join(" / ");
+  return ENDING_PARAM_DEFS.map((def) => `${t(def.labelKey)}${Number(ending[def.key]).toFixed(2)}`).join(" / ");
 }
 
 // Persists `endings` and refreshes every OTHER view of it (main-screen
@@ -788,7 +1030,7 @@ function hotkeyRefsForEndingSlot(slotNumber) {
   for (const hand of HOTKEY_HANDS) {
     for (const slot of HOTKEY_SLOTS) {
       if (assignments[hand][slot] === target) {
-        refs.push(`${HOTKEY_HAND_LABELS[hand]}: ${HOTKEY_SLOT_LABELS[slot]}`);
+        refs.push(`${t(HOTKEY_HAND_LABEL_KEYS[hand])}: ${t(HOTKEY_SLOT_LABEL_KEYS[slot])}`);
       }
     }
   }
@@ -843,7 +1085,7 @@ function renderGeneralEndingsList() {
     textRow.className = "ending-param-row";
     const textLabel = document.createElement("span");
     textLabel.className = "ending-param-label";
-    textLabel.textContent = "テキスト";
+    textLabel.textContent = t("endingTextFieldLabel");
     const textInput = document.createElement("input");
     textInput.type = "text";
     textInput.className = "ending-text-input";
@@ -866,7 +1108,7 @@ function renderGeneralEndingsList() {
     speakRow.className = "settings-list-row ending-speak-row";
     const speakLabel = document.createElement("span");
     speakLabel.className = "settings-list-label";
-    speakLabel.textContent = "読み上げる";
+    speakLabel.textContent = t("endingSpeakLabel");
     const speakSwitch = document.createElement("label");
     speakSwitch.className = "switch";
     const speakCheckbox = document.createElement("input");
@@ -886,7 +1128,7 @@ function renderGeneralEndingsList() {
     readingRow.className = "ending-param-row";
     const readingLabel = document.createElement("span");
     readingLabel.className = "ending-param-label";
-    readingLabel.textContent = "読み方";
+    readingLabel.textContent = t("endingReadingLabel");
     const readingInput = document.createElement("input");
     readingInput.type = "text";
     readingInput.className = "ending-text-input";
@@ -905,7 +1147,7 @@ function renderGeneralEndingsList() {
 
       const label = document.createElement("span");
       label.className = "ending-param-label";
-      label.textContent = def.label;
+      label.textContent = t(def.labelKey);
 
       const input = document.createElement("input");
       input.type = "range";
@@ -1032,18 +1274,19 @@ function findStyleLabel(catalog, styleId) {
 async function setupCharacterPanel() {
   const listEl = document.querySelector("#character-catalog-list");
   const labelEl = document.querySelector("#current-character-label");
+  labelEl.textContent = t("loading");
 
   let catalog;
   try {
     catalog = await window.__TAURI__.core.invoke("character_catalog");
   } catch (err) {
-    listEl.textContent = `読み込みに失敗しました: ${err}`;
+    listEl.textContent = `${t("characterLoadFailedPrefix")}${err}`;
     return;
   }
 
   function updateLabel() {
     const label = findStyleLabel(catalog, loadSelectedStyleId());
-    labelEl.textContent = label ? `現在の音声: ${label}` : "現在の音声: 未設定";
+    labelEl.textContent = `${t("currentVoicePrefix")}${label || t("currentVoiceUnset")}`;
   }
 
   // One VVM file can bundle several characters (they're downloaded and
@@ -1082,7 +1325,7 @@ async function setupCharacterPanel() {
       detail.hidden = true;
 
       function renderDetail() {
-        valuesSpan.textContent = entry.downloaded ? "追加済み" : "未追加";
+        valuesSpan.textContent = t(entry.downloaded ? "downloaded" : "notDownloaded");
         detail.innerHTML = "";
 
         if (entry.downloaded) {
@@ -1112,15 +1355,15 @@ async function setupCharacterPanel() {
           const siblings = entry.characters.filter((c) => c !== character).map((c) => c.name);
           hint.textContent =
             siblings.length > 0
-              ? `追加すると同じ音声データに含まれる次のキャラも一緒に追加されます: ${siblings.join("、")}`
-              : "このキャラクターはまだ追加されていません。";
+              ? `${t("addSiblingsHintPrefix")}${siblings.join("、")}`
+              : t("addAloneHint");
 
           const addBtn = document.createElement("button");
           addBtn.type = "button";
-          addBtn.textContent = "追加";
+          addBtn.textContent = t("addButton");
           addBtn.addEventListener("click", async () => {
             addBtn.disabled = true;
-            addBtn.textContent = "ダウンロード中...";
+            addBtn.textContent = t("downloadingButton");
             try {
               await window.__TAURI__.core.invoke("download_character", { vvmFile: entry.vvmFile });
               await window.__TAURI__.core.invoke("load_character", { vvmFile: entry.vvmFile });
@@ -1128,7 +1371,7 @@ async function setupCharacterPanel() {
               for (const refresh of refreshersByEntry.get(entry)) refresh();
             } catch (err) {
               addBtn.disabled = false;
-              addBtn.textContent = "追加";
+              addBtn.textContent = t("addButton");
               log(`[character] download failed: ${err}`);
             }
           });
@@ -1157,7 +1400,7 @@ async function setupCharacterPanel() {
 
 function setupGeneralPanel() {
   document.querySelector("#settings-reset-btn").addEventListener("click", async () => {
-    const ok = await showConfirmDialog("設定を全てリセットします。よろしいですか？");
+    const ok = await showConfirmDialog(t("resetConfirm"));
     if (!ok) return;
     localStorage.removeItem(ENDINGS_STORAGE_KEY);
     localStorage.removeItem(HOTKEY_ASSIGNMENTS_KEY);
@@ -1170,14 +1413,11 @@ function setupGeneralPanel() {
 const HOTKEY_POLL_MS = 50;
 const HOTKEY_ASSIGNMENTS_KEY = "mutelink.hotkeyAssignments";
 const HOTKEY_SLOTS = ["both", "grip", "trigger", "none", "stick"];
-const HOTKEY_SLOT_LABELS = {
-  both: "グリップ+トリガー",
-  grip: "グリップのみ",
-  trigger: "トリガーのみ",
-  none: "どちらも押していない",
-  stick: "スティック押し込み",
-};
-const HOTKEY_HAND_LABELS = { right: "右手", left: "左手" };
+// Map to I18N keys, not translated text directly, so hotkeyRefsForEndingSlot()
+// (and anywhere else) always reflects the *current* uiLang via t() rather
+// than whatever language was active when this module evaluated.
+const HOTKEY_SLOT_LABEL_KEYS = { both: "slotBoth", grip: "slotGrip", trigger: "slotTrigger", none: "slotNone", stick: "slotStick" };
+const HOTKEY_HAND_LABEL_KEYS = { right: "handRight", left: "handLeft" };
 // Sentinel assignment value meaning "discard the pending text", alongside
 // the ending *slot numbers* ("1"-"10", see ENDINGS_SLOT_COUNT) a hotkey
 // slot can otherwise be assigned to.
@@ -1257,7 +1497,14 @@ function renderHotkeyAssignmentOptions() {
   for (const hand of HOTKEY_HANDS) {
     for (const slot of HOTKEY_SLOTS) {
       const select = document.querySelector(`#hotkey-${hand}-${slot}`);
-      select.innerHTML = '<option value="">(未設定)</option><option value="__cancel__">送信取り消し</option>';
+      select.innerHTML = "";
+      const unsetOpt = document.createElement("option");
+      unsetOpt.value = "";
+      unsetOpt.textContent = t("unset");
+      const cancelOpt = document.createElement("option");
+      cancelOpt.value = HOTKEY_CANCEL_ACTION;
+      cancelOpt.textContent = t("cancelSend");
+      select.append(unsetOpt, cancelOpt);
       endings.forEach((ending, i) => {
         const opt = document.createElement("option");
         opt.value = String(i + 1);
@@ -1386,10 +1633,10 @@ function setupHotkeys() {
 
   hotkeyHoldMsCache = loadHotkeyHoldMs();
   holdInput.value = hotkeyHoldMsCache / 1000;
-  holdVal.textContent = `${(hotkeyHoldMsCache / 1000).toFixed(1)}秒`;
+  holdVal.textContent = `${(hotkeyHoldMsCache / 1000).toFixed(1)}${t("secondsSuffix")}`;
   holdInput.addEventListener("input", () => {
     hotkeyHoldMsCache = Math.round(Number(holdInput.value) * 1000);
-    holdVal.textContent = `${Number(holdInput.value).toFixed(1)}秒`;
+    holdVal.textContent = `${Number(holdInput.value).toFixed(1)}${t("secondsSuffix")}`;
     saveHotkeyHoldMs(hotkeyHoldMsCache);
   });
 
@@ -1404,9 +1651,11 @@ function setupHotkeys() {
   }
 
   reconnectBtn.addEventListener("click", async () => {
-    statusEl.textContent = "VR: 接続試行中...";
+    hotkeyStatusKey = "vrStatusConnecting";
+    statusEl.textContent = t(hotkeyStatusKey);
     const ok = await window.__TAURI__.core.invoke("reconnect_vr");
-    statusEl.textContent = ok ? "VR: 接続済み" : "VR: 未接続";
+    hotkeyStatusKey = ok ? "vrStatusConnected" : "vrStatusDisconnected";
+    statusEl.textContent = t(hotkeyStatusKey);
   });
 
   let overlayShown = false; // avoids spamming hide calls every frame while idle
@@ -1430,11 +1679,13 @@ function setupHotkeys() {
       }
 
       if (!hotkeyState.available) {
-        statusEl.textContent = "VR: 未接続";
+        hotkeyStatusKey = "vrStatusDisconnected";
+        statusEl.textContent = t(hotkeyStatusKey);
         vrAvailable = false;
         return;
       }
-      statusEl.textContent = "VR: 接続済み";
+      hotkeyStatusKey = "vrStatusConnected";
+      statusEl.textContent = t(hotkeyStatusKey);
       vrAvailable = true;
 
       // Left controller's lower face button (X on Quest) steps through the
@@ -1602,7 +1853,9 @@ let sttStateValue = "off";
 // briefly applying an outdated language.
 let sttStateChain = Promise.resolve();
 
-const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "中文", off: "オフ" };
+// Native self-names, deliberately not translated by UI language (see I18N's
+// top comment) — only "off" is an actual UI string, via t("sttOff").
+const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "中文", "ko-KR": "한국어" };
 
 // The single entry point for changing what's being recognized (or turning
 // recognition off) — keeps the desktop radio group, the VR overlay's
@@ -1613,7 +1866,7 @@ const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "�
 function setSttState(value) {
   sttStateValue = value;
   setSttLang(value);
-  sttStateLabelEl.textContent = STT_STATE_LABELS[value] ?? value;
+  sttStateLabelEl.textContent = value === "off" ? t("sttOff") : (STT_STATE_LABELS[value] ?? value);
   flashLangTag(value);
   sttStateChain = sttStateChain.then(async () => {
     if (sttStateValue !== value) return; // superseded by a later call while queued
@@ -1623,7 +1876,7 @@ function setSttState(value) {
 }
 
 const TTS_LANG_ENABLED_KEY = "mutelink.ttsLangEnabled";
-const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true };
+const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true, "ko-KR": true };
 
 function loadTtsLangEnabled() {
   try {
@@ -1664,7 +1917,7 @@ let langTagUntil = 0;
 // Matches overlay.rs's render_lang_tag animation: pop-in/settle finishes by
 // 0.3s, holds fully opaque until 2.5s, then fades out linearly through 3.5s.
 const LANG_TAG_DISPLAY_MS = 3500;
-const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN" };
+const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN", "ko-KR": "KR" };
 
 // `value` is a stt-lang radio value: a BCP-47 code for JP/EN/CN, or "off".
 function flashLangTag(value) {
@@ -1673,7 +1926,7 @@ function flashLangTag(value) {
   langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
 }
 
-const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", "off"];
+const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", "ko-KR", "off"];
 
 // Advances one step through 日本語 → English → 中文 → OFF → 日本語 → ...,
 // via setSttState() — bound to the left controller's lower face button (see
@@ -1706,6 +1959,13 @@ function handleCyclePress() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  // First thing: translates all static [data-i18n] text right away. The
+  // dynamic pieces (status text, ending list, hotkey dropdowns, character
+  // panel) just no-op here since appReady is still false — they render
+  // correctly on their own once their own setup*() below runs, already
+  // using the uiLang this just set.
+  applyUiLang(loadUiLang());
+
   logEl = document.querySelector("#log");
   googleBtn = document.querySelector("#google-btn");
   statusDotEl = document.querySelector("#status-dot");
@@ -1716,6 +1976,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
+  voicevoxStatusEl.textContent = t("statusIdle");
   voicevoxOutputsSelect = document.querySelector("#voicevox-outputs");
   // setupDevicePanel() below mirrors this select's option state, so it must
   // finish populating first.
@@ -1772,4 +2033,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
     saveTtsEnabled(ttsEnabled);
   });
+
+  const uiLangSelect = document.querySelector("#ui-lang-select");
+  uiLangSelect.value = uiLang;
+  uiLangSelect.addEventListener("change", () => {
+    saveUiLang(uiLangSelect.value);
+    applyUiLang(uiLangSelect.value);
+  });
+
+  // Everything above has now run at least once — from here on,
+  // applyUiLang() (e.g. from the picker above) should fully re-render the
+  // dynamic pieces too, not just skip them like it did during this initial
+  // pass.
+  appReady = true;
 });
