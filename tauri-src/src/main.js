@@ -91,6 +91,19 @@ const I18N = {
   holdDurationLabel: { ja: "保持時間", en: "Hold duration", zh: "按住时长", ko: "유지 시간" },
   secondsSuffix: { ja: "秒", en: "s", zh: "秒", ko: "초" },
   priorityHandLabel: { ja: "優先する手", en: "Priority hand", zh: "优先手", ko: "우선 손" },
+  hotkeyProfileLabel: { ja: "プロファイル", en: "Profile", zh: "配置", ko: "프로필" },
+  hotkeyProfileHint: {
+    ja: "グリップなど一部のボタンをゲーム側(ワールドなど)に使われてしまっているときのために、3種類のホットキー設定を用意して切り替えられます。下の割り当ては選んだプロファイルの内容です。メイン画面の「P1/P2/P3」ボタンでも切り替えられます。",
+    en: "In case a game (e.g. a VRChat world) takes over some of your buttons like grip, you can prepare 3 separate hotkey setups and switch between them. The assignments below belong to whichever profile is selected. The \"P1/P2/P3\" button on the main screen switches too.",
+    zh: "如果游戏(例如VRChat世界)占用了握把等部分按键，可以准备3套快捷键配置并切换使用。下方的分配对应当前选中的配置。主界面的「P1/P2/P3」按钮也可以切换。",
+    ko: "그립 등 일부 버튼을 게임(예: VRChat 월드) 쪽에서 사용 중일 때를 대비해, 3가지 단축키 설정을 만들어 전환할 수 있습니다. 아래 할당은 선택한 프로필의 내용입니다. 메인 화면의 「P1/P2/P3」 버튼으로도 전환할 수 있습니다.",
+  },
+  hotkeyProfileSwitchLabel: {
+    ja: "ホットキープロファイル切替",
+    en: "Switch hotkey profile",
+    zh: "切换快捷键配置",
+    ko: "단축키 프로필 전환",
+  },
   handRight: { ja: "右手", en: "Right hand", zh: "右手", ko: "오른손" },
   handLeft: { ja: "左手", en: "Left hand", zh: "左手", ko: "왼손" },
   hotkeyHint: {
@@ -104,6 +117,25 @@ const I18N = {
   vrStatusConnecting: { ja: "VR: 接続試行中...", en: "VR: Connecting...", zh: "VR：正在连接...", ko: "VR: 연결 시도 중..." },
   reconnectButton: { ja: "再接続", en: "Reconnect", zh: "重新连接", ko: "재연결" },
 
+  presetHeading: { ja: "プリセット", en: "Preset", zh: "预设", ko: "프리셋" },
+  presetHint: {
+    ja: "現在の語尾とホットキー割り当てをJSONとしてコピーできます。他の人から受け取ったJSONを下の欄に貼り付けて「JSONを読み込む」を押すと、その内容で上書きされます。",
+    en: 'Copy the current endings and hotkey assignments as JSON. Paste JSON you received from someone else into the box below and press "Load JSON" to overwrite your current settings with it.',
+    zh: "可以将当前的语尾和快捷键分配复制为JSON。将他人分享的JSON粘贴到下方文本框并点击「读取JSON」，即可用其内容覆盖当前设置。",
+    ko: "현재 어미와 단축키 할당을 JSON으로 복사할 수 있습니다. 다른 사람에게 받은 JSON을 아래 칸에 붙여넣고 「JSON 불러오기」를 누르면 그 내용으로 덮어씁니다.",
+  },
+  presetCopyButton: { ja: "JSONをコピー", en: "Copy JSON", zh: "复制JSON", ko: "JSON 복사" },
+  presetLoadButton: { ja: "JSONを読み込む", en: "Load JSON", zh: "读取JSON", ko: "JSON 불러오기" },
+  presetCopiedStatus: { ja: "コピーしました", en: "Copied", zh: "已复制", ko: "복사했습니다" },
+  presetLoadedStatus: { ja: "読み込みました", en: "Loaded", zh: "已加载", ko: "불러왔습니다" },
+  presetInvalidStatus: { ja: "JSONが不正です", en: "Invalid JSON", zh: "JSON格式无效", ko: "JSON이 올바르지 않습니다" },
+  presetLoadConfirm: {
+    ja: "現在の語尾とホットキー設定を、貼り付けたJSONの内容で上書きします。よろしいですか？",
+    en: "This will overwrite your current endings and hotkey settings with the pasted JSON. Continue?",
+    zh: "将用粘贴的JSON内容覆盖当前的语尾和快捷键设置，确定吗？",
+    ko: "현재 어미와 단축키 설정을 붙여넣은 JSON 내용으로 덮어씁니다. 계속하시겠습니까?",
+  },
+
   slotBoth: { ja: "グリップ+トリガー", en: "Grip + Trigger", zh: "握把+扳机", ko: "그립+트리거" },
   slotGrip: { ja: "グリップのみ", en: "Grip only", zh: "仅握把", ko: "그립만" },
   slotTrigger: { ja: "トリガーのみ", en: "Trigger only", zh: "仅扳机", ko: "트리거만" },
@@ -113,6 +145,19 @@ const I18N = {
   unset: { ja: "(未設定)", en: "(Unset)", zh: "（未设置）", ko: "(미설정)" },
   cancelSend: { ja: "送信取り消し", en: "Cancel send", zh: "取消发送", ko: "전송 취소" },
 
+  sttCycleLangHeading: { ja: "言語サイクル", en: "Language Cycle", zh: "语言循环", ko: "언어 순환" },
+  sttCycleLangListLabel: {
+    ja: "ボタンでループする言語",
+    en: "Languages cycled by the button",
+    zh: "按钮循环的语言",
+    ko: "버튼으로 순환할 언어",
+  },
+  sttCycleLangHint: {
+    ja: "左手下側のボタン(またはメイン画面の丸ボタン)を押すたびに、ここでチェックした言語を順番に切り替えます(OFFも必ず含まれます)。チェックを外した言語はサイクルから除外されます。",
+    en: "Pressing the left controller's lower button (or the round button on the main screen) cycles through the languages checked here, in order (OFF is always included). Unchecked languages are skipped.",
+    zh: "每次按下左手下方按钮(或主界面的圆形按钮)，会依次切换到这里勾选的语言(始终包含关闭)。未勾选的语言会被跳过。",
+    ko: "왼손 아래쪽 버튼(또는 메인 화면의 둥근 버튼)을 누를 때마다 여기서 선택한 언어를 순서대로 전환합니다(OFF는 항상 포함됩니다). 선택하지 않은 언어는 건너뜁니다.",
+  },
   ttsLangHeading: { ja: "読み上げ言語", en: "Read-aloud languages", zh: "朗读语言", ko: "읽어주기 언어" },
   ttsLangListLabel: {
     ja: "VOICEVOXで読み上げる言語",
@@ -763,6 +808,7 @@ function setupSettingsDialog() {
   setupGeneralPanel();
   setupCharacterPanel();
   setupEndingsPanel();
+  setupPresetPanel();
   setupAppearancePanel();
   setupDevicePanel();
 }
@@ -905,7 +951,7 @@ const DEFAULT_ENDING_PARAMS = {
   reading: "", // what to read instead of the literal text when speakEnding is on; falls back to the text itself if left blank
 };
 // Fixed at exactly 10 numbered slots (1-10) rather than a free-form list —
-// hotkeys are assigned by slot number (see HOTKEY_ASSIGNMENTS_KEY et al.),
+// hotkeys are assigned by slot number (see HOTKEY_PROFILES_KEY et al.),
 // so editing what's in a slot automatically updates whatever hotkey points
 // at that number instead of needing to be re-picked.
 const ENDINGS_SLOT_COUNT = 10;
@@ -1201,6 +1247,96 @@ function setupEndingsPanel() {
   renderGeneralEndingsList();
 }
 
+const PRESET_TYPE = "mutelink-preset";
+const PRESET_VERSION = 1;
+
+// Bundles endings + hotkey assignments (plus the couple of settings that
+// shape how they're used — hold duration, priority hand) into one shareable
+// object. Hotkeys reference endings by slot number (see ENDINGS_SLOT_COUNT),
+// so the two only make sense shared together, not separately.
+function buildPresetObject() {
+  return {
+    type: PRESET_TYPE,
+    version: PRESET_VERSION,
+    endings,
+    hotkeyAssignments: loadHotkeyAssignments(),
+    hotkeyHoldMs: loadHotkeyHoldMs(),
+    hotkeyPriorityHand: loadHotkeyPriorityHand(),
+  };
+}
+
+// Pure parse + validate — throws on anything that isn't a recognizable
+// preset, without touching any stored state. Kept separate from actually
+// committing it so the caller can confirm with the user first.
+function parsePresetJson(text) {
+  const preset = JSON.parse(text);
+  if (!preset || preset.type !== PRESET_TYPE || !Array.isArray(preset.endings)) {
+    throw new Error("not a Mutelink preset");
+  }
+  if (!preset.endings.every((e) => typeof e?.text === "string")) {
+    throw new Error("invalid endings in preset");
+  }
+  return preset;
+}
+
+// Writes a validated preset to storage — same slot-count normalization as
+// loadEndings(), and hotkeyAssignments/hold/priority are only applied if
+// present and well-formed (loadHotkeyAssignments() already merges partial
+// data with defaults, so a partial preset degrades gracefully rather than
+// erroring). Caller is expected to reload the page afterward so every
+// already-rendered view (main screen, endings list, hotkey dropdowns) picks
+// the new state up consistently, the same way "reset all settings" does.
+function commitPreset(preset) {
+  const normalized = preset.endings.slice(0, ENDINGS_SLOT_COUNT);
+  while (normalized.length < ENDINGS_SLOT_COUNT) {
+    normalized.push({ text: `語尾${normalized.length + 1}`, ...DEFAULT_ENDING_PARAMS });
+  }
+  saveEndings(normalized);
+
+  if (preset.hotkeyAssignments && typeof preset.hotkeyAssignments === "object") {
+    saveHotkeyAssignments(preset.hotkeyAssignments);
+  }
+  if (Number.isFinite(preset.hotkeyHoldMs) && preset.hotkeyHoldMs > 0) {
+    saveHotkeyHoldMs(preset.hotkeyHoldMs);
+  }
+  if (preset.hotkeyPriorityHand === "left" || preset.hotkeyPriorityHand === "right") {
+    saveHotkeyPriorityHand(preset.hotkeyPriorityHand);
+  }
+}
+
+function setupPresetPanel() {
+  const textarea = document.querySelector("#preset-json-area");
+  const statusEl = document.querySelector("#preset-status");
+
+  document.querySelector("#preset-copy-btn").addEventListener("click", async () => {
+    const json = JSON.stringify(buildPresetObject(), null, 2);
+    textarea.value = json;
+    try {
+      await navigator.clipboard.writeText(json);
+    } catch {
+      // Clipboard permission can be denied in some contexts — the JSON is
+      // still right there in the textarea to copy by hand either way.
+    }
+    statusEl.textContent = t("presetCopiedStatus");
+  });
+
+  document.querySelector("#preset-load-btn").addEventListener("click", async () => {
+    let preset;
+    try {
+      preset = parsePresetJson(textarea.value);
+    } catch (err) {
+      statusEl.textContent = t("presetInvalidStatus");
+      log(`[preset] invalid JSON: ${err}`);
+      return;
+    }
+    const ok = await showConfirmDialog(t("presetLoadConfirm"));
+    if (!ok) return;
+    commitPreset(preset);
+    statusEl.textContent = t("presetLoadedStatus");
+    location.reload();
+  });
+}
+
 // In-app replacement for window.confirm(), styled to match the settings
 // dialog (native browser confirm() looks out of place next to it).
 function showConfirmDialog(message) {
@@ -1403,7 +1539,8 @@ function setupGeneralPanel() {
     const ok = await showConfirmDialog(t("resetConfirm"));
     if (!ok) return;
     localStorage.removeItem(ENDINGS_STORAGE_KEY);
-    localStorage.removeItem(HOTKEY_ASSIGNMENTS_KEY);
+    localStorage.removeItem(HOTKEY_PROFILES_KEY);
+    localStorage.removeItem(HOTKEY_ACTIVE_PROFILE_KEY);
     localStorage.removeItem(APPEARANCE_STORAGE_KEY);
     localStorage.removeItem(DEVICE_SETTINGS_KEY);
     location.reload();
@@ -1411,7 +1548,9 @@ function setupGeneralPanel() {
 }
 
 const HOTKEY_POLL_MS = 50;
-const HOTKEY_ASSIGNMENTS_KEY = "mutelink.hotkeyAssignments";
+const HOTKEY_PROFILES_KEY = "mutelink.hotkeyProfiles";
+const HOTKEY_ACTIVE_PROFILE_KEY = "mutelink.activeHotkeyProfile";
+const HOTKEY_PROFILE_COUNT = 3;
 const HOTKEY_SLOTS = ["both", "grip", "trigger", "none", "stick"];
 // Map to I18N keys, not translated text directly, so hotkeyRefsForEndingSlot()
 // (and anywhere else) always reflects the *current* uiLang via t() rather
@@ -1472,15 +1611,33 @@ function defaultHotkeyAssignments() {
   };
 }
 
-function loadHotkeyAssignments() {
-  const defaults = defaultHotkeyAssignments();
+// Which of the HOTKEY_PROFILE_COUNT profiles is currently in effect — both
+// for editing (the Hotkey panel's dropdowns show this one) and for live
+// hotkey firing (setupHotkeys()'s poll loop calls loadHotkeyAssignments()
+// fresh every tick, so switching this takes effect within one tick, no
+// extra wiring needed there).
+function loadHotkeyProfileIndex() {
+  const raw = Number(localStorage.getItem(HOTKEY_ACTIVE_PROFILE_KEY));
+  return Number.isInteger(raw) && raw >= 0 && raw < HOTKEY_PROFILE_COUNT ? raw : 0;
+}
+
+function saveHotkeyProfileIndex(index) {
+  localStorage.setItem(HOTKEY_ACTIVE_PROFILE_KEY, String(index));
+}
+
+function loadHotkeyProfiles() {
+  const defaults = Array.from({ length: HOTKEY_PROFILE_COUNT }, () => defaultHotkeyAssignments());
   try {
-    const raw = JSON.parse(localStorage.getItem(HOTKEY_ASSIGNMENTS_KEY) ?? "null");
-    if (raw && typeof raw === "object") {
-      return {
-        right: { ...defaults.right, ...raw.right },
-        left: { ...defaults.left, ...raw.left },
-      };
+    const raw = JSON.parse(localStorage.getItem(HOTKEY_PROFILES_KEY) ?? "null");
+    if (Array.isArray(raw)) {
+      return defaults.map((def, i) => {
+        const saved = raw[i];
+        if (!saved || typeof saved !== "object") return def;
+        return {
+          right: { ...def.right, ...saved.right },
+          left: { ...def.left, ...saved.left },
+        };
+      });
     }
   } catch {
     // fall through
@@ -1488,8 +1645,35 @@ function loadHotkeyAssignments() {
   return defaults;
 }
 
+function saveHotkeyProfiles(profiles) {
+  localStorage.setItem(HOTKEY_PROFILES_KEY, JSON.stringify(profiles));
+}
+
+// Reads/writes only the *active* profile's assignments — every existing
+// caller (renderHotkeyAssignmentOptions, the poll loop, buildPresetObject,
+// etc.) keeps working unchanged, now transparently scoped to whichever
+// profile setHotkeyProfileIndex() last selected.
+function loadHotkeyAssignments() {
+  return loadHotkeyProfiles()[loadHotkeyProfileIndex()];
+}
+
 function saveHotkeyAssignments(assignments) {
-  localStorage.setItem(HOTKEY_ASSIGNMENTS_KEY, JSON.stringify(assignments));
+  const profiles = loadHotkeyProfiles();
+  profiles[loadHotkeyProfileIndex()] = assignments;
+  saveHotkeyProfiles(profiles);
+}
+
+// The single entry point for changing which profile is active — keeps the
+// main-screen "P1/P2/P3" button, the Hotkey settings radio, and the
+// dropdowns showing that profile's assignments all in sync no matter which
+// control triggered the switch.
+function setHotkeyProfileIndex(index) {
+  saveHotkeyProfileIndex(index);
+  const profileBtn = document.querySelector("#hotkey-profile-btn");
+  if (profileBtn) profileBtn.textContent = `P${index + 1}`;
+  const radio = document.querySelector(`input[name="hotkey-profile"][value="${index}"]`);
+  if (radio) radio.checked = true;
+  renderHotkeyAssignmentOptions();
 }
 
 function renderHotkeyAssignmentOptions() {
@@ -1649,6 +1833,24 @@ function setupHotkeys() {
       saveHotkeyPriorityHand(hotkeyPriorityHandCache);
     });
   }
+
+  // 3 independent hotkey profiles, switchable both from here and via the
+  // main screen's "P1/P2/P3" button (see setHotkeyProfileIndex()) — for
+  // when a game/world takes over a button like grip, so a grip-free profile
+  // is one switch away instead of needing to reconfigure on the spot.
+  const initialProfileIndex = loadHotkeyProfileIndex();
+  for (const radio of document.querySelectorAll('input[name="hotkey-profile"]')) {
+    radio.checked = Number(radio.value) === initialProfileIndex;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      setHotkeyProfileIndex(Number(radio.value));
+    });
+  }
+  const profileBtn = document.querySelector("#hotkey-profile-btn");
+  profileBtn.textContent = `P${initialProfileIndex + 1}`;
+  profileBtn.addEventListener("click", () => {
+    setHotkeyProfileIndex((loadHotkeyProfileIndex() + 1) % HOTKEY_PROFILE_COUNT);
+  });
 
   reconnectBtn.addEventListener("click", async () => {
     hotkeyStatusKey = "vrStatusConnecting";
@@ -1906,6 +2108,37 @@ function setupTtsLangSettings() {
   }
 }
 
+const STT_CYCLE_LANG_KEY = "mutelink.sttCycleLangs";
+const STT_CYCLE_LANG_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true, "ko-KR": true };
+
+function loadSttCycleLangs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STT_CYCLE_LANG_KEY) ?? "null");
+    if (raw && typeof raw === "object") {
+      return { ...STT_CYCLE_LANG_DEFAULT, ...raw };
+    }
+  } catch {
+    // fall through
+  }
+  return { ...STT_CYCLE_LANG_DEFAULT };
+}
+
+function saveSttCycleLangs(map) {
+  localStorage.setItem(STT_CYCLE_LANG_KEY, JSON.stringify(map));
+}
+
+function setupSttCycleLangSettings() {
+  const enabled = loadSttCycleLangs();
+  for (const checkbox of document.querySelectorAll('input[name="stt-cycle-lang"]')) {
+    checkbox.checked = enabled[checkbox.value] ?? true;
+    checkbox.addEventListener("change", () => {
+      const map = loadSttCycleLangs();
+      map[checkbox.value] = checkbox.checked;
+      saveSttCycleLangs(map);
+    });
+  }
+}
+
 // Hoisted to module scope: set here, read by setupHotkeys()'s overlay
 // render loop, which is defined in a different function but needs to know
 // whether a language switch (or an OFF) just happened, to flash the
@@ -1926,14 +2159,24 @@ function flashLangTag(value) {
   langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
 }
 
-const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", "ko-KR", "off"];
+const STT_CYCLE_LANGS_ALL = ["ja-JP", "en-US", "zh-CN", "ko-KR"];
 
-// Advances one step through 日本語 → English → 中文 → OFF → 日本語 → ...,
-// via setSttState() — bound to the left controller's lower face button (see
-// setupHotkeys()) as a hands-free way to switch languages without touching
-// the desktop.
+// Only the languages checked in 設定 > General > 言語サイクル participate,
+// always with "off" appended at the end — falls back to all four if
+// somehow none are checked, so the cycle never becomes a no-op.
+function sttCycleOrder() {
+  const enabled = loadSttCycleLangs();
+  const langs = STT_CYCLE_LANGS_ALL.filter((lang) => enabled[lang]);
+  return [...(langs.length > 0 ? langs : STT_CYCLE_LANGS_ALL), "off"];
+}
+
+// Advances one step through whichever languages are enabled for the cycle →
+// OFF → back to the first one, via setSttState() — bound to the left
+// controller's lower face button (see setupHotkeys()) as a hands-free way to
+// switch languages without touching the desktop.
 function cycleSttState() {
-  const next = STT_CYCLE_ORDER[(STT_CYCLE_ORDER.indexOf(sttStateValue) + 1) % STT_CYCLE_ORDER.length];
+  const order = sttCycleOrder();
+  const next = order[(order.indexOf(sttStateValue) + 1) % order.length];
   setSttState(next);
 }
 
@@ -1987,6 +2230,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupSettingsDialog();
   setupHotkeys();
   setupTtsLangSettings();
+  setupSttCycleLangSettings();
 
   googleBtn.addEventListener("click", () => {
     // sttStateValue, not armed — same reasoning as cycleSttState().

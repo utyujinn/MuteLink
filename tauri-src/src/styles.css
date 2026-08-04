@@ -848,6 +848,27 @@ input[type="checkbox"]:checked::after {
   outline: none;
 }
 
+.preset-json-area {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0.4em 0;
+  padding: 0.5em 0.7em;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: none;
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  font-size: 0.78em;
+  resize: vertical;
+}
+
+.preset-json-area:hover,
+.preset-json-area:focus-visible {
+  border-color: #396cd8;
+  outline: none;
+}
+
 .settings-content .hint {
   max-width: none;
   margin: 0 0 0.9em;
