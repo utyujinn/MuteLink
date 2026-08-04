@@ -4,12 +4,11 @@ mod overlay_gpu;
 use std::fs;
 use std::net::UdpSocket;
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use rosc::{OscMessage, OscPacket, OscType};
 use serde::{Deserialize, Serialize};
-use tauri::{Emitter, Manager, State};
+use tauri::{Manager, State};
 use voicevox_core::blocking::{Onnxruntime, OpenJtalk, Synthesizer, VoiceModelFile};
 use voicevox_core::{StyleId, VoiceModelMeta};
 
@@ -218,76 +217,6 @@ fn send_chatbox(text: String) -> Result<(), String> {
     Ok(())
 }
 
-// VRChat sends its own OSC output (avatar parameters, not just accepting
-// chatbox input) to 127.0.0.1:9001 by default. `MuteSelf` is one of the
-// built-in parameters it always sends (not avatar-specific) — true/false
-// whenever the local player toggles their own mic mute. The frontend
-// listens for the "vrc-mute-changed" event and decides whether to act on it.
-// Nothing binds port 9001 unless the VRChat連携 toggle in Other settings is
-// actually on (see set_vrc_mute_sync below) — most users won't want this
-// running, and it shouldn't hold the port open for no reason.
-struct VrcMuteSyncState(Mutex<Option<Arc<AtomicBool>>>);
-
-fn spawn_vrc_osc_listener(app_handle: tauri::AppHandle) -> Arc<AtomicBool> {
-    let running = Arc::new(AtomicBool::new(true));
-    let running_for_thread = running.clone();
-    std::thread::spawn(move || {
-        let socket = match UdpSocket::bind("127.0.0.1:9001") {
-            Ok(socket) => socket,
-            Err(e) => {
-                eprintln!("[vrc-osc] failed to bind 127.0.0.1:9001: {e}");
-                return;
-            }
-        };
-        // recv_from() blocks indefinitely by default, which would keep this
-        // thread (and the socket/port) alive even after the toggle is
-        // turned off. Waking up periodically to recheck `running` lets
-        // set_vrc_mute_sync(false) actually release the port promptly
-        // instead of only being able to ask nicely.
-        let _ = socket.set_read_timeout(Some(std::time::Duration::from_millis(300)));
-        let mut buf = [0u8; 4096];
-        while running_for_thread.load(Ordering::Relaxed) {
-            let Ok((size, _)) = socket.recv_from(&mut buf) else {
-                continue; // timeout (expected) or a transient error — just recheck `running`
-            };
-            let Ok((_, packet)) = rosc::decoder::decode_udp(&buf[..size]) else {
-                continue;
-            };
-            handle_vrc_osc_packet(&packet, &app_handle);
-        }
-    });
-    running
-}
-
-#[tauri::command]
-fn set_vrc_mute_sync(enabled: bool, state: State<VrcMuteSyncState>, app_handle: tauri::AppHandle) {
-    let mut guard = state.0.lock().unwrap();
-    if enabled {
-        if guard.is_none() {
-            *guard = Some(spawn_vrc_osc_listener(app_handle));
-        }
-    } else if let Some(running) = guard.take() {
-        running.store(false, Ordering::Relaxed);
-    }
-}
-
-fn handle_vrc_osc_packet(packet: &OscPacket, app_handle: &tauri::AppHandle) {
-    match packet {
-        OscPacket::Message(msg) => {
-            if msg.addr == "/avatar/parameters/MuteSelf" {
-                if let Some(OscType::Bool(muted)) = msg.args.first() {
-                    let _ = app_handle.emit("vrc-mute-changed", *muted);
-                }
-            }
-        }
-        OscPacket::Bundle(bundle) => {
-            for inner in &bundle.content {
-                handle_vrc_osc_packet(inner, app_handle);
-            }
-        }
-    }
-}
-
 // The pieces needed to keep the confirm/discard HUD alive: the safe
 // `openvr` overlay handle for show/hide/positioning, plus our own D3D11
 // texture pair for pushing pixels via SetOverlayTexture (see overlay_gpu.rs
@@ -388,23 +317,33 @@ const TAG_OFFSET_X: f32 = -0.15; // negative = left of the box's left edge
 const TAG_OFFSET_Y: f32 = -0.06; // negative = below the box's bottom edge
 
 // Computes the language tag overlay's world width and HMD-relative
-// transform so that its texture's own top-left corner (its pixel (0, 0))
-// lands at the box's own (unchanged) bottom-left corner plus TAG_OFFSET_X/Y.
-// OpenVR overlays are centered on their transform, so this works backward
-// from that target corner to the tag's own center point.
+// transform so that the *text's* own top-left corner (canvas pixel
+// (LANG_TAG_MARGIN, LANG_TAG_MARGIN), not the canvas's own (0, 0) — see
+// overlay.rs's render_lang_tag) lands at the box's own (unchanged)
+// bottom-left corner plus TAG_OFFSET_X/Y. OpenVR overlays are centered on
+// their transform, so this works backward from that target corner to the
+// canvas's own top-left, and from there to the tag's center point.
 fn lang_tag_placement() -> (f32, openvr::pose::Matrix3x4) {
     let box_world_height = HUD_WORLD_WIDTH * (overlay::CANVAS_HEIGHT as f32 / overlay::CANVAS_WIDTH as f32);
     let box_left = HUD_TRANSFORM[0][3] - HUD_WORLD_WIDTH / 2.0;
     let box_bottom = HUD_TRANSFORM[1][3] - box_world_height / 2.0;
 
-    let tag_top_left_x = box_left + TAG_OFFSET_X;
-    let tag_top_left_y = box_bottom + TAG_OFFSET_Y;
+    let text_top_left_x = box_left + TAG_OFFSET_X;
+    let text_top_left_y = box_bottom + TAG_OFFSET_Y;
+
+    // LANG_TAG_MARGIN exists purely so the pop-in animation has room to grow
+    // without clipping (see overlay.rs) — canvas (0, 0) sits that far up and
+    // to the left of where the text itself actually starts, so back that out
+    // to find the canvas's own top-left corner in world space.
+    let margin_world = overlay::LANG_TAG_MARGIN as f32 * METERS_PER_PIXEL;
+    let canvas_top_left_x = text_top_left_x - margin_world;
+    let canvas_top_left_y = text_top_left_y + margin_world;
 
     let tag_world_width = overlay::LANG_TAG_CANVAS_WIDTH as f32 * METERS_PER_PIXEL;
     let tag_world_height = overlay::LANG_TAG_CANVAS_HEIGHT as f32 * METERS_PER_PIXEL;
 
-    let tag_center_x = tag_top_left_x + tag_world_width / 2.0;
-    let tag_center_y = tag_top_left_y - tag_world_height / 2.0;
+    let tag_center_x = canvas_top_left_x + tag_world_width / 2.0;
+    let tag_center_y = canvas_top_left_y - tag_world_height / 2.0;
 
     let transform = openvr::pose::Matrix3x4([
         [1.0, 0.0, 0.0, tag_center_x],
@@ -485,12 +424,17 @@ struct OverlayProgressArg {
 // setupHotkeys() in main.js), which already tracks how long the current
 // combo has been held / how long it's been idle since Final appeared —
 // exactly the numbers the progress bar needs, so no timing state is
-// duplicated here. `text` empty hides the HUD.
+// duplicated here. `final_text`/`interim_text` both empty hides the HUD.
+// `fade_alpha` (0-1) is computed frontend-side from how long the box has
+// been showing/hiding — see setupHotkeys()'s BOX_FADE_IN_MS/BOX_FADE_OUT_MS —
+// and drives overlay::render's fade-in/fade-out.
 #[tauri::command]
 fn update_overlay(
-    text: String,
+    final_text: String,
+    interim_text: String,
     ending_preview: Option<String>,
     progress: Option<OverlayProgressArg>,
+    fade_alpha: f32,
     state: State<OpenVrState>,
 ) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
@@ -499,13 +443,13 @@ fn update_overlay(
     };
     let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
 
-    if text.is_empty() {
+    if final_text.is_empty() && interim_text.is_empty() {
         hud.overlay.set_visibility(hud.handle, false).map_err(|e| format!("{e:?}"))?;
         return Ok(());
     }
 
     let progress = progress.map(|p| overlay::OverlayProgress { is_send: p.is_send, fraction: p.fraction });
-    let pixels = overlay::render(&text, ending_preview.as_deref(), progress.as_ref());
+    let pixels = overlay::render(&final_text, &interim_text, ending_preview.as_deref(), progress.as_ref(), fade_alpha);
     hud.gpu.update(hud.handle.0, &pixels)?;
     hud.overlay.set_visibility(hud.handle, true).map_err(|e| format!("{e:?}"))?;
     Ok(())
@@ -551,7 +495,6 @@ pub fn run() {
             let synth = init_synthesizer().expect("failed to initialize VOICEVOX synthesizer");
             app.manage(VoicevoxState(Mutex::new(synth)));
             app.manage(OpenVrState(Mutex::new(init_openvr())));
-            app.manage(VrcMuteSyncState(Mutex::new(None)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -563,8 +506,7 @@ pub fn run() {
             update_lang_tag,
             character_catalog,
             download_character,
-            load_character,
-            set_vrc_mute_sync
+            load_character
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

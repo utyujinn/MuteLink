@@ -7,16 +7,19 @@ let armed = false; // Start/Stop button state; survives pause/resume cycles
 let recognizing = false; // true while a recognition session is supposed to be running
 let googleHadError = false;
 let googleRetryTimer;
+let googleRetryFailures = 0; // consecutive failed restarts of the *current* recognition object; reset on a successful onstart
+const GOOGLE_RETRY_RECREATE_AFTER = 3; // after this many, rebuild the SpeechRecognition object instead of retrying a possibly-wedged one forever
 let googleBtn;
 let googleStatusEl;
 let statusDotEl;
 let chatboxEnabled = false;
 let ttsEnabled = true;
 let sendMode = "auto"; // "auto" | "manual", mirrors the old <select id="send-mode">
-let interimTextEl;
-let finalTextEl;
+let finalTextPartEl;
+let interimTextPartEl;
 let sentTextEl;
 let pendingFinalText = "";
+let currentInterimText = ""; // live, not-yet-Final recognition result; read by both the desktop merged block and the VR overlay render loop
 let logEl;
 
 // The STT language is a radio group now (image.png), not a <select>; these
@@ -29,6 +32,15 @@ function setSttLangDisabled(disabled) {
   for (const radio of document.querySelectorAll('input[name="stt-lang"]')) {
     radio.disabled = disabled;
   }
+}
+
+// Keeps the merged 入力中/Final desktop display in sync with
+// pendingFinalText/currentInterimText — call after either changes instead of
+// poking the DOM directly, so there's one source of truth (the VR overlay
+// render loop reads the same two variables independently).
+function renderMergedText() {
+  finalTextPartEl.textContent = pendingFinalText;
+  interimTextPartEl.textContent = pendingFinalText && currentInterimText ? ` ${currentInterimText}` : currentInterimText;
 }
 
 async function sendChatbox(text) {
@@ -50,11 +62,16 @@ function dispatchText(outputText, spokenText, params) {
   sentTextEl.textContent = outputText;
   if (chatboxEnabled) sendChatbox(outputText);
   if (!ttsEnabled) return;
-  // VOICEVOX only synthesizes Japanese (OpenJTalk fails to parse other scripts).
-  if (getSttLang() === "ja-JP") {
+  // Everything gets sent to VOICEVOX regardless of recognition language —
+  // English/中文 come out fairly broken since OpenJTalk (VOICEVOX's text
+  // analyzer) isn't built for those scripts, but that's accepted; the
+  // per-language checkboxes in 設定 > Other let read-aloud be turned off for
+  // specific languages if the result isn't wanted.
+  const lang = getSttLang();
+  if (loadTtsLangEnabled()[lang]) {
     speak(spokenText, params);
   } else {
-    log("[voicevox] skipped: recognition language is not Japanese");
+    log(`[voicevox] skipped: read-aloud disabled for ${lang}`);
   }
 }
 
@@ -132,48 +149,62 @@ function createRecognition() {
     const text = result[0].transcript;
 
     if (!result.isFinal) {
-      interimTextEl.textContent = text;
+      currentInterimText = text;
+      renderMergedText();
       log(`[google:partial] text=${text}`);
       return;
     }
 
     log(`[google:final] text=${text}`);
-    interimTextEl.textContent = "";
+    currentInterimText = "";
 
     if (sendMode === "manual") {
       // A new Final can arrive before the pending one is sent — append
       // rather than overwrite so nothing said in the meantime is lost.
       pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
-      finalTextEl.textContent = pendingFinalText;
       // The content just changed, so restart any in-progress hold instead
       // of letting it fire against stale timing.
       resetHotkeyHold();
     } else {
       dispatchText(text, text);
-      finalTextEl.textContent = "";
     }
+    renderMergedText();
   };
   r.onstart = () => {
     googleHadError = false;
+    googleRetryFailures = 0;
     googleStatusEl.textContent = "listening";
   };
   r.onerror = (event) => {
     googleHadError = true;
+    log(`[google:error] ${event.error}${event.message ? ` (${event.message})` : ""}`);
   };
   r.onend = () => {
     // Only reconnect if we're still supposed to be actively recognizing.
     // pauseRecognition()/stopGoogleStt() clear `recognizing` before calling
     // stop(), so their own end events land here as a no-op.
     if (!armed || !recognizing) return;
-    try {
-      googleStatusEl.textContent = googleHadError ? "disconnected, retrying..." : "reconnecting...";
-      r.start();
-    } catch {
-      scheduleGoogleRetry();
-    }
+    googleStatusEl.textContent = googleHadError ? "disconnected, retrying..." : "reconnecting...";
+    // Restarting synchronously here is prone to InvalidStateError — the
+    // browser doesn't always finish tearing down the previous session by
+    // the time onend fires. Deferring one tick avoids that in most cases.
+    setTimeout(() => restartRecognition(r), 0);
   };
 
   return r;
+}
+
+// `instance` is whichever recognition object's onend just fired — if a
+// retry already rebuilt `recognition` in the meantime (see
+// scheduleGoogleRetry), this stale closure should no-op rather than fight
+// with the new object.
+function restartRecognition(instance) {
+  if (!armed || !recognizing || instance !== recognition) return;
+  try {
+    instance.start();
+  } catch {
+    scheduleGoogleRetry();
+  }
 }
 
 function resumeRecognition() {
@@ -201,9 +232,17 @@ function pauseRecognition() {
 }
 
 function scheduleGoogleRetry() {
+  googleRetryFailures++;
   clearTimeout(googleRetryTimer);
   googleRetryTimer = setTimeout(() => {
     if (!armed || !recognizing) return;
+    if (googleRetryFailures >= GOOGLE_RETRY_RECREATE_AFTER) {
+      // This object hasn't been able to restart itself several times in a
+      // row — rather than retry a possibly permanently-wedged instance
+      // forever, build a fresh one (same pattern as the initial connect).
+      log(`[google] recreating recognition after ${googleRetryFailures} failed restarts`);
+      recognition = createRecognition();
+    }
     try {
       recognition.start();
     } catch {
@@ -644,7 +683,7 @@ function applyEnding(ending) {
     volumeScale: ending.volumeScale,
   });
   pendingFinalText = "";
-  finalTextEl.textContent = "";
+  renderMergedText();
 }
 
 function setupEndings() {
@@ -1101,7 +1140,7 @@ function resetHotkeyHold() {
 function fireHotkeyAssignment(assignment) {
   if (assignment === HOTKEY_CANCEL_ACTION) {
     pendingFinalText = "";
-    finalTextEl.textContent = "";
+    renderMergedText();
   } else if (assignment) {
     const ending = endings.find((e) => e.text === assignment);
     if (ending) applyEnding(ending);
@@ -1193,6 +1232,9 @@ function setupHotkeys() {
   });
 
   let overlayShown = false; // avoids spamming hide calls every frame while idle
+  let boxShownAt = 0; // when the box most recently went hidden -> showing, for the fade-in curve
+  let boxFadingOutSince = 0; // 0 = not fading out; otherwise when the fade-out began
+  let boxFrozenContent = null; // last-rendered {finalText, interimText, endingPreview, progress}, kept alive while fading out
   let langTagShown = false; // same, for the separate language-tag overlay
   let tickInFlight = false; // setInterval doesn't wait for the previous async tick's IPC round-trip
   let vrAvailable = false; // updated by the poll below, read by the render loop
@@ -1217,14 +1259,11 @@ function setupHotkeys() {
       statusEl.textContent = "VR: 接続済み";
       vrAvailable = true;
 
-      // Left controller's lower face button (X on Quest) toggles
-      // recognition start/stop, independent of whether a Final is pending —
-      // unless VRChat mute sync is on, in which case VRC's own mic mute
-      // state is the only thing allowed to start/stop recognition, so this
-      // is disabled entirely to avoid the two fighting each other.
-      if (hotkeyState.left.a && !leftAWasPressed && !loadVrcMuteSync()) {
-        if (armed) stopGoogleStt();
-        else startGoogleStt();
+      // Left controller's lower face button (X on Quest) steps through the
+      // 日本語→English→中文→OFF language cycle, independent of whether a
+      // Final is pending — see handleCyclePress()/cycleSttState().
+      if (hotkeyState.left.a && !leftAWasPressed) {
+        handleCyclePress();
       }
       leftAWasPressed = hotkeyState.left.a;
 
@@ -1257,6 +1296,11 @@ function setupHotkeys() {
   // than the VR headset's — the HUD is seen in the headset, not on the
   // desktop window, so there's no reason to cap there.
   const OVERLAY_RENDER_MS = 8; // ~125Hz
+  // Abrupt appear/disappear reads badly in a headset — fade in quickly when
+  // new content shows up, but fade out more gently so it doesn't feel like
+  // it's being yanked away the instant text is sent/discarded.
+  const BOX_FADE_IN_MS = 300;
+  const BOX_FADE_OUT_MS = 500;
   let renderInFlight = false;
 
   setInterval(() => {
@@ -1266,8 +1310,16 @@ function setupHotkeys() {
     const now = Date.now();
 
     let boxPromise = null;
-    if (vrAvailable && pendingFinalText) {
-      overlayShown = true;
+    // Interim (still being recognized) text is shown alongside pending
+    // Final text now, not just once something's actually confirmed — see
+    // overlay.rs's render() for how the two are colored differently.
+    if (vrAvailable && (pendingFinalText || currentInterimText)) {
+      boxFadingOutSince = 0;
+      boxFrozenContent = null;
+      if (!overlayShown) {
+        overlayShown = true;
+        boxShownAt = now;
+      }
       // Both hands can be mid-hold at once with different actions; only one
       // can be shown, so the priority hand wins when both have something
       // assigned to their current gesture, falling back to whichever one
@@ -1286,18 +1338,31 @@ function setupHotkeys() {
         progress = { isSend: true, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
         endingPreview = display.activeAssignment;
       }
-      boxPromise = window.__TAURI__.core.invoke("update_overlay", {
-        text: pendingFinalText,
-        endingPreview,
-        progress,
-      });
+      const content = { finalText: pendingFinalText, interimText: currentInterimText, endingPreview, progress };
+      boxFrozenContent = content;
+      const fadeAlpha = Math.min(1, (now - boxShownAt) / BOX_FADE_IN_MS);
+      boxPromise = window.__TAURI__.core.invoke("update_overlay", { ...content, fadeAlpha });
     } else if (overlayShown) {
-      overlayShown = false;
-      boxPromise = window.__TAURI__.core.invoke("update_overlay", {
-        text: "",
-        endingPreview: null,
-        progress: null,
-      });
+      // Content just disappeared (sent/discarded/cleared) — keep showing
+      // the last frame's content, frozen, while alpha ramps down, instead
+      // of cutting straight to hidden.
+      if (!boxFadingOutSince) boxFadingOutSince = now;
+      const elapsed = now - boxFadingOutSince;
+      if (elapsed >= BOX_FADE_OUT_MS) {
+        overlayShown = false;
+        boxFadingOutSince = 0;
+        boxFrozenContent = null;
+        boxPromise = window.__TAURI__.core.invoke("update_overlay", {
+          finalText: "",
+          interimText: "",
+          endingPreview: null,
+          progress: null,
+          fadeAlpha: 0,
+        });
+      } else {
+        const fadeAlpha = 1 - elapsed / BOX_FADE_OUT_MS;
+        boxPromise = window.__TAURI__.core.invoke("update_overlay", { ...boxFrozenContent, fadeAlpha });
+      }
     }
 
     // The language tag is a separate overlay positioned relative to the
@@ -1328,58 +1393,47 @@ function setupHotkeys() {
   }, OVERLAY_RENDER_MS);
 }
 
-const VRC_MUTE_SYNC_KEY = "mutelink.vrcMuteSync";
-
-function loadVrcMuteSync() {
-  return localStorage.getItem(VRC_MUTE_SYNC_KEY) === "true";
-}
-
-function saveVrcMuteSync(enabled) {
-  localStorage.setItem(VRC_MUTE_SYNC_KEY, String(enabled));
-}
-
-// While mute sync is on, VRChat's own mic mute state should be the only
-// thing that starts/stops recognition — both the left controller's X button
-// (see setupHotkeys()) and this on-screen button are locked out so they
-// can't fight with it.
-function applyVrcMuteSyncLock(enabled) {
-  googleBtn.disabled = enabled;
-  googleBtn.title = enabled ? "VRChatのマイク連動が有効なため無効化されています" : "";
-}
-
-// A quick mute→unmute (VRChat's own mic button, under this threshold) cycles
-// the recognition language instead of just restarting recognition — a
-// deliberate double-tap-style gesture, easy to do without touching the
-// desktop window. A slower mute→unmute is treated as a normal toggle and
-// leaves the language exactly as it was.
-const VRC_MUTE_SYNC_CYCLE_THRESHOLD_MS = 2000;
-const STT_LANG_ORDER = ["ja-JP", "en-US", "zh-CN"];
-const VRC_MUTE_SYNC_LANGS_KEY = "mutelink.vrcMuteSyncLangs";
-
-function loadVrcMuteSyncLangs() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(VRC_MUTE_SYNC_LANGS_KEY) ?? "null");
-    if (Array.isArray(raw) && raw.length > 0) return raw.filter((lang) => STT_LANG_ORDER.includes(lang));
-  } catch {
-    // fall through
-  }
-  return [...STT_LANG_ORDER]; // default: cycle through all three
-}
-
-function saveVrcMuteSyncLangs(langs) {
-  localStorage.setItem(VRC_MUTE_SYNC_LANGS_KEY, JSON.stringify(langs));
-}
-
 function setSttLang(lang) {
   const radio = document.querySelector(`input[name="stt-lang"][value="${lang}"]`);
   if (radio) radio.checked = true;
 }
 
+const TTS_LANG_ENABLED_KEY = "mutelink.ttsLangEnabled";
+const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true };
+
+function loadTtsLangEnabled() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(TTS_LANG_ENABLED_KEY) ?? "null");
+    if (raw && typeof raw === "object") {
+      return { ...TTS_LANG_ENABLED_DEFAULT, ...raw };
+    }
+  } catch {
+    // fall through
+  }
+  return { ...TTS_LANG_ENABLED_DEFAULT };
+}
+
+function saveTtsLangEnabled(map) {
+  localStorage.setItem(TTS_LANG_ENABLED_KEY, JSON.stringify(map));
+}
+
+function setupTtsLangSettings() {
+  const enabled = loadTtsLangEnabled();
+  for (const checkbox of document.querySelectorAll('input[name="tts-lang"]')) {
+    checkbox.checked = enabled[checkbox.value] ?? true;
+    checkbox.addEventListener("change", () => {
+      const map = loadTtsLangEnabled();
+      map[checkbox.value] = checkbox.checked;
+      saveTtsLangEnabled(map);
+    });
+  }
+}
+
 // Hoisted to module scope: set here, read by setupHotkeys()'s overlay
 // render loop, which is defined in a different function but needs to know
-// whether a language switch just happened to flash the "EN"/"JP"/"CN" tag
-// in VR — even if there's no pending Final (and so no confirm/discard box)
-// at the moment the switch occurs.
+// whether a language switch (or an OFF) just happened, to flash the
+// "EN"/"JP"/"CN"/"OFF" tag in VR — even if there's no pending Final (and so
+// no confirm/discard box) at the moment it occurs.
 let langTagLabel = null;
 let langTagShownAt = 0;
 let langTagUntil = 0;
@@ -1388,77 +1442,54 @@ let langTagUntil = 0;
 const LANG_TAG_DISPLAY_MS = 3500;
 const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN" };
 
+// `lang` is a BCP-47 code for JP/EN/CN, or null for OFF.
 function flashLangTag(lang) {
-  langTagLabel = STT_LANG_TAG_LABELS[lang] ?? null;
+  langTagLabel = lang === null ? "OFF" : (STT_LANG_TAG_LABELS[lang] ?? null);
   langTagShownAt = Date.now();
   langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
 }
 
-// Advances to the next language after the currently-selected one, among
-// only the languages enabled in settings, wrapping back to the first. Falls
-// back to the first enabled language if the current one isn't in the
-// enabled set (e.g. it was unchecked in settings since it was picked).
-function cycleSttLang() {
-  const enabledOrder = STT_LANG_ORDER.filter((lang) => loadVrcMuteSyncLangs().includes(lang));
-  if (enabledOrder.length === 0) return;
-  const currentIndex = enabledOrder.indexOf(getSttLang());
-  const next = enabledOrder[(currentIndex + 1) % enabledOrder.length];
+// null stands for OFF (recognition stopped) in this cycle.
+const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", null];
+
+// Advances one step through 日本語 → English → 中文 → OFF → 日本語 → ...,
+// restarting recognition against the new language each step (or stopping it
+// entirely for OFF) so the change takes effect immediately — bound to the
+// left controller's lower face button (see setupHotkeys()) as a hands-free
+// way to switch languages without touching the desktop.
+function cycleSttState() {
+  const current = armed ? getSttLang() : null;
+  const next = STT_CYCLE_ORDER[(STT_CYCLE_ORDER.indexOf(current) + 1) % STT_CYCLE_ORDER.length];
+
+  if (armed) stopGoogleStt();
+  if (next === null) {
+    flashLangTag(null);
+    return;
+  }
   setSttLang(next);
+  startGoogleStt();
   flashLangTag(next);
 }
 
-// The Rust side listens for VRChat's own OSC output (127.0.0.1:9001,
-// separate from the port we send chatbox text to) and forwards
-// /avatar/parameters/MuteSelf — a built-in parameter VRChat always sends,
-// not something specific to any one avatar — as this event, regardless of
-// whether the toggle below is on. Only react to it here so flipping the
-// toggle doesn't need to restart any listener.
-function setupVrcMuteSync() {
-  const toggle = document.querySelector("#vrc-mute-sync-toggle");
-  toggle.checked = loadVrcMuteSync();
-  applyVrcMuteSyncLock(toggle.checked);
-  // Rust doesn't bind VRChat's OSC output port (9001) at all unless this is
-  // on — sync the listener's running state to whatever was last saved, and
-  // again on every change, instead of it always running in the background.
-  window.__TAURI__.core.invoke("set_vrc_mute_sync", { enabled: toggle.checked });
-  toggle.addEventListener("change", () => {
-    saveVrcMuteSync(toggle.checked);
-    applyVrcMuteSyncLock(toggle.checked);
-    window.__TAURI__.core.invoke("set_vrc_mute_sync", { enabled: toggle.checked });
-  });
+// XSOverlay binds its own gesture to a quick double-press of this same
+// button, which was landing here too and advancing the cycle twice instead
+// of once. Rather than try to distinguish "our" press from XSOverlay's,
+// treat any second press within CYCLE_DOUBLE_PRESS_MS of the first as
+// canceling it out entirely — a genuine single press only takes effect once
+// this window passes without a second one.
+const CYCLE_DOUBLE_PRESS_MS = 300;
+let pendingCycleTimer = null;
 
-  const enabledLangs = loadVrcMuteSyncLangs();
-  for (const checkbox of document.querySelectorAll('input[name="vrc-mute-sync-lang"]')) {
-    checkbox.checked = enabledLangs.includes(checkbox.value);
-    checkbox.addEventListener("change", () => {
-      const langs = [...document.querySelectorAll('input[name="vrc-mute-sync-lang"]:checked')].map((c) => c.value);
-      saveVrcMuteSyncLangs(langs);
-    });
+function handleCyclePress() {
+  if (pendingCycleTimer) {
+    clearTimeout(pendingCycleTimer);
+    pendingCycleTimer = null;
+    return;
   }
-
-  let lastMuteAt = 0;
-
-  window.__TAURI__.event.listen("vrc-mute-changed", (event) => {
-    if (!loadVrcMuteSync()) return;
-    const muted = event.payload;
-    const now = Date.now();
-
-    if (muted) {
-      lastMuteAt = now;
-      if (armed) stopGoogleStt();
-      return;
-    }
-
-    if (lastMuteAt && now - lastMuteAt < VRC_MUTE_SYNC_CYCLE_THRESHOLD_MS) {
-      cycleSttLang();
-    } else if (loadVrcMuteSyncLangs().length > 1) {
-      // Nothing changed this time, but with more than one language enabled
-      // for rotation, showing which one is currently active on every unmute
-      // (not just when a cycle just switched it) avoids having to guess.
-      flashLangTag(getSttLang());
-    }
-    if (!armed) startGoogleStt();
-  });
+  pendingCycleTimer = setTimeout(() => {
+    pendingCycleTimer = null;
+    cycleSttState();
+  }, CYCLE_DOUBLE_PRESS_MS);
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -1466,8 +1497,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   googleBtn = document.querySelector("#google-btn");
   statusDotEl = document.querySelector("#status-dot");
   googleStatusEl = document.querySelector("#google-status");
-  interimTextEl = document.querySelector("#interim-text");
-  finalTextEl = document.querySelector("#final-text");
+  finalTextPartEl = document.querySelector("#final-text-part");
+  interimTextPartEl = document.querySelector("#interim-text-part");
   sentTextEl = document.querySelector("#sent-text");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
@@ -1481,7 +1512,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupEndings();
   setupSettingsDialog();
   setupHotkeys();
-  setupVrcMuteSync();
+  setupTtsLangSettings();
 
   googleBtn.addEventListener("click", () => {
     if (armed) {
@@ -1493,7 +1524,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   document.querySelector("#final-clear-btn").addEventListener("click", () => {
     pendingFinalText = "";
-    finalTextEl.textContent = "";
+    renderMergedText();
   });
 
   document.querySelector("#sent-clear-btn").addEventListener("click", () => {

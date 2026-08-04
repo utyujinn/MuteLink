@@ -132,7 +132,7 @@
             </div>
 
             <p class="hint">
-              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンで音声認識の開始/停止を切り替えられます。
+              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。
             </p>
 
             <div class="settings-list-row">
@@ -188,24 +188,17 @@
           <section class="settings-panel" data-panel="other">
             <h2>Other</h2>
 
-            <h3>VRChat連携</h3>
+            <h3>読み上げ言語</h3>
             <div class="settings-list-row">
-              <span class="settings-list-label">マイクミュート状態と連動して開始/停止</span>
-              <label class="switch">
-                <input type="checkbox" id="vrc-mute-sync-toggle" />
-                <span class="switch-track"></span>
-              </label>
-            </div>
-            <div class="settings-list-row">
-              <span class="settings-list-label">切り替え対象の言語</span>
+              <span class="settings-list-label">VOICEVOXで読み上げる言語</span>
               <div class="settings-radio-row">
-                <label><input type="checkbox" name="vrc-mute-sync-lang" value="ja-JP" checked /> 日本語</label>
-                <label><input type="checkbox" name="vrc-mute-sync-lang" value="en-US" checked /> English</label>
-                <label><input type="checkbox" name="vrc-mute-sync-lang" value="zh-CN" checked /> 中文</label>
+                <label><input type="checkbox" name="tts-lang" value="ja-JP" checked /> 日本語</label>
+                <label><input type="checkbox" name="tts-lang" value="en-US" checked /> English</label>
+                <label><input type="checkbox" name="tts-lang" value="zh-CN" checked /> 中文</label>
               </div>
             </div>
             <p class="hint">
-              VRChatのOSC出力(既定でポート9001)からマイクミュートの切り替えを受け取り、ミュート解除で認識開始、ミュートで停止します。VRChat側のOSCが有効になっている必要があります。ミュートしてから0.5秒未満で解除すると、認識言語が上の「切り替え対象の言語」内で日本語→English→中文の順に切り替わります(0.5秒以上ミュートしていた場合は言語はそのままです)。
+              オフにした言語は認識結果をVOICEVOXに送らず、読み上げをスキップします。English/中文はOpenJTalk(VOICEVOXのテキスト解析)が対応していないため発音が崩れますが、そのまま送信されます。
             </p>
 
             <h3>VOICEVOXテスト</h3>
@@ -246,12 +239,8 @@
         </div>
       </div>
 
-      <div class="text-block text-block-interim">
-        <p id="interim-text"></p>
-      </div>
-
-      <div class="text-block text-block-final">
-        <p id="final-text"></p>
+      <div class="text-block text-block-merged">
+        <p id="merged-text"><span id="final-text-part"></span><span id="interim-text-part"></span></p>
         <button class="text-block-clear" id="final-clear-btn" type="button" aria-label="削除">&#x2715;</button>
       </div>
 

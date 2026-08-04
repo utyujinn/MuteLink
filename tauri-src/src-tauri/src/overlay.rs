@@ -26,13 +26,18 @@ const DISCARD_COLOR: [u8; 3] = [220, 60, 60];
 
 // Main text block: wraps across multiple lines and shrinks to fit within
 // this fixed region, instead of the single auto-shrunk line it used to be —
-// long Final text was getting cut off entirely at the box's edges.
+// long Final text was getting cut off entirely at the box's edges. Final
+// (already confirmed, pending send) and interim (still being recognized)
+// text are drawn as one continuous, wrapped run — final in yellow-green,
+// interim trailing after it in white — see draw_text_block/draw_line_mixed.
 const TEXT_TOP: f32 = 18.0;
 const TEXT_REGION_HEIGHT: f32 = 190.0;
 const MAX_TEXT_LINES: usize = 4;
 const BASE_FONT_SIZE: f32 = 34.0;
 const MIN_FONT_SIZE: f32 = 16.0;
 const LINE_HEIGHT_FACTOR: f32 = 1.25;
+const FINAL_TEXT_COLOR: [u8; 3] = [190, 255, 90];
+const INTERIM_TEXT_COLOR: [u8; 3] = [255, 255, 255];
 
 // The ending-preview line sits at a fixed baseline below the text region
 // regardless of how many lines the main text actually used, so the layout
@@ -41,13 +46,20 @@ const ENDING_PREVIEW_BASELINE: f32 = TEXT_TOP + TEXT_REGION_HEIGHT + 30.0;
 const ENDING_PREVIEW_FONT_SIZE: f32 = 22.0;
 
 // The separate language-tag overlay's own texture. Sized generously for a
-// large, bold, 2-character label ("EN"/"JP"/"CN") — see lib.rs for how its
-// world-space transform is derived from this and the box's own transform.
-pub const LANG_TAG_CANVAS_WIDTH: usize = 220;
-pub const LANG_TAG_CANVAS_HEIGHT: usize = 130;
+// large, bold, label up to 3 characters ("EN"/"JP"/"CN"/"OFF") — see lib.rs
+// for how its world-space transform is derived from this and the box's own
+// transform. LANG_TAG_MARGIN reserves extra canvas space beyond the text's
+// own resting (1x) footprint purely so the pop-in animation — which grows
+// the text up to LANG_TAG_POP_SCALE around a fixed anchor point — has room
+// to breathe without clipping against the canvas edges; lib.rs's
+// lang_tag_placement compensates for it so the text's own resting position
+// in world space is unaffected by this margin existing.
+pub const LANG_TAG_MARGIN: usize = 28;
+pub const LANG_TAG_CANVAS_WIDTH: usize = 220 + LANG_TAG_MARGIN * 2;
+pub const LANG_TAG_CANVAS_HEIGHT: usize = 130 + LANG_TAG_MARGIN;
 const LANG_TAG_FONT_SIZE: f32 = 96.0;
 const LANG_TAG_PADDING: f32 = 8.0;
-const LANG_TAG_ALPHA: f32 = 0.05;
+const LANG_TAG_ALPHA: f32 = 0.2;
 
 // Pop-in/settle/fade-out timeline, driven by `elapsed_secs` since the tag
 // started showing (see lib.rs's update_lang_tag). Font size ramps up to
@@ -218,23 +230,66 @@ fn draw_line_centered(buf: &mut [u8], font: &Font, line: &str, size: f32, baseli
     }
 }
 
-/// Wraps `text` into up to MAX_TEXT_LINES lines, shrinking the font first
-/// (same as the old single-line auto-shrink) and truncating with "…" only
-/// as a last resort if it still doesn't fit at MIN_FONT_SIZE. Lines are
-/// vertically centered within the fixed text region.
-fn draw_text_block(buf: &mut [u8], font: &Font, text: &str) {
-    if text.is_empty() {
+/// Like draw_line_centered, but colors each character FINAL_TEXT_COLOR or
+/// INTERIM_TEXT_COLOR depending on whether its position in the *combined*
+/// final+interim text (`global_index` = this line's starting offset into
+/// that combined text) falls before or after `final_char_count`, the
+/// boundary between the two.
+fn draw_line_mixed(buf: &mut [u8], font: &Font, line: &str, size: f32, baseline_y: f32, global_index: usize, final_char_count: usize) {
+    let width = layout_width(font, line, size);
+    let mut pen_x = (CANVAS_WIDTH as f32 - width) / 2.0;
+
+    for (i, ch) in line.chars().enumerate() {
+        let color = if global_index + i < final_char_count { FINAL_TEXT_COLOR } else { INTERIM_TEXT_COLOR };
+        let (metrics, bitmap) = font.rasterize(ch, size);
+        let glyph_x0 = pen_x + metrics.xmin as f32;
+        let glyph_y0 = baseline_y - metrics.ymin as f32 - metrics.height as f32;
+
+        for gy in 0..metrics.height {
+            for gx in 0..metrics.width {
+                let coverage = bitmap[gy * metrics.width + gx] as f32 / 255.0;
+                if coverage <= 0.0 {
+                    continue;
+                }
+                let px = (glyph_x0 + gx as f32).round();
+                let py = (glyph_y0 + gy as f32).round();
+                if px < 0.0 || py < 0.0 || px >= CANVAS_WIDTH as f32 || py >= CANVAS_HEIGHT as f32 {
+                    continue;
+                }
+                let idx = (py as usize * CANVAS_WIDTH + px as usize) * 4;
+                blend(buf, idx, color, coverage);
+            }
+        }
+
+        pen_x += metrics.advance_width;
+    }
+}
+
+/// Wraps `final_text` + `interim_text` (joined with a space when both are
+/// non-empty, matching how consecutive Final results are joined in main.js)
+/// into up to MAX_TEXT_LINES lines, shrinking the font first (same as the
+/// old single-line auto-shrink) and truncating with "…" only as a last
+/// resort if it still doesn't fit at MIN_FONT_SIZE. Lines are vertically
+/// centered within the fixed text region; each character is colored
+/// FINAL_TEXT_COLOR or INTERIM_TEXT_COLOR by draw_line_mixed depending on
+/// which side of the final/interim boundary it falls on.
+fn draw_text_block(buf: &mut [u8], font: &Font, final_text: &str, interim_text: &str) {
+    if final_text.is_empty() && interim_text.is_empty() {
         return;
     }
 
+    let separator = if !final_text.is_empty() && !interim_text.is_empty() { " " } else { "" };
+    let combined = format!("{final_text}{separator}{interim_text}");
+    let final_char_count = final_text.chars().count() + separator.chars().count();
+
     let max_width = CANVAS_WIDTH as f32 - 48.0;
     let mut size = BASE_FONT_SIZE;
-    let mut lines = wrap_lines(font, text, size, max_width);
+    let mut lines = wrap_lines(font, &combined, size, max_width);
     while size > MIN_FONT_SIZE
         && (lines.len() > MAX_TEXT_LINES || lines.len() as f32 * size * LINE_HEIGHT_FACTOR > TEXT_REGION_HEIGHT)
     {
         size -= 1.0;
-        lines = wrap_lines(font, text, size, max_width);
+        lines = wrap_lines(font, &combined, size, max_width);
     }
     if lines.len() > MAX_TEXT_LINES {
         lines.truncate(MAX_TEXT_LINES);
@@ -247,9 +302,11 @@ fn draw_text_block(buf: &mut [u8], font: &Font, text: &str) {
     let total_height = lines.len() as f32 * line_height;
     let start_y = TEXT_TOP + ((TEXT_REGION_HEIGHT - total_height) / 2.0).max(0.0);
 
+    let mut global_index = 0usize;
     for (i, line) in lines.iter().enumerate() {
         let baseline_y = start_y + (i as f32 + 0.8) * line_height;
-        draw_line_centered(buf, font, line, size, baseline_y, [255, 255, 255]);
+        draw_line_mixed(buf, font, line, size, baseline_y, global_index, final_char_count);
+        global_index += line.chars().count();
     }
 }
 
@@ -279,22 +336,38 @@ fn draw_progress_bar(buf: &mut [u8], progress: &OverlayProgress) {
     }
 }
 
-/// Renders the whole HUD (rounded box + wrapped text + optional ending
-/// preview + optional progress bar) into a fresh RGBA8 buffer, tightly
+/// Renders the whole HUD (rounded box + wrapped final/interim text + optional
+/// ending preview + optional progress bar) into a fresh RGBA8 buffer, tightly
 /// packed, top-to-bottom rows — the exact layout SetOverlayTexture's
-/// underlying D3D11 texture expects.
-pub fn render(text: &str, ending_preview: Option<&str>, progress: Option<&OverlayProgress>) -> Vec<u8> {
+/// underlying D3D11 texture expects. `fade_alpha` (0-1) uniformly scales the
+/// alpha of every pixel already drawn, as a final pass — driving the
+/// overlay's fade-in/fade-out (see lib.rs's update_overlay) without having
+/// to thread it through each individual draw_* function.
+pub fn render(
+    final_text: &str,
+    interim_text: &str,
+    ending_preview: Option<&str>,
+    progress: Option<&OverlayProgress>,
+    fade_alpha: f32,
+) -> Vec<u8> {
     let mut buf = vec![0u8; CANVAS_WIDTH * CANVAS_HEIGHT * 4];
 
     draw_box(&mut buf);
     if let Some(font) = font() {
-        draw_text_block(&mut buf, font, text);
+        draw_text_block(&mut buf, font, final_text, interim_text);
         if let Some(ending) = ending_preview {
             draw_ending_preview(&mut buf, font, ending);
         }
     }
     if let Some(progress) = progress {
         draw_progress_bar(&mut buf, progress);
+    }
+
+    if fade_alpha < 1.0 {
+        let fade_alpha = fade_alpha.clamp(0.0, 1.0);
+        for px in buf.chunks_exact_mut(4) {
+            px[3] = (px[3] as f32 * fade_alpha).round() as u8;
+        }
     }
 
     buf
@@ -318,8 +391,13 @@ pub fn render_lang_tag(label: &str, elapsed_secs: f32) -> Vec<u8> {
     let size = LANG_TAG_FONT_SIZE * lang_tag_pop_scale(elapsed_secs);
     let alpha = LANG_TAG_ALPHA * lang_tag_fade_alpha(elapsed_secs);
 
-    let anchor_x = LANG_TAG_PADDING + layout_width(font, label, LANG_TAG_FONT_SIZE) / 2.0;
-    let anchor_y = LANG_TAG_PADDING + LANG_TAG_FONT_SIZE * 0.8;
+    // Offset by LANG_TAG_MARGIN so the text's own top-left (not the
+    // canvas's) is what conceptually sits at (0, 0) — lib.rs adds the same
+    // margin back when computing the overlay's world transform, so this
+    // margin only ever affects clipping room, never the resting position.
+    let margin = LANG_TAG_MARGIN as f32;
+    let anchor_x = margin + LANG_TAG_PADDING + layout_width(font, label, LANG_TAG_FONT_SIZE) / 2.0;
+    let anchor_y = margin + LANG_TAG_PADDING + LANG_TAG_FONT_SIZE * 0.8;
     let baseline_y = anchor_y;
     let mut pen_x = anchor_x - layout_width(font, label, size) / 2.0;
 

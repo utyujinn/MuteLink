@@ -163,18 +163,26 @@ body {
   min-width: 0;
 }
 
-.app-main .text-block-final p,
+.app-main .text-block-merged p,
 .app-main .text-block-sent p {
   flex: 0 0 80%;
 }
 
-.text-block-interim {
-  background-color: var(--color-surface-alt);
-}
-
-.text-block-final {
+.text-block-merged {
   background-color: rgba(46, 160, 67, 0.55);
   border-color: rgba(46, 160, 67, 0.95);
+}
+
+/* Already-Final (pending send) vs. still-being-recognized, in one run of
+   text — colors match the VR overlay's FINAL_TEXT_COLOR/INTERIM_TEXT_COLOR
+   (see overlay.rs) so both surfaces read the same way. */
+#final-text-part {
+  color: #beff5a;
+  font-weight: 600;
+}
+
+#interim-text-part {
+  opacity: 0.85;
 }
 
 .text-block-sent {
