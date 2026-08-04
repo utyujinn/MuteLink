@@ -229,7 +229,7 @@ body {
 .ending-grid {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 6px;
   background-color: var(--color-border);
   border: 6px solid var(--color-border);
@@ -719,10 +719,37 @@ input[type="checkbox"]:checked::after {
   color: #396cd8;
 }
 
+.ending-settings-number {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.6em;
+  height: 1.6em;
+  border-radius: 50%;
+  background-color: var(--color-surface-alt);
+  font-size: 0.75em;
+  font-weight: 600;
+  opacity: 0.8;
+}
+
 .ending-settings-text {
   flex: 0 0 auto;
   min-width: 3em;
   font-weight: 600;
+}
+
+/* Reverse lookup: which hotkey (if any) is currently wired to this ending's
+   slot number — see hotkeyRefsForEndingSlot() — shown right on the row so
+   there's no need to go compare against the Hotkey panel by hand. */
+.ending-hotkey-refs {
+  padding: 0 0.2em 0.6em;
+  font-size: 0.78em;
+  opacity: 0.6;
+}
+
+.ending-hotkey-refs[hidden] {
+  display: none;
 }
 
 .ending-settings-values {
@@ -794,6 +821,29 @@ input[type="checkbox"]:checked::after {
 
 .ending-param-val:hover,
 .ending-param-val:focus-visible {
+  border-color: #396cd8;
+  outline: none;
+}
+
+.ending-speak-row {
+  padding: 0.3em 0;
+  border-bottom: none;
+}
+
+.ending-text-input {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  padding: 0.3em 0.5em;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  box-shadow: none;
+  background-color: var(--color-surface);
+  font-size: 0.9em;
+}
+
+.ending-text-input:hover,
+.ending-text-input:focus-visible {
   border-color: #396cd8;
   outline: none;
 }

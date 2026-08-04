@@ -24,6 +24,8 @@
       <div class="settings-layout">
         <nav class="settings-sidebar">
           <button class="settings-nav-btn" data-panel="general">General</button>
+          <button class="settings-nav-btn" data-panel="character">キャラクター</button>
+          <button class="settings-nav-btn" data-panel="endings">語尾</button>
           <button class="settings-nav-btn" data-panel="device">Device</button>
           <button class="settings-nav-btn" data-panel="appearance">Appearance</button>
           <button class="settings-nav-btn" data-panel="hotkey">Hotkey</button>
@@ -34,17 +36,28 @@
           <section class="settings-panel" data-panel="general">
             <h2>General</h2>
 
-            <h3>出力音声キャラクター</h3>
-            <p class="hint" id="current-character-label">読み込み中...</p>
-            <div id="character-catalog-list" class="ending-settings-list"></div>
-
-            <h3>語尾</h3>
-            <div id="ending-settings-list" class="ending-settings-list"></div>
-
             <h3>リセット</h3>
             <div class="row">
               <button id="settings-reset-btn" class="danger-btn" type="button">設定を全てリセット</button>
             </div>
+          </section>
+
+          <section class="settings-panel" data-panel="character">
+            <h2>キャラクター</h2>
+
+            <h3>出力音声キャラクター</h3>
+            <p class="hint" id="current-character-label">読み込み中...</p>
+            <div id="character-catalog-list" class="ending-settings-list"></div>
+          </section>
+
+          <section class="settings-panel" data-panel="endings">
+            <h2>語尾</h2>
+
+            <p class="hint">
+              語尾は1〜10の番号で固定されたスロットです。ホットキーは番号で語尾を参照するので、ここでテキストを書き換えると、その番号を割り当てているホットキーの内容もすぐに切り替わります。番号がすでにどこかのホットキーに割り当てられている場合、行に「→ 右手: トリガーのみ」のように表示されます。語尾ごとに、送信時にVOICEVOXでその語尾を読み上げるかどうかと、読み上げる場合の読み方も設定できます(既定はオフ = 元のテキストだけ読み上げ)。絵文字や顔文字はそのままだと発音が崩れるので、読み方欄にひらがな/カタカナなどを入力してください。
+            </p>
+
+            <div id="ending-settings-list" class="ending-settings-list"></div>
           </section>
 
           <section class="settings-panel" data-panel="device">
@@ -253,8 +266,8 @@
 
       <div class="control-bar">
         <button id="settings-btn" class="round-btn" type="button" title="設定" aria-label="設定">⚙</button>
-        <button id="mode-toggle-btn" class="round-btn active" type="button" aria-pressed="true">Auto</button>
-        <button id="chatbox-toggle-btn" class="round-btn" type="button" aria-pressed="false">Chatbox</button>
+        <button id="mode-toggle-btn" class="round-btn" type="button" aria-pressed="false">Auto</button>
+        <button id="chatbox-toggle-btn" class="round-btn active" type="button" aria-pressed="true">Chatbox</button>
         <button id="tts-toggle-btn" class="round-btn active" type="button" aria-pressed="true">TTS</button>
       </div>
     </main>

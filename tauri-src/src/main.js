@@ -13,9 +13,9 @@ let googleBtn;
 let googleStatusEl;
 let statusDotEl;
 let sttStateLabelEl;
-let chatboxEnabled = false;
-let ttsEnabled = true;
-let sendMode = "auto"; // "auto" | "manual", mirrors the old <select id="send-mode">
+let chatboxEnabled = true; // overwritten from storage on load — see loadChatboxEnabled()
+let ttsEnabled = true; // overwritten from storage on load — see loadTtsEnabled()
+let sendMode = "manual"; // "auto" | "manual", mirrors the old <select id="send-mode">; overwritten from storage on load — see loadSendMode()
 let finalTextPartEl;
 let interimTextPartEl;
 let pendingFinalText = "";
@@ -49,6 +49,44 @@ async function sendChatbox(text) {
   }
 }
 
+const CHATBOX_ENABLED_KEY = "mutelink.chatboxEnabled";
+const TTS_ENABLED_KEY = "mutelink.ttsEnabled";
+
+// Both default on (unlike most localStorage-backed settings here, where a
+// missing key means "first run, use the default") — absence specifically
+// means "never saved yet", so it's distinguished from an explicit "false"
+// rather than just falling back to a fixed default via `?? true`.
+function loadChatboxEnabled() {
+  const raw = localStorage.getItem(CHATBOX_ENABLED_KEY);
+  return raw === null ? true : raw === "true";
+}
+
+function saveChatboxEnabled(value) {
+  localStorage.setItem(CHATBOX_ENABLED_KEY, String(value));
+}
+
+function loadTtsEnabled() {
+  const raw = localStorage.getItem(TTS_ENABLED_KEY);
+  return raw === null ? true : raw === "true";
+}
+
+function saveTtsEnabled(value) {
+  localStorage.setItem(TTS_ENABLED_KEY, String(value));
+}
+
+const SEND_MODE_KEY = "mutelink.sendMode";
+
+// Defaults to "manual" (Auto off) — unlike Chatbox/TTS above, "auto" isn't
+// treated as a distinct "never saved yet" case since there's no reason to
+// ever want a different default than plain "manual".
+function loadSendMode() {
+  return localStorage.getItem(SEND_MODE_KEY) === "auto" ? "auto" : "manual";
+}
+
+function saveSendMode(mode) {
+  localStorage.setItem(SEND_MODE_KEY, mode);
+}
+
 // The one place that actually delivers a confirmed piece of text — called
 // either immediately (Auto mode / picking an ending) or from the manual send
 // button (手動 mode, no ending). `outputText` is what goes to the chatbox;
@@ -65,7 +103,10 @@ function dispatchText(outputText, spokenText, params) {
   // specific languages if the result isn't wanted.
   const lang = getSttLang();
   if (loadTtsLangEnabled()[lang]) {
-    speak(spokenText, params);
+    // Spaces (half- or full-width) in the recognized text read as an
+    // unnatural pause/silence through VOICEVOX, so close them up before
+    // speaking — outputText (chatbox) keeps them untouched.
+    speak(spokenText.replace(/\s+/g, ""), params);
   } else {
     log(`[voicevox] skipped: read-aloud disabled for ${lang}`);
   }
@@ -481,6 +522,7 @@ function setupSettingsDialog() {
   setupSettingsNav();
   setupGeneralPanel();
   setupCharacterPanel();
+  setupEndingsPanel();
   setupAppearancePanel();
   setupDevicePanel();
 }
@@ -614,32 +656,47 @@ function setupSettingsNav() {
 }
 
 const ENDINGS_STORAGE_KEY = "mutelink.endings";
-const DEFAULT_ENDING_PARAMS = { speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1 };
-const DEFAULT_ENDINGS = [
-  "..o0",
-  "xwx",
-  "~",
-  "www",
-  "…",
-  "！",
-  "？",
-  "(笑)",
-  "❤",
-  "😳",
-  "><",
-  "(´・ω・`)",
-].map((text) => ({ text, ...DEFAULT_ENDING_PARAMS }));
+const DEFAULT_ENDING_PARAMS = {
+  speedScale: 1,
+  pitchScale: 0,
+  intonationScale: 1,
+  volumeScale: 1,
+  speakEnding: false, // whether VOICEVOX reads this ending aloud at all when it's picked
+  reading: "", // what to read instead of the literal text when speakEnding is on; falls back to the text itself if left blank
+};
+// Fixed at exactly 10 numbered slots (1-10) rather than a free-form list —
+// hotkeys are assigned by slot number (see HOTKEY_ASSIGNMENTS_KEY et al.),
+// so editing what's in a slot automatically updates whatever hotkey points
+// at that number instead of needing to be re-picked.
+const ENDINGS_SLOT_COUNT = 10;
+// Slots 2/3/5/10 (~, !, ?, にゃん) default to reading the ending aloud —
+// reading left blank so it falls back to the text itself (see applyEnding()).
+const DEFAULT_ENDINGS_SPOKEN_SLOTS = [2, 3, 5, 10];
+const DEFAULT_ENDINGS = ["..o0", "~", "!", "xwx", "?", "♡", "...", "..//", "..zZ", "にゃん"].map((text, i) => ({
+  text,
+  ...DEFAULT_ENDING_PARAMS,
+  speakEnding: DEFAULT_ENDINGS_SPOKEN_SLOTS.includes(i + 1),
+}));
 
+// Always returns exactly ENDINGS_SLOT_COUNT entries, padding with generic
+// placeholders or truncating extras — this used to be a free-length list,
+// so anything saved before this became fixed-size gets normalized here
+// rather than needing a one-time migration step.
 function loadEndings() {
+  let list = DEFAULT_ENDINGS;
   try {
     const raw = JSON.parse(localStorage.getItem(ENDINGS_STORAGE_KEY) ?? "null");
     if (Array.isArray(raw) && raw.length > 0 && raw.every((e) => typeof e?.text === "string")) {
-      return raw;
+      list = raw;
     }
   } catch {
     // fall through to defaults
   }
-  return DEFAULT_ENDINGS;
+  list = list.slice(0, ENDINGS_SLOT_COUNT);
+  while (list.length < ENDINGS_SLOT_COUNT) {
+    list.push({ text: `語尾${list.length + 1}`, ...DEFAULT_ENDING_PARAMS });
+  }
+  return list;
 }
 
 function saveEndings(endings) {
@@ -663,13 +720,18 @@ let endings = [];
 
 // Applying a favorite appends it to whatever's pending in the Final block and
 // sends immediately, using that ending's own VOICEVOX parameters. A trailing
-// 。/. on the pending text is dropped first since the ending replaces it in
-// the chatbox output — but VOICEVOX still reads the plain Final sentence,
-// the ending is not spoken.
+// 。/./？/? on the pending text is dropped first since the ending replaces it
+// in the chatbox output. By default VOICEVOX reads only the plain Final
+// sentence with the ending left off (endings are often emoji/kaomoji that
+// OpenJTalk mispronounces) — each ending's own settings.speakEnding/reading
+// (see 語尾 settings panel) can opt that specific ending into being spoken
+// too, using a separate reading text instead of its literal chatbox text.
 function applyEnding(ending) {
-  const spokenText = pendingFinalText;
-  const base = spokenText.replace(/[。.]$/, "");
+  const original = pendingFinalText;
+  const base = original.replace(/[。.？?]$/, "");
   const outputText = base ? `${base}${ending.text}` : ending.text;
+  const endingReading = ending.reading || ending.text;
+  const spokenText = ending.speakEnding ? (base ? `${base}${endingReading}` : endingReading) : original;
   dispatchText(outputText, spokenText, {
     speedScale: ending.speedScale,
     pitchScale: ending.pitchScale,
@@ -700,20 +762,55 @@ function formatEndingSummary(ending) {
   return ENDING_PARAM_DEFS.map((def) => `${def.label}${Number(ending[def.key]).toFixed(2)}`).join(" / ");
 }
 
+// Persists `endings` and refreshes every OTHER view of it (main-screen
+// tiles, hotkey assignment dropdowns) — called after a text edit, add, or
+// delete. Deliberately doesn't touch the settings list itself: callers that
+// need it rebuilt (add/delete) call renderGeneralEndingsList() separately;
+// a text edit doesn't, so the row the user's actively editing stays open
+// instead of the whole list collapsing back to closed.
+function refreshEndingConsumers() {
+  saveEndings(endings);
+  renderEndingButtons(document.querySelector("#ending-buttons"), endings, applyEnding);
+  renderHotkeyAssignmentOptions();
+}
+
 // Rebuilt from the shared `endings` array whenever it changes (param edits
 // here, or a new favorite added from the main screen), so the two views of
 // the same data never drift apart.
+// Every hand/slot hotkey combo currently pointing at ending slot number
+// `slotNumber` (1-based), as human-readable "右手: トリガーのみ" strings —
+// so the 語尾 panel can show right on each row where it's wired up, instead
+// of having to go check the Hotkey panel to find out.
+function hotkeyRefsForEndingSlot(slotNumber) {
+  const assignments = loadHotkeyAssignments();
+  const target = String(slotNumber);
+  const refs = [];
+  for (const hand of HOTKEY_HANDS) {
+    for (const slot of HOTKEY_SLOTS) {
+      if (assignments[hand][slot] === target) {
+        refs.push(`${HOTKEY_HAND_LABELS[hand]}: ${HOTKEY_SLOT_LABELS[slot]}`);
+      }
+    }
+  }
+  return refs;
+}
+
 function renderGeneralEndingsList() {
   const list = document.querySelector("#ending-settings-list");
   list.innerHTML = "";
 
-  for (const ending of endings) {
+  endings.forEach((ending, i) => {
+    const slotNumber = i + 1;
     const row = document.createElement("div");
     row.className = "ending-settings-row";
 
     const summary = document.createElement("button");
     summary.type = "button";
     summary.className = "ending-settings-summary";
+
+    const numberBadge = document.createElement("span");
+    numberBadge.className = "ending-settings-number";
+    numberBadge.textContent = String(slotNumber);
 
     const textSpan = document.createElement("span");
     textSpan.className = "ending-settings-text";
@@ -727,11 +824,80 @@ function renderGeneralEndingsList() {
     chevron.className = "ending-settings-chevron";
     chevron.textContent = "▾";
 
-    summary.append(textSpan, valuesSpan, chevron);
+    summary.append(numberBadge, textSpan, valuesSpan, chevron);
+
+    const hotkeyRefs = document.createElement("div");
+    hotkeyRefs.className = "ending-hotkey-refs";
+    const refs = hotkeyRefsForEndingSlot(slotNumber);
+    if (refs.length > 0) {
+      hotkeyRefs.textContent = `→ ${refs.join(" / ")}`;
+    } else {
+      hotkeyRefs.hidden = true;
+    }
 
     const detail = document.createElement("div");
     detail.className = "ending-settings-detail";
     detail.hidden = true;
+
+    const textRow = document.createElement("div");
+    textRow.className = "ending-param-row";
+    const textLabel = document.createElement("span");
+    textLabel.className = "ending-param-label";
+    textLabel.textContent = "テキスト";
+    const textInput = document.createElement("input");
+    textInput.type = "text";
+    textInput.className = "ending-text-input";
+    textInput.value = ending.text;
+    textInput.addEventListener("change", () => {
+      const value = textInput.value.trim();
+      if (!value) {
+        textInput.value = ending.text; // reject empty, revert to the last real value
+        return;
+      }
+      ending.text = value;
+      textSpan.textContent = value;
+      readingInput.placeholder = value;
+      refreshEndingConsumers();
+    });
+    textRow.append(textLabel, textInput);
+    detail.appendChild(textRow);
+
+    const speakRow = document.createElement("div");
+    speakRow.className = "settings-list-row ending-speak-row";
+    const speakLabel = document.createElement("span");
+    speakLabel.className = "settings-list-label";
+    speakLabel.textContent = "読み上げる";
+    const speakSwitch = document.createElement("label");
+    speakSwitch.className = "switch";
+    const speakCheckbox = document.createElement("input");
+    speakCheckbox.type = "checkbox";
+    speakCheckbox.checked = !!ending.speakEnding;
+    const speakTrack = document.createElement("span");
+    speakTrack.className = "switch-track";
+    speakSwitch.append(speakCheckbox, speakTrack);
+    speakCheckbox.addEventListener("change", () => {
+      ending.speakEnding = speakCheckbox.checked;
+      saveEndings(endings);
+    });
+    speakRow.append(speakLabel, speakSwitch);
+    detail.appendChild(speakRow);
+
+    const readingRow = document.createElement("div");
+    readingRow.className = "ending-param-row";
+    const readingLabel = document.createElement("span");
+    readingLabel.className = "ending-param-label";
+    readingLabel.textContent = "読み方";
+    const readingInput = document.createElement("input");
+    readingInput.type = "text";
+    readingInput.className = "ending-text-input";
+    readingInput.placeholder = ending.text;
+    readingInput.value = ending.reading ?? "";
+    readingInput.addEventListener("change", () => {
+      ending.reading = readingInput.value.trim();
+      saveEndings(endings);
+    });
+    readingRow.append(readingLabel, readingInput);
+    detail.appendChild(readingRow);
 
     for (const def of ENDING_PARAM_DEFS) {
       const paramRow = document.createElement("div");
@@ -784,9 +950,13 @@ function renderGeneralEndingsList() {
       row.classList.toggle("open", willOpen);
     });
 
-    row.append(summary, detail);
+    row.append(summary, hotkeyRefs, detail);
     list.appendChild(row);
-  }
+  });
+}
+
+function setupEndingsPanel() {
+  renderGeneralEndingsList();
 }
 
 // In-app replacement for window.confirm(), styled to match the settings
@@ -986,8 +1156,6 @@ async function setupCharacterPanel() {
 }
 
 function setupGeneralPanel() {
-  renderGeneralEndingsList();
-
   document.querySelector("#settings-reset-btn").addEventListener("click", async () => {
     const ok = await showConfirmDialog("設定を全てリセットします。よろしいですか？");
     if (!ok) return;
@@ -1002,9 +1170,26 @@ function setupGeneralPanel() {
 const HOTKEY_POLL_MS = 50;
 const HOTKEY_ASSIGNMENTS_KEY = "mutelink.hotkeyAssignments";
 const HOTKEY_SLOTS = ["both", "grip", "trigger", "none", "stick"];
+const HOTKEY_SLOT_LABELS = {
+  both: "グリップ+トリガー",
+  grip: "グリップのみ",
+  trigger: "トリガーのみ",
+  none: "どちらも押していない",
+  stick: "スティック押し込み",
+};
+const HOTKEY_HAND_LABELS = { right: "右手", left: "左手" };
 // Sentinel assignment value meaning "discard the pending text", alongside
-// the ending texts a slot can otherwise be assigned to.
+// the ending *slot numbers* ("1"-"10", see ENDINGS_SLOT_COUNT) a hotkey
+// slot can otherwise be assigned to.
 const HOTKEY_CANCEL_ACTION = "__cancel__";
+
+// Resolves a stored assignment value (a slot-number string, the cancel
+// sentinel, or "") to the actual ending object it currently points at —
+// null for cancel/unset, or if the number is somehow out of range.
+function endingForAssignment(assignment) {
+  if (!assignment || assignment === HOTKEY_CANCEL_ACTION) return null;
+  return endings[Number(assignment) - 1] ?? null;
+}
 
 const HOTKEY_HOLD_DURATION_KEY = "mutelink.hotkeyHoldMs";
 const DEFAULT_HOTKEY_HOLD_MS = 1000;
@@ -1033,24 +1218,22 @@ function saveHotkeyPriorityHand(hand) {
 
 const HOTKEY_HANDS = ["right", "left"];
 
-// Assignments are stored by ending text (not index) so they survive the
-// favorites list being reordered or extended, and separately per hand so
-// each hand can be bound to different endings. `stick` defaults to cancel
-// on both hands (a deliberate press-in is a good "never mind" gesture); the
-// other four default to the first four favorites so there's something to
-// try out-of-the-box instead of every slot doing nothing until configured.
-function defaultHotkeyHandAssignments() {
+// Assignments are stored by ending slot number (not text) so editing what's
+// in a slot — see 語尾 settings — updates any hotkey pointing at that number
+// immediately, without needing to be re-picked here. Separate per hand so
+// each hand can be bound to a different slot, and the two hands' defaults
+// differ deliberately: right hand gives quick access to 1/2 and a stick-press
+// cancel; left hand covers 3/4/5, leaving its "none"/stick slots unset since
+// the right hand's stick already handles cancel.
+function defaultHotkeyAssignments() {
   return {
-    both: DEFAULT_ENDINGS[0].text,
-    grip: DEFAULT_ENDINGS[1].text,
-    trigger: DEFAULT_ENDINGS[2].text,
-    none: DEFAULT_ENDINGS[3].text,
-    stick: HOTKEY_CANCEL_ACTION,
+    right: { both: "1", grip: "", trigger: "2", none: "", stick: HOTKEY_CANCEL_ACTION },
+    left: { both: "3", grip: "4", trigger: "5", none: "", stick: "" },
   };
 }
 
 function loadHotkeyAssignments() {
-  const defaults = { right: defaultHotkeyHandAssignments(), left: defaultHotkeyHandAssignments() };
+  const defaults = defaultHotkeyAssignments();
   try {
     const raw = JSON.parse(localStorage.getItem(HOTKEY_ASSIGNMENTS_KEY) ?? "null");
     if (raw && typeof raw === "object") {
@@ -1075,14 +1258,15 @@ function renderHotkeyAssignmentOptions() {
     for (const slot of HOTKEY_SLOTS) {
       const select = document.querySelector(`#hotkey-${hand}-${slot}`);
       select.innerHTML = '<option value="">(未設定)</option><option value="__cancel__">送信取り消し</option>';
-      for (const ending of endings) {
+      endings.forEach((ending, i) => {
         const opt = document.createElement("option");
-        opt.value = ending.text;
-        opt.textContent = ending.text;
+        opt.value = String(i + 1);
+        opt.textContent = `${i + 1}. ${ending.text}`;
         select.appendChild(opt);
-      }
-      // Falls back to "(未設定)" automatically if the saved value no longer
-      // matches any option (e.g. the assigned ending was since deleted).
+      });
+      // Falls back to "(未設定)" automatically if the saved value doesn't
+      // match any option (shouldn't normally happen now that slots are
+      // fixed at 1-10, but stays safe against stale pre-migration values).
       select.value = assignments[hand][slot];
     }
   }
@@ -1135,8 +1319,8 @@ function fireHotkeyAssignment(assignment) {
   if (assignment === HOTKEY_CANCEL_ACTION) {
     pendingFinalText = "";
     renderMergedText();
-  } else if (assignment) {
-    const ending = endings.find((e) => e.text === assignment);
+  } else {
+    const ending = endingForAssignment(assignment);
     if (ending) applyEnding(ending);
   }
 }
@@ -1330,7 +1514,7 @@ function setupHotkeys() {
         progress = { isSend: false, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
       } else if (display) {
         progress = { isSend: true, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
-        endingPreview = display.activeAssignment;
+        endingPreview = endingForAssignment(display.activeAssignment)?.text ?? null;
       }
       const content = { finalText: pendingFinalText, interimText: currentInterimText, endingPreview, progress };
       boxFrozenContent = content;
@@ -1557,23 +1741,35 @@ window.addEventListener("DOMContentLoaded", async () => {
   voicevoxBtn.addEventListener("click", () => speak());
 
   const modeToggleBtn = document.querySelector("#mode-toggle-btn");
+  sendMode = loadSendMode();
+  modeToggleBtn.classList.toggle("active", sendMode === "auto");
+  modeToggleBtn.setAttribute("aria-pressed", String(sendMode === "auto"));
   modeToggleBtn.addEventListener("click", () => {
     sendMode = sendMode === "auto" ? "manual" : "auto";
     modeToggleBtn.classList.toggle("active", sendMode === "auto");
     modeToggleBtn.setAttribute("aria-pressed", String(sendMode === "auto"));
+    saveSendMode(sendMode);
   });
 
   const chatboxToggleBtn = document.querySelector("#chatbox-toggle-btn");
+  chatboxEnabled = loadChatboxEnabled();
+  chatboxToggleBtn.classList.toggle("active", chatboxEnabled);
+  chatboxToggleBtn.setAttribute("aria-pressed", String(chatboxEnabled));
   chatboxToggleBtn.addEventListener("click", () => {
     chatboxEnabled = !chatboxEnabled;
     chatboxToggleBtn.classList.toggle("active", chatboxEnabled);
     chatboxToggleBtn.setAttribute("aria-pressed", String(chatboxEnabled));
+    saveChatboxEnabled(chatboxEnabled);
   });
 
   const ttsToggleBtn = document.querySelector("#tts-toggle-btn");
+  ttsEnabled = loadTtsEnabled();
+  ttsToggleBtn.classList.toggle("active", ttsEnabled);
+  ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
   ttsToggleBtn.addEventListener("click", () => {
     ttsEnabled = !ttsEnabled;
     ttsToggleBtn.classList.toggle("active", ttsEnabled);
     ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
+    saveTtsEnabled(ttsEnabled);
   });
 });
