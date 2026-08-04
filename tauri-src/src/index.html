@@ -12,7 +12,6 @@
     <div class="titlebar" data-tauri-drag-region>
       <div class="titlebar-left">
         <span class="titlebar-title">Mutelink</span>
-        <button id="settings-btn" class="titlebar-icon-btn" title="設定" aria-label="設定">⚙</button>
       </div>
       <div class="titlebar-controls">
         <button id="titlebar-minimize" class="titlebar-btn" title="最小化" aria-label="最小化">&#x2013;</button>
@@ -227,41 +226,36 @@
     </dialog>
 
     <main class="app-main">
-      <div class="status-bar">
-        <div class="status-left">
-          <span class="status-dot" id="status-dot"></span>
-          <span id="google-status">idle</span>
-        </div>
-        <div class="status-lang-group" id="stt-lang-group">
-          <label><input type="radio" name="stt-lang" value="ja-JP" checked /> 日本語</label>
-          <label><input type="radio" name="stt-lang" value="en-US" /> English</label>
-          <label><input type="radio" name="stt-lang" value="zh-CN" /> 中文</label>
-        </div>
+      <div class="status-line">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="google-status">idle</span>
       </div>
 
-      <div class="text-block text-block-merged">
-        <p id="merged-text"><span id="final-text-part"></span><span id="interim-text-part"></span></p>
-        <button class="text-block-clear" id="final-clear-btn" type="button" aria-label="削除">&#x2715;</button>
+      <p id="stt-state-label" class="stt-state-label">オフ</p>
+
+      <!-- These still drive the VR overlay / VR hotkeys behind the scenes
+           (see main.js) — everything here is now VR-only in practice, so
+           they're just not shown on the desktop screen anymore. -->
+      <p id="merged-text" class="merged-text desktop-hidden">
+        <span id="final-text-part"></span><span id="interim-text-part"></span>
+      </p>
+
+      <button id="google-btn" class="start-stop-btn desktop-hidden" type="button">開始</button>
+
+      <div class="stt-lang-group desktop-hidden" id="stt-lang-group">
+        <label><input type="radio" name="stt-lang" value="ja-JP" /> 日本語</label>
+        <label><input type="radio" name="stt-lang" value="en-US" /> English</label>
+        <label><input type="radio" name="stt-lang" value="zh-CN" /> 中文</label>
+        <label><input type="radio" name="stt-lang" value="off" checked /> オフ</label>
       </div>
 
-      <div class="text-block text-block-sent">
-        <p id="sent-text"></p>
-        <button class="text-block-clear" id="sent-clear-btn" type="button" aria-label="削除">&#x2715;</button>
-      </div>
-
-      <div class="ending-grid" id="ending-buttons"></div>
+      <div class="ending-grid desktop-hidden" id="ending-buttons"></div>
 
       <div class="control-bar">
-        <button id="google-btn" class="control-btn control-btn-start" type="button">開始</button>
-        <button id="mode-toggle-btn" class="control-btn control-btn-toggle active" type="button" aria-pressed="true">
-          Auto
-        </button>
-        <button id="chatbox-toggle-btn" class="control-btn control-btn-toggle" type="button" aria-pressed="false">
-          Chatbox
-        </button>
-        <button id="tts-toggle-btn" class="control-btn control-btn-toggle active" type="button" aria-pressed="true">
-          TTS
-        </button>
+        <button id="settings-btn" class="round-btn" type="button" title="設定" aria-label="設定">⚙</button>
+        <button id="mode-toggle-btn" class="round-btn active" type="button" aria-pressed="true">Auto</button>
+        <button id="chatbox-toggle-btn" class="round-btn" type="button" aria-pressed="false">Chatbox</button>
+        <button id="tts-toggle-btn" class="round-btn active" type="button" aria-pressed="true">TTS</button>
       </div>
     </main>
   </body>

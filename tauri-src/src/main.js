@@ -12,26 +12,23 @@ const GOOGLE_RETRY_RECREATE_AFTER = 3; // after this many, rebuild the SpeechRec
 let googleBtn;
 let googleStatusEl;
 let statusDotEl;
+let sttStateLabelEl;
 let chatboxEnabled = false;
 let ttsEnabled = true;
 let sendMode = "auto"; // "auto" | "manual", mirrors the old <select id="send-mode">
 let finalTextPartEl;
 let interimTextPartEl;
-let sentTextEl;
 let pendingFinalText = "";
 let currentInterimText = ""; // live, not-yet-Final recognition result; read by both the desktop merged block and the VR overlay render loop
 let logEl;
 
-// The STT language is a radio group now (image.png), not a <select>; these
-// two helpers stand in for `.value`/`.disabled` on the old element.
+// The STT language is a radio group (image.png), not a <select> — its 4th
+// option, "off", isn't a real BCP-47 code; it's only ever read here while
+// something is actually armed (see setSttState), so callers that need an
+// actual language (creating a SpeechRecognition, looking up TTS-per-language
+// settings) never see it.
 function getSttLang() {
   return document.querySelector('input[name="stt-lang"]:checked').value;
-}
-
-function setSttLangDisabled(disabled) {
-  for (const radio of document.querySelectorAll('input[name="stt-lang"]')) {
-    radio.disabled = disabled;
-  }
 }
 
 // Keeps the merged 入力中/Final desktop display in sync with
@@ -54,12 +51,11 @@ async function sendChatbox(text) {
 
 // The one place that actually delivers a confirmed piece of text — called
 // either immediately (Auto mode / picking an ending) or from the manual send
-// button (手動 mode, no ending). `outputText` is what goes to the chatbox and
-// the 送信済み block; `spokenText` is what VOICEVOX actually reads (the plain
-// Final sentence, even when an ending was attached to the output). `params`
-// carries a specific ending's VOICEVOX scales; omitted when there's no ending.
+// button (手動 mode, no ending). `outputText` is what goes to the chatbox;
+// `spokenText` is what VOICEVOX actually reads (the plain Final sentence,
+// even when an ending was attached to the output). `params` carries a
+// specific ending's VOICEVOX scales; omitted when there's no ending.
 function dispatchText(outputText, spokenText, params) {
-  sentTextEl.textContent = outputText;
   if (chatboxEnabled) sendChatbox(outputText);
   if (!ttsEnabled) return;
   // Everything gets sent to VOICEVOX regardless of recognition language —
@@ -269,7 +265,6 @@ async function startGoogleStt() {
   googleBtn.textContent = "停止";
   googleBtn.classList.add("listening");
   statusDotEl.classList.add("active");
-  setSttLangDisabled(true);
   resumeRecognition();
 }
 
@@ -284,7 +279,6 @@ function stopGoogleStt() {
   googleBtn.textContent = "開始";
   googleBtn.classList.remove("listening");
   statusDotEl.classList.remove("active");
-  setSttLangDisabled(false);
 }
 
 let voicevoxInput;
@@ -1398,6 +1392,52 @@ function setSttLang(lang) {
   if (radio) radio.checked = true;
 }
 
+// Falls back to Japanese when "off" is currently selected (e.g. nothing's
+// been started yet this session) — used by the round start/stop button,
+// which just resumes/pauses rather than carrying its own language choice.
+function getSttLangOrDefault() {
+  const current = getSttLang();
+  return current === "off" ? "ja-JP" : current;
+}
+
+// The source of truth for "what was last asked for", updated the instant
+// setSttState() is called — unlike `armed`, which only flips true once
+// startGoogleStt()'s async chain (getUserMedia() etc., often slow right
+// after launch) actually finishes. cycleSttState() reads this instead of
+// armed/getSttLang() so a press landing in that gap still computes the
+// correct next step instead of re-deriving a stale "off" and re-picking
+// 日本語 (this was causing "JP, JP" or "JP → EN → JP" instead of advancing).
+let sttStateValue = "off";
+
+// Overlapping setSttState() calls (e.g. two presses before the first one's
+// startGoogleStt() has actually resolved) used to race — both would call
+// startGoogleStt()/stopGoogleStt() on top of each other, leaking a mic
+// stream/SpeechRecognition object. Chaining each call onto this promise
+// makes it wait for the previous one to fully settle first; if the target
+// changed again in the meantime, the now-stale call just no-ops instead of
+// briefly applying an outdated language.
+let sttStateChain = Promise.resolve();
+
+const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "中文", off: "オフ" };
+
+// The single entry point for changing what's being recognized (or turning
+// recognition off) — keeps the desktop radio group, the VR overlay's
+// language tag, the desktop status label, and the actual recognition
+// session in sync no matter which control triggered the change: a radio
+// click, the round start/stop button, or the VR controller's cycle (see
+// cycleSttState()).
+function setSttState(value) {
+  sttStateValue = value;
+  setSttLang(value);
+  sttStateLabelEl.textContent = STT_STATE_LABELS[value] ?? value;
+  flashLangTag(value);
+  sttStateChain = sttStateChain.then(async () => {
+    if (sttStateValue !== value) return; // superseded by a later call while queued
+    if (armed) stopGoogleStt();
+    if (value !== "off") await startGoogleStt();
+  });
+}
+
 const TTS_LANG_ENABLED_KEY = "mutelink.ttsLangEnabled";
 const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true };
 
@@ -1442,33 +1482,22 @@ let langTagUntil = 0;
 const LANG_TAG_DISPLAY_MS = 3500;
 const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN" };
 
-// `lang` is a BCP-47 code for JP/EN/CN, or null for OFF.
-function flashLangTag(lang) {
-  langTagLabel = lang === null ? "OFF" : (STT_LANG_TAG_LABELS[lang] ?? null);
+// `value` is a stt-lang radio value: a BCP-47 code for JP/EN/CN, or "off".
+function flashLangTag(value) {
+  langTagLabel = value === "off" ? "OFF" : (STT_LANG_TAG_LABELS[value] ?? null);
   langTagShownAt = Date.now();
   langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
 }
 
-// null stands for OFF (recognition stopped) in this cycle.
-const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", null];
+const STT_CYCLE_ORDER = ["ja-JP", "en-US", "zh-CN", "off"];
 
 // Advances one step through 日本語 → English → 中文 → OFF → 日本語 → ...,
-// restarting recognition against the new language each step (or stopping it
-// entirely for OFF) so the change takes effect immediately — bound to the
-// left controller's lower face button (see setupHotkeys()) as a hands-free
-// way to switch languages without touching the desktop.
+// via setSttState() — bound to the left controller's lower face button (see
+// setupHotkeys()) as a hands-free way to switch languages without touching
+// the desktop.
 function cycleSttState() {
-  const current = armed ? getSttLang() : null;
-  const next = STT_CYCLE_ORDER[(STT_CYCLE_ORDER.indexOf(current) + 1) % STT_CYCLE_ORDER.length];
-
-  if (armed) stopGoogleStt();
-  if (next === null) {
-    flashLangTag(null);
-    return;
-  }
-  setSttLang(next);
-  startGoogleStt();
-  flashLangTag(next);
+  const next = STT_CYCLE_ORDER[(STT_CYCLE_ORDER.indexOf(sttStateValue) + 1) % STT_CYCLE_ORDER.length];
+  setSttState(next);
 }
 
 // XSOverlay binds its own gesture to a quick double-press of this same
@@ -1497,9 +1526,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   googleBtn = document.querySelector("#google-btn");
   statusDotEl = document.querySelector("#status-dot");
   googleStatusEl = document.querySelector("#google-status");
+  sttStateLabelEl = document.querySelector("#stt-state-label");
   finalTextPartEl = document.querySelector("#final-text-part");
   interimTextPartEl = document.querySelector("#interim-text-part");
-  sentTextEl = document.querySelector("#sent-text");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
@@ -1515,21 +1544,15 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupTtsLangSettings();
 
   googleBtn.addEventListener("click", () => {
-    if (armed) {
-      stopGoogleStt();
-    } else {
-      startGoogleStt();
-    }
+    // sttStateValue, not armed — same reasoning as cycleSttState().
+    setSttState(sttStateValue === "off" ? getSttLangOrDefault() : "off");
   });
 
-  document.querySelector("#final-clear-btn").addEventListener("click", () => {
-    pendingFinalText = "";
-    renderMergedText();
-  });
-
-  document.querySelector("#sent-clear-btn").addEventListener("click", () => {
-    sentTextEl.textContent = "";
-  });
+  for (const radio of document.querySelectorAll('input[name="stt-lang"]')) {
+    radio.addEventListener("change", () => {
+      if (radio.checked) setSttState(radio.value);
+    });
+  }
 
   voicevoxBtn.addEventListener("click", () => speak());
 

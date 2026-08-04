@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 128" width="430" height="128">
+  <title>Mutelink</title>
+
+  <!-- Badge: same glyph as mutelink-icon.svg (chat bubble with a muted mic
+       cut out of it), duplicated inline so this file works standalone. -->
+  <mask id="mic-cutout" maskUnits="userSpaceOnUse" x="0" y="0" width="128" height="128">
+    <rect x="0" y="0" width="128" height="128" fill="#ffffff" />
+    <g fill="#000000" stroke="#000000" stroke-linecap="round">
+      <rect x="53" y="36" width="22" height="32" rx="11" />
+      <path d="M45,62 A19,19 0 0 0 83,62" fill="none" stroke-width="7" />
+      <line x1="64" y1="81" x2="64" y2="90" stroke-width="7" />
+      <line x1="54" y1="90" x2="74" y2="90" stroke-width="7" />
+      <line x1="81" y1="29" x2="45" y2="87" stroke-width="11" />
+    </g>
+  </mask>
+
+  <rect x="0" y="0" width="128" height="128" rx="26" fill="#4b3fd6" />
+
+  <g mask="url(#mic-cutout)">
+    <rect x="22" y="26" width="84" height="54" rx="18" fill="#ffffff" />
+    <path d="M36,80 L24,100 L52,80 Z" fill="#ffffff" />
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    x="160"
+    y="88"
+    font-family="'Segoe UI', 'Yu Gothic UI', Arial, sans-serif"
+    font-size="62"
+    font-weight="700"
+    letter-spacing="-1"
+    fill="#4b3fd6"
+  >Mutelink</text>
+</svg>

@@ -96,7 +96,8 @@ body {
 .app-main {
   display: flex;
   flex-direction: column;
-  gap: 0.3em;
+  justify-content: center;
+  gap: 1.5em;
   height: calc(100vh - 30px);
   margin-top: 30px;
   padding: 0.4em 0.4em 0.4em;
@@ -105,163 +106,191 @@ body {
   background-color: var(--color-surface);
 }
 
-.status-bar {
+/* Desktop is now just a plain control surface for the VR-side experience —
+   no more color-coded blocks; everything below uses the same neutral
+   surface/border/text palette as the rest of the app. */
+
+/* Everything's actually VR-only now (recognized text, start/stop, language
+   choice, ending picking) — these elements still exist and are driven by
+   main.js exactly as before (the VR overlay/hotkeys depend on it), just not
+   shown on the desktop screen anymore. */
+.desktop-hidden {
+  /* Wins regardless of source order against .stt-lang-group/.ending-grid's
+     own `display: flex`/`display: grid`, which are declared later in this
+     file at the same specificity. */
+  display: none !important;
+}
+
+.status-line {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 0.5em;
+  font-size: 0.85em;
+  opacity: 0.7;
 }
 
-.status-left {
-  display: flex;
-  align-items: center;
-  gap: 0.5em;
-  font-size: 0.9em;
+.stt-state-label {
+  flex: 0 0 auto;
+  margin: 0;
+  text-align: center;
+  font-size: 1.4em;
+  font-weight: 700;
 }
 
 .status-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background-color: var(--color-border);
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition: background-color 0.2s ease;
 }
 
 .status-dot.active {
-  background-color: #2ecc71;
-  box-shadow: 0 0 6px #2ecc71;
+  background-color: var(--color-text);
 }
 
-.status-lang-group {
-  display: flex;
-  gap: 0.9em;
-}
-
-.status-lang-group label {
-  display: flex;
-  align-items: center;
-  gap: 0.3em;
-  white-space: nowrap;
-  font-size: 0.85em;
-  cursor: pointer;
-}
-
-.app-main .text-block {
-  display: flex;
+/* Same text VRC sees in the VR overlay (see overlay.rs's render()) —
+   already-Final and still-interim aren't color-distinguished here the way
+   they are in VR; this is just a plain read-out. */
+.merged-text {
   flex: 1 1 0;
-  align-items: stretch;
   min-height: 0;
-  max-width: none;
   margin: 0;
-  padding: 0.4em 0.6em;
+  padding: 0.4em 0.8em;
   overflow-y: auto;
+  text-align: center;
+  font-size: 1.3em;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
-.app-main .text-block p {
-  flex: 1 1 auto;
-  width: auto;
-  min-width: 0;
-}
-
-.app-main .text-block-merged p,
-.app-main .text-block-sent p {
-  flex: 0 0 80%;
-}
-
-.text-block-merged {
-  background-color: rgba(46, 160, 67, 0.55);
-  border-color: rgba(46, 160, 67, 0.95);
-}
-
-/* Already-Final (pending send) vs. still-being-recognized, in one run of
-   text — colors match the VR overlay's FINAL_TEXT_COLOR/INTERIM_TEXT_COLOR
-   (see overlay.rs) so both surfaces read the same way. */
-#final-text-part {
-  color: #beff5a;
+.start-stop-btn {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 96px;
+  height: 96px;
+  margin: 0.2em 0;
+  padding: 0;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text);
+  background-color: var(--color-surface-alt);
+  font-size: 1em;
   font-weight: 600;
+  box-shadow: none;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-#interim-text-part {
-  opacity: 0.85;
+.start-stop-btn:hover {
+  transform: scale(1.04);
 }
 
-.text-block-sent {
-  background-color: rgba(168, 85, 247, 0.55);
-  border-color: rgba(168, 85, 247, 0.95);
+.start-stop-btn.listening {
+  color: var(--color-bg);
+  background-color: var(--color-text);
 }
 
-.text-block-clear {
-  flex: 0 0 20%;
+.stt-lang-group {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+.stt-lang-group label {
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 -0.6em 0 0;
-  padding: 0;
-  border: none;
-  border-radius: 0;
-  box-shadow: none;
-  background-color: var(--color-surface);
-  line-height: 1;
-  opacity: 0.75;
+  padding: 0.5em 0.2em;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  font-size: 0.85em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
-.text-block-clear:hover {
-  color: #ffffff;
-  background-color: #e81123;
-  opacity: 1;
+.stt-lang-group label:has(input:checked) {
+  color: var(--color-bg);
+  background-color: var(--color-text);
+  border-color: var(--color-text);
 }
 
-.ending-grid,
-.control-bar {
+/* The label's own highlight above already shows which one is selected —
+   the radio dot itself would just be a second, redundant indicator. */
+.stt-lang-group input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ending-grid {
   display: grid;
   flex: 0 0 auto;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 6px;
   background-color: var(--color-border);
   border: 6px solid var(--color-border);
 }
 
 /* Simple hover feedback: the tile just grows slightly, no color sweep. */
-.ending-grid button,
-.control-btn {
+.ending-grid button {
   position: relative;
   margin: 0;
   padding: 0.9em 0.4em;
   border: none;
   border-radius: 0;
   box-shadow: none;
+  color: var(--color-text);
+  background-color: var(--color-surface-alt);
   font-size: 0.85em;
   transition: transform 0.15s ease;
 }
 
-.ending-grid button {
-  color: #123a4a;
-  background-color: #56c8f0;
-}
-
-.ending-grid button:hover,
-.control-btn:hover {
+.ending-grid button:hover {
   z-index: 1;
   transform: scale(1.06);
 }
 
-.control-btn-start {
-  color: #ffffff;
-  background-color: #229955;
+/* The only things left on the main screen besides status: settings, and
+   Auto/Chatbox/TTS. */
+.control-bar {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0.3em 0;
 }
 
-.control-btn-start.listening {
-  background-color: #d81123;
-}
-
-.control-btn-toggle {
+.round-btn {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border: 2px solid var(--color-border);
+  border-radius: 50%;
   color: var(--color-text);
   background-color: var(--color-surface-alt);
+  font-size: 0.85em;
+  font-weight: 600;
+  box-shadow: none;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
-.control-btn-toggle.active {
-  color: #ffffff;
-  background-color: #396cd8;
+#settings-btn.round-btn {
+  font-size: 1.8em;
+}
+
+.round-btn:hover {
+  transform: scale(1.06);
+}
+
+.round-btn.active {
+  color: var(--color-bg);
+  background-color: var(--color-text);
 }
 
 .log-panel {
@@ -313,15 +342,6 @@ body {
 .titlebar button {
   box-shadow: none;
   border-radius: 0;
-}
-
-.titlebar-icon-btn {
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  font-size: 0.75em;
-  line-height: 1;
-  border-radius: 4px;
 }
 
 .titlebar-btn {
@@ -899,28 +919,6 @@ input[type="checkbox"]:checked::after {
 
 .settings-close-btn:hover::before {
   transform: translateX(0) skewX(-18deg);
-}
-
-.text-block {
-  margin: 0.5em auto;
-  padding: 0.5em 1em;
-  max-width: 480px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  text-align: left;
-}
-
-.text-block-label {
-  font-size: 0.75em;
-  font-weight: 600;
-  opacity: 0.6;
-  margin-bottom: 0.25em;
-}
-
-.text-block p {
-  margin: 0;
-  min-height: 1.5em;
-  word-break: break-word;
 }
 
 .logo {
