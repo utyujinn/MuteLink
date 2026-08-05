@@ -3,7 +3,7 @@ mod overlay_gpu;
 
 use std::fs;
 use std::net::UdpSocket;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use rosc::{OscMessage, OscPacket, OscType};
@@ -19,25 +19,42 @@ use voicevox_core::{StyleId, VoiceModelMeta};
 // from the General settings screen (see character_catalog/download_character/load_character);
 // which style_id to actually speak with is chosen on the frontend and passed
 // into synthesize() per call.
-const VOICEVOX_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/voicevox_core");
+//
+// In a release build this must resolve next to the installed executable, not
+// the dev machine's build path — `bundle.resources` in tauri.conf.json copies
+// `voicevox_core/` alongside the exe (see resource_dir() being exe-relative
+// on Windows), so an installed-elsewhere copy of the app can still find it.
+// Debug builds keep reading straight from the source tree since `tauri dev`
+// doesn't run the resource-copy step.
+fn voicevox_dir() -> PathBuf {
+    if cfg!(debug_assertions) {
+        return PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/voicevox_core"));
+    }
+    std::env::current_exe()
+        .expect("failed to get current exe path")
+        .parent()
+        .expect("exe path has no parent directory")
+        .join("voicevox_core")
+}
 
 const VRCHAT_OSC_ADDR: &str = "127.0.0.1:9000";
 
 struct VoicevoxState(Mutex<Synthesizer<OpenJtalk>>);
 
 fn init_synthesizer() -> anyhow::Result<Synthesizer<OpenJtalk>> {
+    let dir = voicevox_dir();
     let ort = Onnxruntime::load_once()
-        .filename(format!("{VOICEVOX_DIR}/onnxruntime/lib/voicevox_onnxruntime.dll"))
+        .filename(format!("{}/onnxruntime/lib/voicevox_onnxruntime.dll", dir.display()))
         .perform()?;
-    let ojt = OpenJtalk::new(format!("{VOICEVOX_DIR}/dict/open_jtalk_dic_utf_8-1.11"))?;
+    let ojt = OpenJtalk::new(format!("{}/dict/open_jtalk_dic_utf_8-1.11", dir.display()))?;
     let synth = Synthesizer::builder(ort).text_analyzer(ojt).build()?;
 
-    let model = VoiceModelFile::open(format!("{VOICEVOX_DIR}/models/vvms/15.vvm"))?;
+    let model = VoiceModelFile::open(format!("{}/models/vvms/15.vvm", dir.display()))?;
     synth.load_voice_model(&model)?;
 
     // Re-load any characters downloaded via the General settings screen in a
     // previous session (15.vvm is already loaded above, skip it here).
-    if let Ok(dir) = fs::read_dir(format!("{VOICEVOX_DIR}/models/vvms")) {
+    if let Ok(dir) = fs::read_dir(format!("{}/models/vvms", dir.display())) {
         for entry in dir.flatten() {
             let path = entry.path();
             if path.file_name().and_then(|n| n.to_str()) == Some("15.vvm") {
@@ -117,7 +134,7 @@ fn valid_vvm_filename(name: &str) -> bool {
 // rows by VVM file so the frontend can offer "add this character" as one
 // download per VVM — some VVMs bundle more than one character.
 fn parse_character_catalog() -> Vec<CatalogEntry> {
-    let readme = fs::read_to_string(format!("{VOICEVOX_DIR}/models/README.txt")).unwrap_or_default();
+    let readme = fs::read_to_string(format!("{}/models/README.txt", voicevox_dir().display())).unwrap_or_default();
     let talk_section = readme.split("## トーク").nth(1).and_then(|s| s.split("## ソング").next()).unwrap_or("");
 
     let mut entries: Vec<CatalogEntry> = Vec::new();
@@ -139,7 +156,8 @@ fn parse_character_catalog() -> Vec<CatalogEntry> {
         let entry_idx = match entries.iter().position(|e: &CatalogEntry| e.vvm_file == vvm_file) {
             Some(i) => i,
             None => {
-                let downloaded = Path::new(&format!("{VOICEVOX_DIR}/models/vvms/{vvm_file}")).exists();
+                let downloaded =
+                    Path::new(&format!("{}/models/vvms/{vvm_file}", voicevox_dir().display())).exists();
                 entries.push(CatalogEntry {
                     vvm_file: vvm_file.to_string(),
                     downloaded,
@@ -188,7 +206,7 @@ async fn download_character(vvm_file: String) -> Result<(), String> {
     }
     let bytes = response.bytes().await.map_err(|e| e.to_string())?;
 
-    fs::write(format!("{VOICEVOX_DIR}/models/vvms/{vvm_file}"), &bytes).map_err(|e| e.to_string())
+    fs::write(format!("{}/models/vvms/{vvm_file}", voicevox_dir().display()), &bytes).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -197,7 +215,8 @@ fn load_character(vvm_file: String, state: State<VoicevoxState>) -> Result<Voice
         return Err("invalid vvm file name".to_string());
     }
     let synth = state.0.lock().map_err(|e| e.to_string())?;
-    let model = VoiceModelFile::open(format!("{VOICEVOX_DIR}/models/vvms/{vvm_file}")).map_err(|e| e.to_string())?;
+    let model = VoiceModelFile::open(format!("{}/models/vvms/{vvm_file}", voicevox_dir().display()))
+        .map_err(|e| e.to_string())?;
     synth.load_voice_model(&model).map_err(|e| e.to_string())?;
     Ok(synth.metas())
 }
