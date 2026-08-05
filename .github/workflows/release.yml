@@ -15,6 +15,10 @@ permissions:
 jobs:
   release:
     runs-on: windows-latest
+    # TAURI_SIGNING_PRIVATE_KEY lives in the "tauri_key" GitHub Environment,
+    # not as a plain repository secret — without this, the job can't see it
+    # and the key silently resolves to an empty string.
+    environment: tauri_key
     steps:
       - uses: actions/checkout@v4
 
