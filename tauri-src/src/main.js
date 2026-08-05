@@ -213,6 +213,20 @@ const I18N = {
   aboutCreatorLabel: { ja: "作成者", en: "Creator", zh: "作者", ko: "제작자" },
   aboutRepoLabel: { ja: "GitHubリポジトリ", en: "GitHub Repository", zh: "GitHub 仓库", ko: "GitHub 저장소" },
   aboutComingSoon: { ja: "準備中", en: "Coming soon", zh: "即将上线", ko: "준비 중" },
+  aboutVoiceCreditLabel: { ja: "音声", en: "Voice", zh: "语音", ko: "음성" },
+
+  characterLicenseNotice: {
+    ja: "追加でダウンロードするキャラクターには、それぞれ個別の利用規約があります。ダウンロード前にご確認ください。",
+    en: "Each additional downloadable character has its own individual license terms. Please review them before downloading.",
+    zh: "每个可下载的追加角色都有各自独立的使用条款,下载前请务必确认。",
+    ko: "추가로 다운로드하는 캐릭터에는 각각 개별 이용약관이 있습니다. 다운로드 전에 확인해 주세요.",
+  },
+  characterLicenseLinkLabel: {
+    ja: "利用規約を確認",
+    en: "View license terms",
+    zh: "查看使用条款",
+    ko: "이용약관 확인",
+  },
 
   cancelButton: { ja: "キャンセル", en: "Cancel", zh: "取消", ko: "취소" },
 
