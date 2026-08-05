@@ -179,6 +179,36 @@ const I18N = {
 
   logHeading: { ja: "ログ", en: "Log", zh: "日志", ko: "로그" },
 
+  updateHeading: { ja: "アップデート", en: "Update", zh: "更新", ko: "업데이트" },
+  updateCurrentVersionLabel: { ja: "現在のバージョン", en: "Current version", zh: "当前版本", ko: "현재 버전" },
+  updateInstallButton: {
+    ja: "更新をインストールして再起動",
+    en: "Install update and restart",
+    zh: "安装更新并重启",
+    ko: "업데이트 설치 후 재시작",
+  },
+  updateCheckingStatus: { ja: "確認中...", en: "Checking...", zh: "正在检查...", ko: "확인 중..." },
+  updateUpToDateStatus: { ja: "最新版です", en: "Up to date", zh: "已是最新版本", ko: "최신 버전입니다" },
+  updateAvailableStatus: { ja: "新しいバージョンがあります", en: "New version available", zh: "有新版本", ko: "새 버전이 있습니다" },
+  updateDownloadingStatus: {
+    ja: "ダウンロード中...",
+    en: "Downloading...",
+    zh: "下载中...",
+    ko: "다운로드 중...",
+  },
+  updateCheckFailedStatus: {
+    ja: "更新の確認に失敗しました",
+    en: "Failed to check for updates",
+    zh: "检查更新失败",
+    ko: "업데이트 확인 실패",
+  },
+  updateInstallFailedStatus: {
+    ja: "更新のインストールに失敗しました",
+    en: "Failed to install update",
+    zh: "安装更新失败",
+    ko: "업데이트 설치 실패",
+  },
+
   aboutHeading: { ja: "情報", en: "About", zh: "关于", ko: "정보" },
   aboutCreatorLabel: { ja: "作成者", en: "Creator", zh: "作者", ko: "제작자" },
   aboutRepoLabel: { ja: "GitHubリポジトリ", en: "GitHub Repository", zh: "GitHub 仓库", ko: "GitHub 저장소" },
@@ -817,6 +847,7 @@ function setupSettingsDialog() {
   setupAppearancePanel();
   setupDevicePanel();
   setupAboutLinks();
+  setupUpdater();
 }
 
 // Generic external-link handling for [data-open-url] elements (currently
@@ -830,6 +861,65 @@ function setupAboutLinks() {
       window.__TAURI__.opener.openUrl(el.dataset.openUrl);
     });
   }
+}
+
+// The Update object returned by updater.check() when one's available —
+// held onto so the install button (which the user might click much later,
+// or never) doesn't need to re-check.
+let pendingUpdate = null;
+
+// Runs once at startup (see DOMContentLoaded below), independent of
+// whether the settings dialog is even open yet — the Other panel's update
+// section (queried fresh here) just reflects whatever this finds whenever
+// the user eventually looks at it.
+async function checkForUpdates() {
+  const statusEl = document.querySelector("#update-status");
+  const installBtn = document.querySelector("#update-install-btn");
+  statusEl.textContent = t("updateCheckingStatus");
+
+  try {
+    pendingUpdate = await window.__TAURI__.updater.check();
+  } catch (err) {
+    statusEl.textContent = t("updateCheckFailedStatus");
+    log(`[updater] check failed: ${err}`);
+    return;
+  }
+
+  if (!pendingUpdate) {
+    statusEl.textContent = t("updateUpToDateStatus");
+    installBtn.hidden = true;
+    return;
+  }
+
+  statusEl.textContent = `${t("updateAvailableStatus")} (${pendingUpdate.version})`;
+  installBtn.hidden = false;
+}
+
+function setupUpdater() {
+  window.__TAURI__.app
+    .getVersion()
+    .then((version) => {
+      document.querySelector("#update-current-version").textContent = version;
+    })
+    .catch(() => {
+      // Not critical — the rest of the update section still works without it.
+    });
+
+  document.querySelector("#update-install-btn").addEventListener("click", async () => {
+    if (!pendingUpdate) return;
+    const installBtn = document.querySelector("#update-install-btn");
+    const statusEl = document.querySelector("#update-status");
+    installBtn.disabled = true;
+    statusEl.textContent = t("updateDownloadingStatus");
+    try {
+      await pendingUpdate.downloadAndInstall();
+      await window.__TAURI__.process.relaunch();
+    } catch (err) {
+      installBtn.disabled = false;
+      statusEl.textContent = t("updateInstallFailedStatus");
+      log(`[updater] install failed: ${err}`);
+    }
+  });
 }
 
 const APPEARANCE_STORAGE_KEY = "mutelink.appearance";
@@ -2250,6 +2340,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupHotkeys();
   setupTtsLangSettings();
   setupSttCycleLangSettings();
+  checkForUpdates();
 
   googleBtn.addEventListener("click", () => {
     // sttStateValue, not armed — same reasoning as cycleSttState().
