@@ -15,6 +15,7 @@
 ### インストール
 
 1. [Releases](https://github.com/utyujinn/MuteLink/releases)ページから最新のインストーラ(`Mutelink_x.x.x_x64-setup.exe`)をダウンロードして実行する(管理者権限は不要)
+   - コード署名を行っていないため、初回はWindows SmartScreenが「発行元不明」の警告を表示することがある。「詳細情報」→「実行」で進められる
 2. 初回起動時、マイクの使用許可を求められたら許可する
 
 ### セットアップ

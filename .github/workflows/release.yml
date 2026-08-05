@@ -1,0 +1,68 @@
+name: Release
+
+# Tag push triggers a build. Bump the version in
+# tauri-src/src-tauri/tauri.conf.json to match the tag *before* tagging
+# (e.g. tag "v0.2.0" should be pushed after "version": "0.2.0" is committed) —
+# tauri-action creates the GitHub Release using this tag name directly.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri-src/src-tauri
+
+      - name: Install frontend dependencies
+        working-directory: tauri-src
+        run: bun install
+
+      # voicevox_core/ is gitignored (see README) — fetched fresh on every
+      # run the same way a human dev would per the README's setup steps.
+      # `download.exe`'s license-agreement prompt is an interactive pager
+      # that isn't tty-aware and crashes when stdin isn't a real terminal,
+      # but it falls back to a plain y/n/r stdin read afterward — piping
+      # "y" answers that fallback and lets the whole thing run unattended
+      # (verified locally before wiring this up).
+      - name: Download VOICEVOX CORE resources
+        working-directory: tauri-src/src-tauri
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          curl -Lo download.exe https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.4/download-windows-x64.exe
+          yes y | ./download.exe --exclude c-api --models-pattern "15.vvm" --devices cpu
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Set in repo Settings > Secrets and variables > Actions.
+          # TAURI_SIGNING_PRIVATE_KEY_PASSWORD can be left unset if the key
+          # (from `cargo tauri signer generate`, see TASK.md item 1) has no
+          # password.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: tauri-src
+          tagName: ${{ github.ref_name }}
+          releaseName: "Mutelink ${{ github.ref_name }}"
+          releaseBody: "See the assets below to download and install this version."
+          releaseDraft: true
+          prerelease: false
