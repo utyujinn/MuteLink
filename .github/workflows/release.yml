@@ -38,8 +38,12 @@ jobs:
       # `download.exe`'s license-agreement prompt is an interactive pager
       # that isn't tty-aware and crashes when stdin isn't a real terminal,
       # but it falls back to a plain y/n/r stdin read afterward — piping
-      # "y" answers that fallback and lets the whole thing run unattended
-      # (verified locally before wiring this up).
+      # a few "y" answers satisfies that fallback and lets the whole thing
+      # run unattended (verified locally). Deliberately NOT `yes y |`: that
+      # never terminates on its own, so once download.exe finishes reading
+      # and closes its end of the pipe, `yes` dies from SIGPIPE (exit 141) —
+      # and GitHub Actions' bash steps run with `pipefail`, which turns that
+      # into a failed step even though the download itself succeeded.
       - name: Download VOICEVOX CORE resources
         working-directory: tauri-src/src-tauri
         env:
@@ -47,7 +51,7 @@ jobs:
         shell: bash
         run: |
           curl -Lo download.exe https://github.com/VOICEVOX/voicevox_core/releases/download/0.16.4/download-windows-x64.exe
-          yes y | ./download.exe --exclude c-api --models-pattern "15.vvm" --devices cpu
+          printf 'y\ny\ny\n' | ./download.exe --exclude c-api --models-pattern "15.vvm" --devices cpu
 
       - name: Build and release
         uses: tauri-apps/tauri-action@v1
