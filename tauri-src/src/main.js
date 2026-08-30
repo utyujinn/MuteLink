@@ -76,6 +76,12 @@ const I18N = {
   paramVolume: { ja: "音量", en: "Volume", zh: "音量", ko: "음량" },
 
   micHeading: { ja: "マイク", en: "Microphone", zh: "麦克风", ko: "마이크" },
+  micDeviceHint: {
+    ja: "ここで選んだマイクは、Windowsの既定の録音デバイスとして設定されます(音声認識は常にWindowsの既定デバイスを使うため)。他のアプリのマイク入力にも影響する点にご注意ください。",
+    en: "Picking a mic here sets it as Windows' default recording device (speech recognition always uses whatever that is). Note that this also affects the microphone input of other apps.",
+    zh: "在此选择的麦克风会被设为Windows的默认录音设备(语音识别始终使用该设备)。请注意，这也会影响其他应用的麦克风输入。",
+    ko: "여기서 선택한 마이크는 Windows의 기본 녹음 장치로 설정됩니다(음성 인식은 항상 이 기본 장치를 사용합니다). 다른 앱의 마이크 입력에도 영향을 준다는 점에 유의하세요.",
+  },
   autoSelect: { ja: "自動選択", en: "Auto-select", zh: "自动选择", ko: "자동 선택" },
   speakerHeading: { ja: "スピーカー", en: "Speaker", zh: "扬声器", ko: "스피커" },
 
@@ -103,6 +109,30 @@ const I18N = {
     en: "Switch hotkey profile",
     zh: "切换快捷键配置",
     ko: "단축키 프로필 전환",
+  },
+  uiModeToggleLabel: {
+    ja: "デスクトップ/VR切替",
+    en: "Switch Desktop/VR mode",
+    zh: "切换桌面/VR模式",
+    ko: "데스크톱/VR 전환",
+  },
+  langCycleButtonLabel: {
+    ja: "言語切替",
+    en: "Switch language",
+    zh: "切换语言",
+    ko: "언어 전환",
+  },
+  discardTextButtonLabel: {
+    ja: "破棄",
+    en: "Discard",
+    zh: "清除",
+    ko: "취소",
+  },
+  pendingTextEditorPlaceholder: {
+    ja: "認識されたテキストがここに表示されます。編集できます。",
+    en: "Recognized text appears here. You can edit it.",
+    zh: "识别出的文字会显示在这里，可以编辑。",
+    ko: "인식된 텍스트가 여기에 표시됩니다. 편집할 수 있습니다.",
   },
   handRight: { ja: "右手", en: "Right hand", zh: "右手", ko: "오른손" },
   handLeft: { ja: "左手", en: "Left hand", zh: "左手", ko: "왼손" },
@@ -323,6 +353,7 @@ function refreshDynamicI18nText() {
   renderGeneralEndingsList();
   renderHotkeyAssignmentOptions();
   setupCharacterPanel();
+  renderMergedText(); // re-translates the pending-text placeholder when it's showing (see its own comment)
 }
 
 const GOOGLE_RETRY_MS = 3000;
@@ -351,6 +382,9 @@ let ttsEnabled = true; // overwritten from storage on load — see loadTtsEnable
 let sendMode = "manual"; // "auto" | "manual", mirrors the old <select id="send-mode">; overwritten from storage on load — see loadSendMode()
 let finalTextPartEl;
 let interimTextPartEl;
+let pendingTextEditorEl;
+let pendingTextFinalPartEl;
+let pendingTextInterimPartEl;
 let pendingFinalText = "";
 let currentInterimText = ""; // live, not-yet-Final recognition result; read by both the desktop merged block and the VR overlay render loop
 let logEl;
@@ -371,6 +405,33 @@ function getSttLang() {
 function renderMergedText() {
   finalTextPartEl.textContent = pendingFinalText;
   interimTextPartEl.textContent = pendingFinalText && currentInterimText ? ` ${currentInterimText}` : currentInterimText;
+
+  // #pending-text-overlay's copy — same merge, but as two separately-styled
+  // spans (see #pending-text-interim-part's opacity in styles.css) so the
+  // not-yet-final tail visibly reads as "still being recognized" instead of
+  // looking identical to already-confirmed text. When there's nothing at
+  // all, show the hint text here instead of relying on the textarea's own
+  // native placeholder — that placeholder renders in its own UA color
+  // regardless of the textarea's `color: transparent`, so it would sit
+  // underneath (and visibly clash with) whatever this overlay draws on top
+  // of it the moment interim text starts coming in.
+  if (pendingFinalText || currentInterimText) {
+    pendingTextFinalPartEl.classList.remove("pending-text-placeholder");
+    pendingTextFinalPartEl.textContent = pendingFinalText;
+    pendingTextInterimPartEl.textContent = pendingFinalText && currentInterimText ? ` ${currentInterimText}` : currentInterimText;
+  } else {
+    pendingTextFinalPartEl.classList.add("pending-text-placeholder");
+    pendingTextFinalPartEl.textContent = t("pendingTextEditorPlaceholder");
+    pendingTextInterimPartEl.textContent = "";
+  }
+
+  // The real textarea underneath only ever holds pendingFinalText — the
+  // interim tail is preview-only (see the overlay above), not something you
+  // can select/edit directly, since it can be replaced wholesale the moment
+  // more speech comes in. Guarded so the editor's own "input" listener
+  // (which already updated pendingFinalText and calls this right back)
+  // doesn't reset the cursor to the end on every keystroke.
+  if (pendingTextEditorEl.value !== pendingFinalText) pendingTextEditorEl.value = pendingFinalText;
 }
 
 async function sendChatbox(text) {
@@ -420,6 +481,19 @@ function saveSendMode(mode) {
   localStorage.setItem(SEND_MODE_KEY, mode);
 }
 
+const UI_MODE_KEY = "mutelink.uiMode";
+
+// Defaults to "vr" — existing users keep the exact screen they already had
+// (see #desktop-controls-row's default `display: none`) until they
+// deliberately opt into Desktop mode via the button.
+function loadUiMode() {
+  return localStorage.getItem(UI_MODE_KEY) === "desktop" ? "desktop" : "vr";
+}
+
+function saveUiMode(mode) {
+  localStorage.setItem(UI_MODE_KEY, mode);
+}
+
 // The one place that actually delivers a confirmed piece of text — called
 // either immediately (Auto mode / picking an ending) or from the manual send
 // button (手動 mode, no ending). `outputText` is what goes to the chatbox;
@@ -446,10 +520,17 @@ function dispatchText(outputText, spokenText, params) {
 }
 
 // SpeechRecognition owns mic capture internally and doesn't expose audio
-// levels, so silence/voice is measured by a second, independent mic stream
+// levels, so voice activity is measured by a second, independent mic stream
 // that only ever computes RMS locally — nothing from it is sent anywhere.
-// It stays alive across pause/resume so speech can restart recognition
-// automatically; only the Stop button tears it down.
+// It's purely a "listening" vs "waiting for voice" status indicator now —
+// it used to also stop()/start() the recognizer across silence, but
+// SpeechRecognition.start() has real startup latency, and calling it
+// reactively *after* RMS had already detected speech meant the first
+// syllable was spoken into that startup gap and never got recognized. The
+// recognizer instead just stays running continuously for as long as the
+// Stop button hasn't been pressed (see startGoogleStt/stopGoogleStt);
+// `continuous: true` (see createRecognition) is what lets it sit idle
+// across silence without needing to be restarted.
 let monitorStream;
 let monitorCtx;
 let monitorSource;
@@ -470,12 +551,14 @@ function rms(float32) {
 }
 
 async function startVoiceMonitor() {
-  const deviceSettings = loadDeviceSettings();
-  const audioConstraints =
-    !deviceSettings.micAuto && deviceSettings.micDeviceId
-      ? { deviceId: { exact: deviceSettings.micDeviceId } }
-      : true;
-  monitorStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
+  // No per-device constraint here on purpose: which mic this (and
+  // SpeechRecognition itself) actually captures from is controlled by
+  // Windows' default recording device, which the Device settings panel's
+  // mic list sets directly via set_default_input_device() — see
+  // setupDevicePanel(). A getUserMedia deviceId constraint can't do
+  // anything SpeechRecognition would also respect, so there's no reason to
+  // add one just for this monitor stream.
+  monitorStream = await navigator.mediaDevices.getUserMedia({ audio: true });
   monitorCtx = new AudioContext();
   monitorSource = monitorCtx.createMediaStreamSource(monitorStream);
   monitorProcessor = monitorCtx.createScriptProcessor(4096, 1, 1);
@@ -483,7 +566,7 @@ async function startVoiceMonitor() {
   monitorProcessor.onaudioprocess = (event) => {
     if (rms(event.inputBuffer.getChannelData(0)) < VOICE_RMS_THRESHOLD) return;
     lastVoiceAt = Date.now();
-    if (armed && !recognizing) resumeRecognition();
+    if (recognizing) setGoogleStatus("statusListening");
   };
 
   monitorSource.connect(monitorProcessor);
@@ -491,7 +574,7 @@ async function startVoiceMonitor() {
 
   lastVoiceAt = Date.now();
   silenceCheckTimer = setInterval(() => {
-    if (recognizing && Date.now() - lastVoiceAt >= SILENCE_TIMEOUT_MS) pauseRecognition();
+    if (recognizing && Date.now() - lastVoiceAt >= SILENCE_TIMEOUT_MS) setGoogleStatus("statusWaitingForVoice");
   }, 1000);
 }
 
@@ -550,9 +633,12 @@ function createRecognition() {
     log(`[google:error] ${event.error}${event.message ? ` (${event.message})` : ""}`);
   };
   r.onend = () => {
-    // Only reconnect if we're still supposed to be actively recognizing.
-    // pauseRecognition()/stopGoogleStt() clear `recognizing` before calling
-    // stop(), so their own end events land here as a no-op.
+    // Recognition is meant to run continuously for as long as the app is
+    // armed (see startVoiceMonitor's comment) — reaching onend at all means
+    // either the browser ended the session on its own (backend-side
+    // timeout, error, device change, ...) or stopGoogleStt() called
+    // stop() explicitly and already cleared `recognizing` before doing so,
+    // making this an intentional no-op.
     if (!armed || !recognizing) return;
     setGoogleStatus(googleHadError ? "statusDisconnectedRetrying" : "statusReconnecting");
     // Restarting synchronously here is prone to InvalidStateError — the
@@ -591,14 +677,6 @@ function resumeRecognition() {
       if (armed && !recognizing) resumeRecognition();
     }, 250);
   }
-}
-
-function pauseRecognition() {
-  if (!recognizing) return;
-  recognizing = false;
-  clearTimeout(googleRetryTimer);
-  recognition.stop();
-  setGoogleStatus("statusWaitingForVoice");
 }
 
 function scheduleGoogleRetry() {
@@ -670,7 +748,7 @@ function loadDeviceSettings() {
   } catch {
     // fall through to defaults
   }
-  return { micAuto: true, micDeviceId: "", speakerAuto: true, speakerDeviceIds: [] };
+  return { speakerAuto: true, speakerDeviceIds: [] };
 }
 
 function saveDeviceSettings(settings) {
@@ -704,11 +782,29 @@ async function populateOutputDevices() {
   }
 }
 
+// Chained onto by speak() below so overlapping calls (e.g. sending a new
+// line while a previous one is still being read aloud) play back-to-back
+// instead of on top of each other — each link waits for the previous
+// utterance's audio to actually finish (see speakOnce()'s onended-driven
+// promise), not just for it to start.
+let ttsChain = Promise.resolve();
+
 async function speak(text, params = {}) {
   text = (text ?? voicevoxInput.value).trim();
   if (!text) return;
   voicevoxInput.value = text;
 
+  const run = ttsChain.then(() => speakOnce(text, params));
+  // A failed utterance shouldn't wedge the queue for the next one — errors
+  // already surface via voicevoxStatusEl inside speakOnce(), not via this
+  // promise, so callers of speak() (which never await it) don't need `run`
+  // itself to stay unhandled-rejection-safe either, but this keeps `ttsChain`
+  // itself always resolved regardless.
+  ttsChain = run.catch(() => {});
+  return run;
+}
+
+async function speakOnce(text, params) {
   voicevoxStatusEl.textContent = t("voicevoxSynthesizing");
   try {
     const bytes = await window.__TAURI__.core.invoke("synthesize", {
@@ -725,25 +821,29 @@ async function speak(text, params = {}) {
     const sinkIds = Array.from(voicevoxOutputsSelect.selectedOptions).map((o) => o.value);
     const targets = sinkIds.length > 0 ? sinkIds : [""]; // no selection = default device
 
-    let remaining = targets.length;
-    const players = targets.map((sinkId) => {
-      const audio = new Audio(url);
-      audio.onended = () => {
-        remaining -= 1;
-        if (remaining === 0) {
-          URL.revokeObjectURL(url);
-          voicevoxStatusEl.textContent = t("statusIdle");
-        }
-      };
-      return { audio, sinkId };
-    });
-
+    const players = targets.map((sinkId) => ({ audio: new Audio(url), sinkId }));
     for (const { audio, sinkId } of players) {
       if (sinkId && audio.setSinkId) await audio.setSinkId(sinkId);
     }
-    await Promise.all(players.map(({ audio }) => audio.play()));
 
     voicevoxStatusEl.textContent = `${t("voicevoxPlaying")} (${targets.length})`;
+
+    // Waits for onended, not just for play() to start — that's what makes
+    // ttsChain above an actual "don't start the next one until this one's
+    // done" queue instead of a "don't start the next one until this one's
+    // synthesis+setup is done" queue.
+    await Promise.all(
+      players.map(
+        ({ audio }) =>
+          new Promise((resolve) => {
+            audio.onended = resolve;
+            audio.play();
+          }),
+      ),
+    );
+
+    URL.revokeObjectURL(url);
+    voicevoxStatusEl.textContent = t("statusIdle");
   } catch (err) {
     voicevoxStatusEl.textContent = `${t("statusErrorPrefix")}${err}`;
   }
@@ -756,27 +856,61 @@ function buildDeviceLabel(text) {
   return span;
 }
 
-// Mic selection feeds startVoiceMonitor()'s getUserMedia constraint directly.
-// Speaker selection mirrors (and writes back to) the main screen's
-// #voicevox-outputs <select multiple> so there's one source of truth.
-async function setupDevicePanel() {
+// Mic selection has nothing to do with getUserMedia constraints — the Web
+// Speech API (createRecognition() in main.js) has no way to target a
+// specific device and always captures from Windows' default recording
+// device, so picking a mic here calls the Rust-side
+// set_default_input_device() to actually change that system-wide default
+// instead. The list itself also comes from Rust (list_input_devices(),
+// Windows' own Core Audio device enumeration) rather than
+// navigator.mediaDevices, since it needs to report which one is currently
+// the default and that has no browser-side equivalent.
+//
+// Speaker selection is unrelated and unaffected — VOICEVOX playback uses
+// setSinkId(), which genuinely does support per-app device selection, so it
+// still mirrors (and writes back to) the main screen's #voicevox-outputs
+// <select multiple> as before.
+async function renderMicDeviceList() {
   const micList = document.querySelector("#mic-device-list");
+  let devices;
+  try {
+    devices = await window.__TAURI__.core.invoke("list_input_devices");
+  } catch (err) {
+    micList.innerHTML = "";
+    log(`[device] failed to list input devices: ${err}`);
+    return;
+  }
+
+  micList.innerHTML = "";
+  for (const d of devices) {
+    const row = document.createElement("label");
+    row.className = "device-row";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "mic-device";
+    radio.value = d.id;
+    radio.checked = d.isDefault;
+    radio.addEventListener("change", async () => {
+      radio.disabled = true;
+      try {
+        await window.__TAURI__.core.invoke("set_default_input_device", { deviceId: d.id });
+      } catch (err) {
+        log(`[device] failed to set default input device: ${err}`);
+      }
+      await renderMicDeviceList(); // re-read the actual OS state rather than assume the call worked
+    });
+    row.append(radio, buildDeviceLabel(d.name));
+    micList.appendChild(row);
+  }
+}
+
+async function setupDevicePanel() {
   const speakerList = document.querySelector("#speaker-device-list");
-  const micAutoToggle = document.querySelector("#mic-auto-toggle");
   const speakerAutoToggle = document.querySelector("#speaker-auto-toggle");
 
   const settings = loadDeviceSettings();
-  micAutoToggle.checked = settings.micAuto;
   speakerAutoToggle.checked = settings.speakerAuto;
-  micList.classList.toggle("disabled", settings.micAuto);
   speakerList.classList.toggle("disabled", settings.speakerAuto);
-
-  micAutoToggle.addEventListener("change", () => {
-    const s = loadDeviceSettings();
-    s.micAuto = micAutoToggle.checked;
-    saveDeviceSettings(s);
-    micList.classList.toggle("disabled", s.micAuto);
-  });
 
   speakerAutoToggle.addEventListener("change", () => {
     const s = loadDeviceSettings();
@@ -786,6 +920,8 @@ async function setupDevicePanel() {
     if (s.speakerAuto) populateOutputDevices(); // re-apply the CABLE-Input heuristic
   });
 
+  renderMicDeviceList();
+
   try {
     const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
     probe.getTracks().forEach((t) => t.stop());
@@ -793,24 +929,6 @@ async function setupDevicePanel() {
     // labels may come back blank; selection by id still works
   }
   const devices = await navigator.mediaDevices.enumerateDevices();
-
-  micList.innerHTML = "";
-  for (const d of devices.filter((d) => d.kind === "audioinput")) {
-    const row = document.createElement("label");
-    row.className = "device-row";
-    const radio = document.createElement("input");
-    radio.type = "radio";
-    radio.name = "mic-device";
-    radio.value = d.deviceId;
-    radio.checked = d.deviceId === settings.micDeviceId;
-    radio.addEventListener("change", () => {
-      const s = loadDeviceSettings();
-      s.micDeviceId = d.deviceId;
-      saveDeviceSettings(s);
-    });
-    row.append(radio, buildDeviceLabel(d.label || d.deviceId));
-    micList.appendChild(row);
-  }
 
   speakerList.innerHTML = "";
   for (const d of devices.filter((d) => d.kind === "audiooutput")) {
@@ -1158,6 +1276,46 @@ function setupEndings() {
   saveEndings(endings); // persist defaults on first run
   renderEndingButtons(endingButtons, endings, applyEnding);
   renderHotkeyAssignmentOptions();
+}
+
+// Desktop mode's on-screen stand-in for the VR hand hotkeys: #lang-cycle-btn
+// mirrors cycleSttState() (normally the left controller's lower face
+// button — see setupHotkeys()), #discard-text-btn mirrors the stick-press
+// discard gesture (see fireHotkeyAssignment()/HOTKEY_CANCEL_ACTION below),
+// and #ending-buttons (already built by setupEndings() above) doubles as
+// the "confirm/send" action, exactly like picking an ending slot via a hand
+// hotkey does. VR mode never shows any of these three (see
+// body.ui-mode-desktop in styles.css), so its own screen is unaffected by
+// them. #pending-text-editor is the one exception — it's visible in both
+// modes (a live preview in VR mode, matching the VR HUD; editable in
+// either) — its "input" listener writes straight back into pendingFinalText,
+// which is what applyEnding()/dispatchText() actually read, so an edit here
+// is exactly what goes out.
+function setupUiMode() {
+  const toggleBtn = document.querySelector("#ui-mode-toggle-btn");
+  const langCycleBtn = document.querySelector("#lang-cycle-btn");
+  const discardTextBtn = document.querySelector("#discard-text-btn");
+
+  function apply(mode) {
+    document.body.classList.toggle("ui-mode-desktop", mode === "desktop");
+    toggleBtn.textContent = mode === "desktop" ? "Desktop" : "VR";
+  }
+
+  apply(loadUiMode());
+
+  pendingTextEditorEl.addEventListener("input", () => {
+    pendingFinalText = pendingTextEditorEl.value;
+    renderMergedText();
+  });
+
+  toggleBtn.addEventListener("click", () => {
+    const next = loadUiMode() === "desktop" ? "vr" : "desktop";
+    saveUiMode(next);
+    apply(next);
+  });
+
+  langCycleBtn.addEventListener("click", () => cycleSttState());
+  discardTextBtn.addEventListener("click", () => fireHotkeyAssignment(HOTKEY_CANCEL_ACTION));
 }
 
 // `labelKey` (not translated text directly) so formatEndingSummary()/the
@@ -2339,6 +2497,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   sttStateLabelEl = document.querySelector("#stt-state-label");
   finalTextPartEl = document.querySelector("#final-text-part");
   interimTextPartEl = document.querySelector("#interim-text-part");
+  pendingTextEditorEl = document.querySelector("#pending-text-editor");
+  pendingTextFinalPartEl = document.querySelector("#pending-text-final-part");
+  pendingTextInterimPartEl = document.querySelector("#pending-text-interim-part");
   voicevoxInput = document.querySelector("#voicevox-text");
   voicevoxBtn = document.querySelector("#voicevox-btn");
   voicevoxStatusEl = document.querySelector("#voicevox-status");
@@ -2350,6 +2511,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   setupTitlebar();
   setupEndings();
+  setupUiMode();
   setupSettingsDialog();
   setupHotkeys();
   setupTtsLangSettings();
@@ -2414,4 +2576,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   // dynamic pieces too, not just skip them like it did during this initial
   // pass.
   appReady = true;
+
+  // Otherwise #pending-text-overlay's spans sit empty (not even the
+  // placeholder) until the first STT event/ending pick/discard happens to
+  // call this reactively — nothing does so on a fresh load.
+  renderMergedText();
 });

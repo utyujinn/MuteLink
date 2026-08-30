@@ -1,3 +1,4 @@
+mod audio_device;
 mod overlay;
 mod overlay_gpu;
 
@@ -527,7 +528,9 @@ pub fn run() {
             update_lang_tag,
             character_catalog,
             download_character,
-            load_character
+            load_character,
+            audio_device::list_input_devices,
+            audio_device::set_default_input_device
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

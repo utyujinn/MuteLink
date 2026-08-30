@@ -131,12 +131,57 @@ body {
   opacity: 0.7;
 }
 
+.stt-state-row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+}
+
+/* Fixed width (sized for "English", the widest of the labels this ever
+   shows — see STT_STATE_LABELS/sttOff in main.js) so switching between
+   languages of very different lengths ("オフ"/"English"/"한국어") doesn't
+   shift #lang-cycle-btn's position, since .stt-state-row centers the pair
+   of them as a unit. */
 .stt-state-label {
   flex: 0 0 auto;
+  width: 5.5em;
   margin: 0;
   text-align: center;
   font-size: 1.4em;
   font-weight: 700;
+}
+
+/* Only shown in Desktop mode (see body.ui-mode-desktop below and
+   setupUiMode() in main.js) — a plain cycle/refresh glyph rather than a
+   language-specific icon, since this button doubles as the STT on/off
+   toggle too (cycling all the way through lands back on "off"). */
+.lang-cycle-btn {
+  display: none;
+  flex: 0 0 auto;
+  width: 1.8em;
+  height: 1.8em;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text);
+  background-color: transparent;
+  font-size: 1.2em;
+  line-height: 1;
+  box-shadow: none;
+  transition: transform 0.15s ease;
+}
+
+.lang-cycle-btn:hover {
+  transform: rotate(45deg);
+}
+
+body.ui-mode-desktop .lang-cycle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .status-dot {
@@ -230,32 +275,138 @@ body {
   display: grid;
   flex: 0 0 auto;
   grid-template-columns: repeat(5, 1fr);
-  gap: 6px;
+  gap: 1px;
   background-color: var(--color-border);
-  border: 6px solid var(--color-border);
+  border: 1px solid var(--color-border);
 }
 
-/* Simple hover feedback: the tile just grows slightly, no color sweep. */
+/* Thin/quiet on purpose — this used to be a solid gray block
+   (--color-surface-alt fill + a 6px border), which read as a heavy slab
+   sitting in the middle of the screen. Matching the page's own background
+   here instead means only the 1px gap/border lines (see .ending-grid above)
+   read as structure, not a filled block. */
 .ending-grid button {
   position: relative;
   margin: 0;
   padding: 0.9em 0.4em;
-  border: none;
+  border: 1px solid transparent;
   border-radius: 0;
   box-shadow: none;
   color: var(--color-text);
-  background-color: var(--color-surface-alt);
+  background-color: var(--color-surface);
   font-size: 0.85em;
-  transition: transform 0.15s ease;
+  transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .ending-grid button:hover {
   z-index: 1;
   transform: scale(1.06);
+  border-color: #396cd8;
 }
 
-/* The only things left on the main screen besides status: settings, and
-   Auto/Chatbox/TTS. */
+/* Shows the pending text (and lets it be edited) on the desktop window
+   regardless of VR/Desktop mode — VR users get a live preview of what's
+   about to be sent even though they're actually confirming/discarding it
+   with the hand hotkeys, matching what the VR HUD itself already shows.
+
+   The visible box: .pending-text-overlay and .pending-text-editor both sit
+   inset:0 inside this, pixel-stacked on top of each other — this is what
+   actually carries the background/border/sizing, since both children are
+   transparent/borderless so they align exactly. */
+.pending-text-wrap {
+  display: block;
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 3em;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background-color: var(--color-surface-alt);
+}
+
+/* Same padding/font as .pending-text-editor below — this is what's actually
+   seen (the textarea's own text is transparent), so any mismatch here would
+   make the visible text drift out of alignment with where the caret and
+   click-to-position actually land. */
+.pending-text-overlay,
+.pending-text-editor {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0.5em 0.7em;
+  border: none;
+  font-family: inherit;
+  font-size: 1em;
+  line-height: inherit;
+}
+
+.pending-text-overlay {
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+  color: var(--color-text);
+}
+
+/* Still being recognized, not yet confirmed — same idea as the VR overlay's
+   own final/interim distinction (see overlay.rs's render()), just opacity
+   instead of a second color to stay consistent with how this app already
+   marks secondary text elsewhere (.about-placeholder, .ending-hotkey-refs). */
+#pending-text-interim-part {
+  opacity: 0.55;
+}
+
+/* Shown in #pending-text-final-part instead of the interim styling above
+   when there's nothing pending at all — see renderMergedText() in main.js. */
+.pending-text-placeholder {
+  opacity: 0.5;
+}
+
+.pending-text-editor {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  color: transparent;
+  caret-color: var(--color-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* Desktop mode's on-screen equivalent of the VR hand hotkeys: pick an
+   ending to confirm/send (the language cycle button lives up by
+   #stt-state-label instead — see .lang-cycle-btn above). Hidden by
+   default — body.ui-mode-desktop (see setupUiMode() in main.js) is what
+   reveals it, so VR mode's screen looks exactly like it did before Desktop
+   mode existed. */
+.desktop-controls-row {
+  display: none;
+  flex: 0 0 auto;
+  gap: 6px;
+}
+
+body.ui-mode-desktop .desktop-controls-row {
+  display: flex;
+}
+
+.desktop-controls-row .ending-grid {
+  flex: 1 1 auto;
+}
+
+/* Square corners to match the ending-grid tiles it sits beside. */
+#discard-text-btn {
+  border-radius: 0;
+}
+
+/* Same red fill as the titlebar's close button — this discards the pending
+   text, so the hover state should read as "destructive" at a glance. */
+#discard-text-btn:hover {
+  border-color: #e81123;
+  background-color: #e81123;
+  color: #ffffff;
+}
+
+/* The main screen's row of quick-access controls: settings, Auto/Chatbox/TTS,
+   hotkey profile (P1/P2/P3), and the Desktop/VR mode toggle. */
 .control-bar {
   display: flex;
   flex: 0 0 auto;

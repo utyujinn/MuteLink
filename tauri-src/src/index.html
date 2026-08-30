@@ -151,13 +151,9 @@
             <h2 data-i18n="navDevice">Device</h2>
 
             <h3 data-i18n="micHeading">マイク</h3>
-            <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="autoSelect">自動選択</span>
-              <label class="switch">
-                <input type="checkbox" id="mic-auto-toggle" checked />
-                <span class="switch-track"></span>
-              </label>
-            </div>
+            <p class="hint" data-i18n="micDeviceHint">
+              ここで選んだマイクは、Windowsの既定の録音デバイスとして設定されます(音声認識は常にWindowsの既定デバイスを使うため)。他のアプリのマイク入力にも影響する点にご注意ください。
+            </p>
             <div id="mic-device-list" class="device-list"></div>
 
             <h3 data-i18n="speakerHeading">スピーカー</h3>
@@ -388,7 +384,24 @@
         <span id="google-status">idle</span>
       </div>
 
-      <p id="stt-state-label" class="stt-state-label">オフ</p>
+      <div class="stt-state-row">
+        <!-- Only shown in Desktop mode (see setupUiMode() in main.js) —
+             doubles as the language on/off toggle too (cycling all the way
+             through lands back on "off"), so it sits right next to the
+             label it controls rather than down with the ending buttons. -->
+        <button
+          id="lang-cycle-btn"
+          class="lang-cycle-btn"
+          type="button"
+          title="言語切替"
+          aria-label="言語切替"
+          data-i18n-title="langCycleButtonLabel"
+          data-i18n-aria-label="langCycleButtonLabel"
+        >
+          ↻
+        </button>
+        <p id="stt-state-label" class="stt-state-label">オフ</p>
+      </div>
 
       <!-- These still drive the VR overlay / VR hotkeys behind the scenes
            (see main.js) — everything here is now VR-only in practice, so
@@ -407,7 +420,51 @@
         <label><input type="radio" name="stt-lang" value="off" checked /> <span data-i18n="sttOff">オフ</span></label>
       </div>
 
-      <div class="ending-grid desktop-hidden" id="ending-buttons"></div>
+      <!-- Shown in both VR and Desktop mode — lets you review/fix up the
+           recognized text (in Desktop mode, before sending it with one of
+           the buttons below; in VR mode it's just a live preview of what
+           the hand hotkeys are about to confirm/discard, matching the VR
+           HUD, though it's still a real editable textarea if you want to
+           use it with the desktop window). Edits feed straight back into
+           pendingFinalText (see the "input" listener in setupUiMode()), so
+           whatever's shown here is exactly what gets sent.
+
+           The not-yet-final tail is shown too (same merge the VR overlay
+           renders), colored differently so it reads as "still being
+           recognized" — a plain <textarea> can't color part of its own
+           text, so #pending-text-overlay is a same-size, non-interactive
+           copy drawn on top of it doing the actual coloring, while the real
+           textarea underneath (text made transparent, only its caret
+           visible) still holds pendingFinalText and handles all real
+           typing/IME input exactly as a normal textarea would. -->
+      <div class="pending-text-wrap">
+        <div class="pending-text-overlay" aria-hidden="true"><span id="pending-text-final-part"></span><span id="pending-text-interim-part"></span></div>
+        <!-- No placeholder attribute here on purpose — the hint text is
+             drawn by #pending-text-overlay instead (see renderMergedText()
+             in main.js) since a native placeholder renders in its own
+             color regardless of this element's `color: transparent` and
+             would otherwise show through underneath the overlay. -->
+        <textarea id="pending-text-editor" class="pending-text-editor" rows="2"></textarea>
+      </div>
+
+      <!-- Only shown in Desktop mode (see setupUiMode() in main.js) — VR
+           mode keeps confirming/attaching an ending to the hand hotkeys, so
+           this whole row stays hidden there and the screen looks the same
+           as before Desktop mode existed. -->
+      <div class="desktop-controls-row" id="desktop-controls-row">
+        <button
+          id="discard-text-btn"
+          class="discard-text-btn"
+          type="button"
+          title="破棄"
+          aria-label="破棄"
+          data-i18n-title="discardTextButtonLabel"
+          data-i18n-aria-label="discardTextButtonLabel"
+        >
+          ✕
+        </button>
+        <div class="ending-grid" id="ending-buttons"></div>
+      </div>
 
       <div class="control-bar">
         <button
@@ -434,6 +491,17 @@
           data-i18n-aria-label="hotkeyProfileSwitchLabel"
         >
           P1
+        </button>
+        <button
+          id="ui-mode-toggle-btn"
+          class="round-btn"
+          type="button"
+          title="デスクトップ/VR切替"
+          aria-label="デスクトップ/VR切替"
+          data-i18n-title="uiModeToggleLabel"
+          data-i18n-aria-label="uiModeToggleLabel"
+        >
+          VR
         </button>
       </div>
     </main>
