@@ -6,36 +6,38 @@ use std::process::Command;
 use std::time::Duration;
 
 fn main() {
-    build_tauri_with_retry();
-
+    // Must run BEFORE build_tauri_with_retry(): see fix_onnxruntime_dlls()'s
+    // own comment for why tauri_build::build() must never be the first thing
+    // to touch target/<profile>/onnxruntime.dll.
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         if let Err(e) = fix_onnxruntime_dlls() {
             println!("cargo:warning=Failed to fetch a matching onnxruntime.dll for sherpa-onnx: {e}");
         }
     }
+
+    build_tauri_with_retry();
 }
 
-// tauri_build::build() itself copies bundle.resources (which include
-// target/<profile>/onnxruntime.dll — see tauri.conf.json) into its own
-// resource-staging directory as part of processing the config, i.e. before
-// fix_onnxruntime_dlls() below gets a chance to run. On the GitHub Actions
-// Windows runner this consistently failed reading that exact file with
-// "os error 32" (ERROR_SHARING_VIOLATION), right after sherpa-onnx-sys's
-// own build script (a dependency, guaranteed to run and fully finish
-// before ours starts) had just written it. tauri_build::build() itself
-// panics (std::process::exit(1)) on any error with no retry of its own, so
-// this calls its non-panicking sibling (try_build) directly and retries
-// instead — copy_resources()'s file copy is a plain overwrite with no
-// other state, so retrying the whole call is safe.
-//
-// A first attempt at this used only 10 retries at 300ms apart (~3s total)
-// and still failed the same way on every single attempt — so whatever is
-// holding the file (most likely Windows Defender's on-write real-time/
-// cloud-lookup scan of a freshly written, previously-unseen-on-that-runner
-// DLL, which is documented to occasionally take several seconds, not just
-// milliseconds) outlasts that window. This budgets a full 60s, which costs
-// nothing when the file is free immediately (the common case, returns on
-// the first try) and comfortably covers a slow scan when it isn't.
+// tauri_build::build() itself copies bundle.resources into its own
+// resource-staging directory as part of processing the config. On the
+// GitHub Actions Windows runner, when one of those resources was
+// target/<profile>/onnxruntime.dll (the file sherpa-onnx-sys's own build
+// script — a dependency, guaranteed to run and fully finish before ours
+// starts — had just written), this consistently failed reading it with
+// "os error 32" (ERROR_SHARING_VIOLATION), on every single retry across a
+// full 60-second budget, never once succeeding — inconsistent with a
+// transient AV scan (which cleared within ~28s the one time this was
+// reproduced locally) and more consistent with something holding that
+// exact file for the entire build. fix_onnxruntime_dlls() below no longer
+// routes bundle.resources through that contested path at all (see its own
+// comment) as the real fix; this retry is kept as cheap defense in depth
+// for whatever residual, genuinely transient locks (e.g. on the
+// voicevox_core resources, a large fixed set of files nothing else in this
+// build touches) might still occur. tauri_build::build() itself panics
+// (std::process::exit(1)) on any error with no retry of its own, so this
+// calls its non-panicking sibling (try_build) directly instead —
+// copy_resources()'s file copy is a plain overwrite with no other state,
+// so retrying the whole call is safe.
 fn build_tauri_with_retry() {
     const ATTEMPTS: u32 = 120;
     const DELAY: Duration = Duration::from_millis(500);
@@ -73,6 +75,29 @@ fn build_tauri_with_retry() {
 // sherpa-onnx-sys release ships a matching onnxruntime — already fixed
 // upstream but unreleased as of writing (see sherpa-onnx's CHANGELOG.md,
 // the 1.13.8 entry "ONNX Runtime updated to v1.28.2").
+//
+// ALSO copies both files into <crate_root>/ort-resource/ — a directory
+// nothing else in this build ever writes to — and that path (not
+// target/<profile>/onnxruntime.dll directly) is what tauri.conf.json's
+// bundle.resources points at. This exists specifically so that
+// tauri_build::build() (called after this function — see main()) never has
+// to read target/<profile>/onnxruntime.dll itself: on the GitHub Actions
+// Windows runner, that exact file being read by tauri_build right after
+// sherpa-onnx-sys's build script had just written it consistently failed
+// with "os error 32" (ERROR_SHARING_VIOLATION) on every retry across a full
+// 60s budget — see build_tauri_with_retry()'s comment. Routing the
+// bundle.resources copy through this untouched-by-anyone-else path sidesteps
+// that contention entirely rather than just retrying against it for longer.
+//
+// Deliberately crate-root-relative (like voicevox_core/ below it in
+// tauri.conf.json's own resources map), not target/<profile>/-relative: an
+// earlier version of this pointed bundle.resources at
+// target/release/ort-resource/, which is hardcoded to "release" the same
+// way the original target/release/onnxruntime.dll reference was — and while
+// that's fine for the actual release builds this all exists for, it silently
+// broke `cargo check`/`bun run tauri dev` (PROFILE=debug), which populated
+// target/debug/ort-resource/ instead of the hardcoded target/release/ path
+// tauri_build was looking for.
 fn fix_onnxruntime_dlls() -> Result<(), Box<dyn std::error::Error>> {
     const ORT_VERSION: &str = "1.29.1";
     const ORT_FILES: &[&str] = &["onnxruntime.dll", "onnxruntime_providers_shared.dll"];
@@ -109,7 +134,10 @@ fn fix_onnxruntime_dlls() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let profile_dir = target_dir.join(env::var("PROFILE")?);
-    for dest_dir in [profile_dir.clone(), profile_dir.join("examples")] {
+    let resource_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR")?).join("ort-resource");
+    fs::create_dir_all(&resource_dir)?;
+
+    for dest_dir in [profile_dir.clone(), profile_dir.join("examples"), resource_dir] {
         if !dest_dir.is_dir() {
             continue;
         }

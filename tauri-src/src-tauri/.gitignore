@@ -16,3 +16,9 @@
 # gets picked up as a source change, triggering a rebuild/restart that kills
 # the app partway through.
 /sense_voice/
+
+# A correct-version onnxruntime.dll/onnxruntime_providers_shared.dll staged
+# here by build.rs's fix_onnxruntime_dlls() for tauri.conf.json's
+# bundle.resources to read (see that function's own comment for why it's a
+# dedicated crate-root-relative path rather than something under target/).
+/ort-resource/
