@@ -741,6 +741,24 @@ async function startVoiceMonitor() {
 let senseVoiceBuffer = [];
 let senseVoiceUtteranceActive = false;
 
+// Matches Hiragana/Katakana, CJK ideographs, Hangul, and full-width forms —
+// the ranges where a space between two such characters is never meaningful
+// (unlike between Latin words, which this deliberately leaves alone).
+const CJK_CHAR = "\\u3040-\\u30ff\\u3400-\\u9fff\\uac00-\\ud7a3\\uff00-\\uffef";
+const CJK_SPACE_RE = new RegExp(`(?<=[${CJK_CHAR}])\\s+(?=[${CJK_CHAR}])`, "g");
+// Local STT models (Whisper especially) sometimes insert stray punctuation
+// or a space between every CJK character — neither shows up with the Web
+// Speech API's own recognizer. Left as-is: 。/. (real sentence terminators,
+// which the app's own ending/語尾 logic expects to see at most one of).
+const STT_STRIP_PUNCTUATION_RE = /[？?！!]/g;
+
+// See the two regexes above — only applied to local-model output (see
+// flushSenseVoiceUtterance below), not the Web Speech API path, since that
+// one doesn't exhibit either artifact.
+function cleanSttText(text) {
+  return text.replace(CJK_SPACE_RE, "").replace(STT_STRIP_PUNCTUATION_RE, "").trim();
+}
+
 // Concatenates the buffered chunks into one Float32Array and sends it to
 // stt_transcribe in one shot — reset happens up front so a slow
 // transcribe (or the user starting to talk again immediately) doesn't get
@@ -761,14 +779,14 @@ async function flushSenseVoiceUtterance() {
 
   setGoogleStatus("statusTranscribing");
   try {
-    const text = (
+    const text = cleanSttText(
       await window.__TAURI__.core.invoke("stt_transcribe", {
         samples: Array.from(samples),
         sampleRate: monitorCtx.sampleRate,
         modelId: sttModel,
         language: senseVoiceLangCode(),
-      })
-    ).trim();
+      }),
+    );
     setGoogleStatus("statusListening");
     if (!text) return;
     log(`[sensevoice:final] text=${text}`);
