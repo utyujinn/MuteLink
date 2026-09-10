@@ -6,11 +6,42 @@ use std::process::Command;
 use std::time::Duration;
 
 fn main() {
-    tauri_build::build();
+    build_tauri_with_retry();
 
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         if let Err(e) = fix_onnxruntime_dlls() {
             println!("cargo:warning=Failed to fetch a matching onnxruntime.dll for sherpa-onnx: {e}");
+        }
+    }
+}
+
+// tauri_build::build() itself copies bundle.resources (which include
+// target/<profile>/onnxruntime.dll — see tauri.conf.json) into its own
+// resource-staging directory as part of processing the config, i.e. before
+// fix_onnxruntime_dlls() below gets a chance to run. On the GitHub Actions
+// Windows runner this consistently failed reading that exact file with
+// "os error 32" (ERROR_SHARING_VIOLATION), right after sherpa-onnx-sys's
+// own build script (a dependency, guaranteed to run and fully finish
+// before ours starts) had just written it — never reproduced locally, so
+// almost certainly Windows Defender's on-write real-time scan transiently
+// holding the file open on that runner. tauri_build::build() itself panics
+// (std::process::exit(1)) on any error with no retry of its own, so this
+// calls its non-panicking sibling (try_build) directly and retries instead
+// — copy_resources()'s file copy is a plain overwrite with no other state,
+// so retrying the whole call is safe.
+fn build_tauri_with_retry() {
+    const ATTEMPTS: u32 = 10;
+    for attempt in 1..=ATTEMPTS {
+        match tauri_build::try_build(tauri_build::Attributes::default()) {
+            Ok(()) => return,
+            Err(e) if attempt < ATTEMPTS => {
+                println!("cargo:warning=tauri_build::try_build failed (attempt {attempt}/{ATTEMPTS}): {e:#}");
+                std::thread::sleep(Duration::from_millis(300));
+            }
+            Err(e) => {
+                println!("{e:#}");
+                std::process::exit(1);
+            }
         }
     }
 }
@@ -85,18 +116,12 @@ fn fix_onnxruntime_dlls() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// sherpa-onnx-sys's own build script (which runs before ours — cargo runs a
-// dependency's build script to completion before the dependent crate's own)
-// just finished writing its own onnxruntime.dll into this same directory.
-// On the GitHub Actions Windows runner this consistently failed with
-// "os error 32" (ERROR_SHARING_VIOLATION) on the very first copy attempt —
-// never reproduced locally in debug builds, only seen so far in CI release
-// builds. The likely cause is Windows Defender's on-write real-time scan
-// transiently holding the freshly-written DLL open right after the previous
-// build script's process closes its own handle; that's a race outside this
-// script's control, and it clears within milliseconds once the scan
-// finishes, so retrying is the standard mitigation rather than something to
-// "fix" at the source.
+// Defense in depth: build_tauri_with_retry() above hit this same class of
+// transient "os error 32" (ERROR_SHARING_VIOLATION) failure copying this
+// exact file on the GitHub Actions Windows runner (see its own comment) —
+// this copy is a plain overwrite with nothing else depending on its state,
+// so retrying it too costs nothing and guards against the same race
+// happening here instead, whether or not it ever actually does.
 fn copy_with_retry(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
     const ATTEMPTS: u32 = 10;
     let mut last_err = None;
