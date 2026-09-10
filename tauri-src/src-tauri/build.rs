@@ -1,8 +1,9 @@
 use std::env;
 use std::ffi::OsStr;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Duration;
 
 fn main() {
     tauri_build::build();
@@ -76,10 +77,38 @@ fn fix_onnxruntime_dlls() -> Result<(), Box<dyn std::error::Error>> {
         for file in ORT_FILES {
             let src = lib_dir.join(file);
             if src.is_file() {
-                fs::copy(&src, dest_dir.join(file))?;
+                copy_with_retry(&src, &dest_dir.join(file))?;
             }
         }
     }
 
     Ok(())
+}
+
+// sherpa-onnx-sys's own build script (which runs before ours — cargo runs a
+// dependency's build script to completion before the dependent crate's own)
+// just finished writing its own onnxruntime.dll into this same directory.
+// On the GitHub Actions Windows runner this consistently failed with
+// "os error 32" (ERROR_SHARING_VIOLATION) on the very first copy attempt —
+// never reproduced locally in debug builds, only seen so far in CI release
+// builds. The likely cause is Windows Defender's on-write real-time scan
+// transiently holding the freshly-written DLL open right after the previous
+// build script's process closes its own handle; that's a race outside this
+// script's control, and it clears within milliseconds once the scan
+// finishes, so retrying is the standard mitigation rather than something to
+// "fix" at the source.
+fn copy_with_retry(src: &Path, dest: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    const ATTEMPTS: u32 = 10;
+    let mut last_err = None;
+    for attempt in 1..=ATTEMPTS {
+        match fs::copy(src, dest) {
+            Ok(_) => return Ok(()),
+            Err(e) => {
+                println!("cargo:warning=copying {} to {} failed (attempt {attempt}/{ATTEMPTS}): {e}", src.display(), dest.display());
+                last_err = Some(e);
+                std::thread::sleep(Duration::from_millis(300));
+            }
+        }
+    }
+    Err(last_err.unwrap().into())
 }
