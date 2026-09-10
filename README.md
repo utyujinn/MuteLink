@@ -42,12 +42,13 @@
 すべて `tauri-src/` の中で完結している。
 
 - フロントエンド(`tauri-src/src/`)
-  - ブラウザ内蔵の音声認識(Web Speech API)でマイクの発話をテキスト化
+  - 音声認識エンジンはWeb Speech API(オンライン)とローカル(SenseVoice/Whisper、`sherpa-onnx`経由)から設定で選択可能。ローカルはモデルを設定画面から個別にダウンロードする方式(VOICEVOXのキャラクター追加と同様)
   - 無音が続くと自動で一時停止し、また話し出すと自動で再開する
   - 確定したテキストをそのままVOICEVOXに渡して読み上げ
   - 読み上げ音声の出力先(複数選択可)をデバイス一覧から選べる。`CABLE Input`があればデフォルトで選択される
 - Rustバックエンド(`tauri-src/src-tauri/`)
   - VOICEVOX CORE をアプリに直接組み込み(外部プロセスやHTTPサーバーを使わない)、テキストからWAVを合成する`synthesize`コマンドを提供
+  - `sense_voice.rs`: ローカル音声認識モデル(SenseVoice軽量/標準、Whisper turbo/medium)のダウンロード・ロード・推論
 
 `python/` はFunASRベースのローカル音声認識を検討していた頃の実験コードで、現在は未使用(参考として残置)。
 
