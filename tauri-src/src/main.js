@@ -282,10 +282,88 @@ const I18N = {
     zh: "错误：不支持语音识别",
     ko: "오류: 음성 인식이 지원되지 않습니다",
   },
+  statusTranscribing: { ja: "認識処理中...", en: "Transcribing...", zh: "识别处理中...", ko: "인식 처리 중..." },
+  statusSenseVoiceLoading: {
+    ja: "モデルを読み込み中...",
+    en: "Loading model...",
+    zh: "正在加载模型...",
+    ko: "모델 불러오는 중...",
+  },
+  statusSenseVoiceNotDownloaded: {
+    ja: "エラー: SenseVoiceモデルが未ダウンロードです(設定 > General)",
+    en: "Error: SenseVoice model not downloaded yet (Settings > General)",
+    zh: "错误：尚未下载SenseVoice模型(设置 > General)",
+    ko: "오류: SenseVoice 모델이 다운로드되지 않았습니다(설정 > General)",
+  },
   statusErrorPrefix: { ja: "エラー: ", en: "Error: ", zh: "错误：", ko: "오류: " },
 
   uiLangLabel: { ja: "UIの言語", en: "UI Language", zh: "界面语言", ko: "UI 언어" },
   sttOff: { ja: "オフ", en: "Off", zh: "关闭", ko: "꺼짐" },
+
+  sttEngineHeading: { ja: "音声認識エンジン", en: "Speech Recognition Engine", zh: "语音识别引擎", ko: "음성 인식 엔진" },
+  sttEngineLabel: { ja: "エンジン", en: "Engine", zh: "引擎", ko: "엔진" },
+  sttEngineWebSpeechOption: {
+    ja: "Web Speech API(オンライン)",
+    en: "Web Speech API (online)",
+    zh: "Web Speech API(在线)",
+    ko: "Web Speech API(온라인)",
+  },
+  sttEngineSenseVoiceOption: {
+    ja: "ローカル(SenseVoice / Whisper)",
+    en: "Local (SenseVoice / Whisper)",
+    zh: "本地(SenseVoice / Whisper)",
+    ko: "로컬(SenseVoice / Whisper)",
+  },
+  sttEngineHint: {
+    ja: "ローカル音声認識は発話の区切りごとにまとめて認識するため、Web Speech APIのようなリアルタイムのプレビュー表示はできません。選んだモデルは初回利用時にダウンロードが必要です。",
+    en: "Local speech recognition recognizes one whole utterance at a time, so unlike the Web Speech API it can't show a live real-time preview. The selected model needs to be downloaded the first time you use it.",
+    zh: "本地语音识别按发话段落整体识别，因此不像Web Speech API那样提供实时预览。所选模型首次使用需要下载。",
+    ko: "로컬 음성 인식은 발화 구간 단위로 한꺼번에 인식하므로 Web Speech API처럼 실시간 미리보기는 표시되지 않습니다. 선택한 모델은 처음 사용할 때 다운로드가 필요합니다.",
+  },
+  sttModelLabel: { ja: "モデル", en: "Model", zh: "模型", ko: "모델" },
+  sttModelSenseVoiceInt8Option: {
+    ja: "SenseVoice 軽量版(約240MB)",
+    en: "SenseVoice, lightweight (about 240MB)",
+    zh: "SenseVoice 轻量版(约240MB)",
+    ko: "SenseVoice 경량판(약 240MB)",
+  },
+  sttModelSenseVoiceFp32Option: {
+    ja: "SenseVoice 標準版(約940MB)",
+    en: "SenseVoice, standard (about 940MB)",
+    zh: "SenseVoice 标准版(约940MB)",
+    ko: "SenseVoice 표준판(약 940MB)",
+  },
+  sttModelWhisperTurboOption: {
+    ja: "Whisper turbo(約1.0GB)",
+    en: "Whisper turbo (about 1.0GB)",
+    zh: "Whisper turbo(约1.0GB)",
+    ko: "Whisper turbo(약 1.0GB)",
+  },
+  sttModelWhisperMediumOption: {
+    ja: "Whisper medium(約950MB)",
+    en: "Whisper medium (about 950MB)",
+    zh: "Whisper medium(约950MB)",
+    ko: "Whisper medium(약 950MB)",
+  },
+  sttEngineDownloadLabel: {
+    ja: "モデルのダウンロード",
+    en: "Model download",
+    zh: "模型下载",
+    ko: "모델 다운로드",
+  },
+  sttEngineDownloadButton: { ja: "ダウンロード", en: "Download", zh: "下载", ko: "다운로드" },
+  sttEngineDownloadingButton: {
+    ja: "ダウンロード中...",
+    en: "Downloading...",
+    zh: "下载中...",
+    ko: "다운로드 중...",
+  },
+  sttEngineLoadingButton: {
+    ja: "モデルを読み込み中...",
+    en: "Loading model...",
+    zh: "正在加载模型...",
+    ko: "모델 불러오는 중...",
+  },
 };
 
 const UI_LANGS = ["ja", "en", "zh", "ko"];
@@ -358,6 +436,16 @@ function refreshDynamicI18nText() {
 
 const GOOGLE_RETRY_MS = 3000;
 const SILENCE_TIMEOUT_MS = 5000;
+// How long a pause has to last before SenseVoice treats it as "the utterance
+// is over, start transcribing" rather than a mid-sentence breath. Separate
+// from (and much shorter than) SILENCE_TIMEOUT_MS above, which is only about
+// the "nothing's being said at all" desktop status / webspeech watchdog —
+// this one directly IS the speak-to-text latency floor for SenseVoice, since
+// nothing gets sent for transcription until it elapses. Checked via
+// SILENCE_CHECK_MS below, not SILENCE_TIMEOUT_MS's old 1s polling interval,
+// which would otherwise add up to another ~1s of its own on top.
+const SENSE_VOICE_SILENCE_MS = 700;
+const SILENCE_CHECK_MS = 150;
 const VOICE_RMS_THRESHOLD = 0.01;
 // If this long passes with zero detected voice, proactively cycle the
 // recognition session (see refreshRecognitionSession()) rather than trust
@@ -365,6 +453,8 @@ const VOICE_RMS_THRESHOLD = 0.01;
 const RECOGNITION_WATCHDOG_MS = 60000;
 
 let recognition;
+let sttEngine = "webspeech"; // "webspeech" | "sensevoice" — overwritten from storage on load, see loadSttEngine()
+let sttModel = "sense-voice-fp32"; // which local model backs "sensevoice" above — overwritten from storage on load, see loadSttModel()
 let armed = false; // Start/Stop button state; survives pause/resume cycles
 let recognizing = false; // true while a recognition session is supposed to be running
 let googleHadError = false;
@@ -498,6 +588,39 @@ function saveUiMode(mode) {
   localStorage.setItem(UI_MODE_KEY, mode);
 }
 
+const STT_ENGINE_KEY = "mutelink.sttEngine";
+
+// "webspeech" (the browser/WebView2 built-in, see createRecognition()) or
+// "sensevoice" (local, see the SenseVoice buffering in startVoiceMonitor()
+// and sense_voice.rs). Defaults to "webspeech" since it needs nothing extra
+// downloaded — existing users keep working exactly as before until they
+// deliberately switch in Settings.
+function loadSttEngine() {
+  return localStorage.getItem(STT_ENGINE_KEY) === "sensevoice" ? "sensevoice" : "webspeech";
+}
+
+function saveSttEngine(engine) {
+  localStorage.setItem(STT_ENGINE_KEY, engine);
+}
+
+const STT_MODEL_KEY = "mutelink.sttModel";
+const STT_MODEL_IDS = ["sense-voice-int8", "sense-voice-fp32", "whisper-turbo", "whisper-medium"];
+const DEFAULT_STT_MODEL = "sense-voice-fp32";
+
+// Which local model backs the "sensevoice" engine above — see MODELS in
+// sense_voice.rs for what each id actually downloads/loads. Defaults to the
+// full-precision SenseVoice model: noticeably more accurate than the int8
+// one (especially on Japanese) for only ~4x the download size, without
+// Whisper's slower autoregressive decode.
+function loadSttModel() {
+  const saved = localStorage.getItem(STT_MODEL_KEY);
+  return STT_MODEL_IDS.includes(saved) ? saved : DEFAULT_STT_MODEL;
+}
+
+function saveSttModel(modelId) {
+  localStorage.setItem(STT_MODEL_KEY, modelId);
+}
+
 // The one place that actually delivers a confirmed piece of text — called
 // either immediately (Auto mode / picking an ending) or from the manual send
 // button (手動 mode, no ending). `outputText` is what goes to the chatbox;
@@ -569,7 +692,22 @@ async function startVoiceMonitor() {
   monitorProcessor = monitorCtx.createScriptProcessor(4096, 1, 1);
 
   monitorProcessor.onaudioprocess = (event) => {
-    if (rms(event.inputBuffer.getChannelData(0)) < VOICE_RMS_THRESHOLD) return;
+    const chunk = event.inputBuffer.getChannelData(0);
+    const voiced = rms(chunk) >= VOICE_RMS_THRESHOLD;
+
+    // SenseVoice has no concept of "still listening" the way SpeechRecognition
+    // does — it only ever sees one already-complete utterance at a time (see
+    // sense_voice.rs) — so this buffers raw samples for the whole utterance
+    // (from the first voiced chunk through to the silence that ends it,
+    // brief in-between pauses included) and hands the lot to
+    // transcribeSenseVoiceUtterance() once silenceCheckTimer below decides
+    // the utterance is over.
+    if (sttEngine === "sensevoice" && recognizing && (voiced || senseVoiceUtteranceActive)) {
+      senseVoiceUtteranceActive = true;
+      senseVoiceBuffer.push(chunk.slice()); // copy — the browser reuses this buffer next callback
+    }
+
+    if (!voiced) return;
     lastVoiceAt = Date.now();
     if (recognizing) setGoogleStatus("statusListening");
   };
@@ -581,16 +719,64 @@ async function startVoiceMonitor() {
   lastRecognitionRefreshAt = Date.now();
   silenceCheckTimer = setInterval(() => {
     if (!recognizing) return;
-    if (Date.now() - lastVoiceAt >= SILENCE_TIMEOUT_MS) setGoogleStatus("statusWaitingForVoice");
+    const silentFor = Date.now() - lastVoiceAt;
+    if (sttEngine === "sensevoice") {
+      if (senseVoiceUtteranceActive && silentFor >= SENSE_VOICE_SILENCE_MS) flushSenseVoiceUtterance();
+    } else if (silentFor >= SILENCE_TIMEOUT_MS) {
+      setGoogleStatus("statusWaitingForVoice");
+    }
+    if (sttEngine !== "webspeech") return;
     // The backend's own idle session can go stale without ever telling us —
     // recognition.onend doesn't reliably fire for a cloud-side timeout the
     // way it does for a local stop()/error, so waiting on it alone means an
     // extended silence can leave the connection dead with no signal that
     // anything's wrong until the user starts talking again and nothing
     // happens. Proactively cycling the session periodically during long
-    // silences avoids depending on that notification at all.
+    // silences avoids depending on that notification at all. SenseVoice has
+    // no persistent backend session to go stale, so this doesn't apply to it.
     if (Date.now() - lastRecognitionRefreshAt >= RECOGNITION_WATCHDOG_MS) refreshRecognitionSession();
-  }, 1000);
+  }, SILENCE_CHECK_MS);
+}
+
+let senseVoiceBuffer = [];
+let senseVoiceUtteranceActive = false;
+
+// Concatenates the buffered chunks into one Float32Array and sends it to
+// stt_transcribe in one shot — reset happens up front so a slow
+// transcribe (or the user starting to talk again immediately) doesn't get
+// tangled up with whatever's buffered for the *next* utterance.
+async function flushSenseVoiceUtterance() {
+  const chunks = senseVoiceBuffer;
+  senseVoiceBuffer = [];
+  senseVoiceUtteranceActive = false;
+
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  if (totalLength === 0) return;
+  const samples = new Float32Array(totalLength);
+  let offset = 0;
+  for (const c of chunks) {
+    samples.set(c, offset);
+    offset += c.length;
+  }
+
+  setGoogleStatus("statusTranscribing");
+  try {
+    const text = (
+      await window.__TAURI__.core.invoke("stt_transcribe", {
+        samples: Array.from(samples),
+        sampleRate: monitorCtx.sampleRate,
+        modelId: sttModel,
+        language: senseVoiceLangCode(),
+      })
+    ).trim();
+    setGoogleStatus("statusListening");
+    if (!text) return;
+    log(`[sensevoice:final] text=${text}`);
+    handleFinalRecognizedText(text);
+  } catch (err) {
+    setGoogleStatus("statusIdle");
+    log(`[sensevoice:error] ${err}`);
+  }
 }
 
 // Forces a clean session instead of waiting to see whether the old one is
@@ -617,6 +803,27 @@ async function stopVoiceMonitor() {
   monitorStream = monitorCtx = monitorSource = monitorProcessor = undefined;
 }
 
+// Shared by both STT engines' "one utterance is now fully recognized" path —
+// SpeechRecognition's onresult (isFinal) and the SenseVoice buffer-flush in
+// startVoiceMonitor() both funnel into this, so sendMode/pendingFinalText/
+// hotkey-hold handling only lives in one place regardless of which engine
+// produced the text.
+function handleFinalRecognizedText(text) {
+  currentInterimText = "";
+
+  if (sendMode === "manual") {
+    // A new Final can arrive before the pending one is sent — append rather
+    // than overwrite so nothing said in the meantime is lost.
+    pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
+    // The content just changed, so restart any in-progress hold instead of
+    // letting it fire against stale timing.
+    resetHotkeyHold();
+  } else {
+    dispatchText(text, text);
+  }
+  renderMergedText();
+}
+
 // Tauri's webview is WebView2 (Edge/Chromium engine), so this actually talks
 // to Microsoft's speech backend, not Google's, even though the API shape
 // (webkitSpeechRecognition) is the one Chrome popularized.
@@ -639,19 +846,7 @@ function createRecognition() {
     }
 
     log(`[google:final] text=${text}`);
-    currentInterimText = "";
-
-    if (sendMode === "manual") {
-      // A new Final can arrive before the pending one is sent — append
-      // rather than overwrite so nothing said in the meantime is lost.
-      pendingFinalText = pendingFinalText ? `${pendingFinalText} ${text}` : text;
-      // The content just changed, so restart any in-progress hold instead
-      // of letting it fire against stale timing.
-      resetHotkeyHold();
-    } else {
-      dispatchText(text, text);
-    }
-    renderMergedText();
+    handleFinalRecognizedText(text);
   };
   r.onstart = () => {
     googleHadError = false;
@@ -730,8 +925,15 @@ function scheduleGoogleRetry() {
 }
 
 async function startGoogleStt() {
-  if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+  sttEngine = loadSttEngine();
+  sttModel = loadSttModel();
+
+  if (sttEngine === "webspeech" && !(window.SpeechRecognition || window.webkitSpeechRecognition)) {
     setGoogleStatus("statusSpeechNotSupported");
+    return;
+  }
+  if (sttEngine === "sensevoice" && !(await window.__TAURI__.core.invoke("stt_model_downloaded", { modelId: sttModel }))) {
+    setGoogleStatus("statusSenseVoiceNotDownloaded");
     return;
   }
 
@@ -743,12 +945,32 @@ async function startGoogleStt() {
     return;
   }
 
-  recognition = createRecognition();
   armed = true;
   googleBtn.textContent = t("stopButton");
   googleBtn.classList.add("listening");
   statusDotEl.classList.add("active");
-  resumeRecognition();
+
+  if (sttEngine === "sensevoice") {
+    // No SpeechRecognition object/session to connect — the mic monitor
+    // startVoiceMonitor() just started is all SenseVoice needs; it's ready
+    // the moment voice is actually detected (see onaudioprocess). This does
+    // still need to (re)load the model when the pinned language changed —
+    // every stt-lang switch tears down and restarts via this same function
+    // (see setSttState) — so that's proactively done here rather than left
+    // to stt_transcribe's own lazy-load fallback, which would
+    // otherwise stall the first utterance after a language switch instead.
+    setGoogleStatus("statusSenseVoiceLoading");
+    try {
+      await window.__TAURI__.core.invoke("load_stt_model", { modelId: sttModel, language: senseVoiceLangCode() });
+    } catch (err) {
+      log(`[sensevoice:error] failed to load model: ${err}`);
+    }
+    recognizing = true;
+    setGoogleStatus("statusListening");
+  } else {
+    recognition = createRecognition();
+    resumeRecognition();
+  }
 }
 
 function stopGoogleStt() {
@@ -756,7 +978,9 @@ function stopGoogleStt() {
   recognizing = false;
   googleHadError = false;
   clearTimeout(googleRetryTimer);
-  if (recognition) recognition.stop();
+  if (sttEngine === "webspeech" && recognition) recognition.stop();
+  senseVoiceBuffer = [];
+  senseVoiceUtteranceActive = false;
   stopVoiceMonitor();
   setGoogleStatus("statusIdle");
   googleBtn.textContent = t("startButton");
@@ -2348,6 +2572,16 @@ function getSttLangOrDefault() {
   return current === "off" ? "ja-JP" : current;
 }
 
+// SenseVoice's own short language codes, not BCP-47 — see load_recognizer()
+// in sense_voice.rs. Pinning one (instead of "auto") skips its language-ID
+// step, which is both faster and avoids the occasional misdetection auto
+// mode is prone to on short utterances.
+const SENSE_VOICE_LANG_CODES = { "ja-JP": "ja", "en-US": "en", "zh-CN": "zh", "ko-KR": "ko" };
+
+function senseVoiceLangCode() {
+  return SENSE_VOICE_LANG_CODES[getSttLangOrDefault()] ?? "auto";
+}
+
 // The source of truth for "what was last asked for", updated the instant
 // setSttState() is called — unlike `armed`, which only flips true once
 // startGoogleStt()'s async chain (getUserMedia() etc., often slow right
@@ -2450,6 +2684,83 @@ function setupSttCycleLangSettings() {
   }
 }
 
+// Switching engines here only takes effect the next time recognition
+// (re)starts — see the `sttEngine = loadSttEngine()` at the top of
+// startGoogleStt() — not live mid-session.
+function setupSttEngineSettings() {
+  const select = document.querySelector("#stt-engine-select");
+  const modelRow = document.querySelector("#stt-model-row");
+  const modelSelect = document.querySelector("#stt-model-select");
+  const downloadRow = document.querySelector("#sense-voice-download-row");
+  const downloadBtn = document.querySelector("#sense-voice-download-btn");
+
+  async function refreshDownloadRow() {
+    const isLocal = select.value === "sensevoice";
+    modelRow.hidden = !isLocal;
+    if (!isLocal) {
+      downloadRow.hidden = true;
+      return;
+    }
+    downloadRow.hidden = await window.__TAURI__.core.invoke("stt_model_downloaded", { modelId: modelSelect.value });
+  }
+
+  select.value = loadSttEngine();
+  modelSelect.value = loadSttModel();
+  refreshDownloadRow();
+
+  select.addEventListener("change", () => {
+    saveSttEngine(select.value);
+    refreshDownloadRow();
+  });
+
+  modelSelect.addEventListener("change", () => {
+    saveSttModel(modelSelect.value);
+    refreshDownloadRow();
+  });
+
+  // Emitted from Rust (see download_stt_model() in sense_voice.rs) as each
+  // of the selected model's files streams in — without this, the button
+  // just reads "ダウンロード中..." for however long that takes with zero
+  // visible change, which is indistinguishable from having actually
+  // stalled. `modelId` is checked since the dropdown (disabled during an
+  // active download, but not during the brief gap before one starts) could
+  // in principle point at a different model than the one these events are
+  // still winding down for.
+  window.__TAURI__.event.listen("stt-model-download-progress", (event) => {
+    const { modelId, bytesDownloaded, totalBytes, bytesBefore } = event.payload;
+    if (modelId !== modelSelect.value) return;
+    const percent = Math.floor(((bytesBefore + bytesDownloaded) / totalBytes) * 100);
+    downloadBtn.textContent = `${t("sttEngineDownloadingButton")} ${percent}%`;
+  });
+
+  downloadBtn.addEventListener("click", async () => {
+    const modelId = modelSelect.value;
+    downloadBtn.disabled = true;
+    modelSelect.disabled = true;
+    downloadBtn.textContent = t("sttEngineDownloadingButton");
+    try {
+      log(`[sensevoice] downloading model ${modelId}...`);
+      await window.__TAURI__.core.invoke("download_stt_model", { modelId });
+      // Distinct from "ダウンロード中..." on purpose — download and model
+      // loading are two separate steps that can each take a while, and
+      // without this the button just sits on stale "100%" text the whole
+      // time load_stt_model() is running, indistinguishable from the
+      // download itself still being in progress.
+      log("[sensevoice] download done, loading model...");
+      downloadBtn.textContent = t("sttEngineLoadingButton");
+      await window.__TAURI__.core.invoke("load_stt_model", { modelId, language: senseVoiceLangCode() });
+      log("[sensevoice] model loaded");
+      downloadRow.hidden = true;
+    } catch (err) {
+      downloadBtn.textContent = t("sttEngineDownloadButton");
+      log(`[sensevoice] model download/load failed: ${err}`);
+    } finally {
+      downloadBtn.disabled = false;
+      modelSelect.disabled = false;
+    }
+  });
+}
+
 // Hoisted to module scope: set here, read by setupHotkeys()'s overlay
 // render loop, which is defined in a different function but needs to know
 // whether a language switch (or an OFF) just happened, to flash the
@@ -2546,6 +2857,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupHotkeys();
   setupTtsLangSettings();
   setupSttCycleLangSettings();
+  setupSttEngineSettings();
   checkForUpdates();
 
   googleBtn.addEventListener("click", () => {

@@ -28,9 +28,20 @@ anyhow = "1"
 rosc = "0.11"
 openvr = "0.9"
 voicevox_core = { git = "https://github.com/VOICEVOX/voicevox_core", tag = "0.16.4", features = ["load-onnxruntime"] }
-reqwest = "0.12"
+reqwest = { version = "0.12", features = ["stream"] }
+futures-util = "0.3"
+tokio = { version = "1", features = ["time"] }
 fontdue = "0.9"
 openvr_sys = "2.1.4"
+# default-features = "static" statically links the prebuilt sherpa-onnx C++
+# libs, which on Windows are built with the static MSVC runtime (/MT) — that
+# collides (LNK2005, duplicate CRT symbols) with the rest of this crate's
+# dependency graph, which links the dynamic runtime (/MD) the normal Rust way.
+# "shared" links against sherpa-onnx-c-api.dll/onnxruntime.dll instead (see
+# sense_voice_dir() in sense_voice.rs for where those need to end up so the
+# installer actually ships them), which avoids embedding a second copy of the
+# C++ runtime directly into this binary.
+sherpa-onnx = { version = "1", default-features = false, features = ["shared"] }
 windows-core = "0.62"
 windows = { version = "0.62", features = [
     "Win32_Graphics_Direct3D",

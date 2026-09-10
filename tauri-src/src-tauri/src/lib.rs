@@ -1,6 +1,7 @@
 mod audio_device;
 mod overlay;
 mod overlay_gpu;
+mod sense_voice;
 
 use std::fs;
 use std::net::UdpSocket;
@@ -418,19 +419,31 @@ fn read_hand_state(system: &openvr::System, role: openvr::TrackedControllerRole)
 // SteamVR_Touchpad — legacy input reports a joystick click there regardless
 // of whether the physical control is a trackpad or a stick, which is the
 // usual (if confusing) OpenVR mapping.
+//
+// This is `async fn`, not plain `fn`, even though the body itself never
+// `.await`s anything: Tauri dispatches sync commands inline on the main
+// WebView2/UI thread, while async commands get spawned onto Tauri's own
+// Tokio runtime instead. This polls at 20Hz for the app's entire lifetime
+// (see HOTKEY_POLL_MS in main.js) — run inline, that's 20 extra round-trips
+// per second competing with the main thread's Win32 message pump, which on
+// Windows is also how async commands' own responses get delivered back to
+// JS (tao posts a message to the main loop and waits for it to be pumped).
+// A long-running unrelated async command (e.g. loading the SenseVoice
+// model) could see its response queued indefinitely behind that pressure.
+// Moving this one off the main thread avoids contributing to it.
 #[tauri::command]
-fn hotkey_state(state: State<OpenVrState>) -> HotkeyState {
+async fn hotkey_state(state: State<'_, OpenVrState>) -> Result<HotkeyState, ()> {
     let guard = state.0.lock().unwrap();
     let empty = || HandState { grip: false, trigger: false, stick: false, a: false };
     let Some(handles) = guard.as_ref() else {
-        return HotkeyState { available: false, right: empty(), left: empty() };
+        return Ok(HotkeyState { available: false, right: empty(), left: empty() });
     };
     let system = &handles.system;
-    HotkeyState {
+    Ok(HotkeyState {
         available: true,
         right: read_hand_state(system, openvr::TrackedControllerRole::RightHand),
         left: read_hand_state(system, openvr::TrackedControllerRole::LeftHand),
-    }
+    })
 }
 
 #[derive(Deserialize)]
@@ -517,6 +530,7 @@ pub fn run() {
             let synth = init_synthesizer().expect("failed to initialize VOICEVOX synthesizer");
             app.manage(VoicevoxState(Mutex::new(synth)));
             app.manage(OpenVrState(Mutex::new(init_openvr())));
+            app.manage(sense_voice::SenseVoiceState::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -530,7 +544,11 @@ pub fn run() {
             download_character,
             load_character,
             audio_device::list_input_devices,
-            audio_device::set_default_input_device
+            audio_device::set_default_input_device,
+            sense_voice::stt_model_downloaded,
+            sense_voice::download_stt_model,
+            sense_voice::load_stt_model,
+            sense_voice::stt_transcribe
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

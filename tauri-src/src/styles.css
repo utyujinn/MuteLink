@@ -656,6 +656,14 @@ body.ui-mode-desktop .desktop-controls-row {
   border-bottom: none;
 }
 
+/* Same specificity as `.settings-list-row`'s own `display: flex`, so without
+   this an author rule was beating the UA stylesheet's `[hidden] { display:
+   none }` default — `row.hidden = true` in JS took effect on the DOM
+   attribute but never actually hid anything on screen. */
+.settings-list-row[hidden] {
+  display: none;
+}
+
 .settings-list-label {
   text-align: left;
   font-weight: 500;

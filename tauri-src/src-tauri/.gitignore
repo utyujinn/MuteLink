@@ -9,3 +9,10 @@
 # VOICEVOX CORE resources (onnxruntime, dict, vvm models) — fetched locally via
 # voicevox_core/download.exe, not meant to be committed.
 /voicevox_core/
+
+# SenseVoice model, downloaded on demand from Settings (see sense_voice.rs) —
+# not meant to be committed. Also matters for `tauri dev`: its file watcher
+# respects .gitignore, and without this the large file growing mid-download
+# gets picked up as a source change, triggering a rebuild/restart that kills
+# the app partway through.
+/sense_voice/

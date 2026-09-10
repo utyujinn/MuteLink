@@ -108,6 +108,34 @@
               オフにした言語は認識結果をVOICEVOXに送らず、読み上げをスキップします。English/中文/한국어はOpenJTalk(VOICEVOXのテキスト解析)が対応していないため発音が崩れますが、そのまま送信されます。
             </p>
 
+            <h3 data-i18n="sttEngineHeading">音声認識エンジン</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="sttEngineLabel">エンジン</span>
+              <select id="stt-engine-select">
+                <option value="webspeech" data-i18n="sttEngineWebSpeechOption">Web Speech API(オンライン)</option>
+                <option value="sensevoice" data-i18n="sttEngineSenseVoiceOption">SenseVoice(ローカル)</option>
+              </select>
+            </div>
+            <p class="hint" data-i18n="sttEngineHint">
+              ローカル音声認識は発話の区切りごとにまとめて認識するため、Web Speech
+              APIのようなリアルタイムのプレビュー表示はできません。選んだモデルは初回利用時にダウンロードが必要です。
+            </p>
+            <div class="settings-list-row" id="stt-model-row" hidden>
+              <span class="settings-list-label" data-i18n="sttModelLabel">モデル</span>
+              <select id="stt-model-select">
+                <option value="sense-voice-int8" data-i18n="sttModelSenseVoiceInt8Option">SenseVoice 軽量版(約240MB)</option>
+                <option value="sense-voice-fp32" data-i18n="sttModelSenseVoiceFp32Option">SenseVoice 標準版(約940MB)</option>
+                <option value="whisper-turbo" data-i18n="sttModelWhisperTurboOption">Whisper turbo(約1.0GB)</option>
+                <option value="whisper-medium" data-i18n="sttModelWhisperMediumOption">Whisper medium(約950MB)</option>
+              </select>
+            </div>
+            <div class="settings-list-row" id="sense-voice-download-row" hidden>
+              <span class="settings-list-label" data-i18n="sttEngineDownloadLabel">モデルのダウンロード</span>
+              <button id="sense-voice-download-btn" type="button" data-i18n="sttEngineDownloadButton">
+                ダウンロード
+              </button>
+            </div>
+
             <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
               <button id="settings-reset-btn" class="danger-btn" type="button" data-i18n="resetButton">
