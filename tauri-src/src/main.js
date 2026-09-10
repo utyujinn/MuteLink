@@ -359,6 +359,10 @@ function refreshDynamicI18nText() {
 const GOOGLE_RETRY_MS = 3000;
 const SILENCE_TIMEOUT_MS = 5000;
 const VOICE_RMS_THRESHOLD = 0.01;
+// If this long passes with zero detected voice, proactively cycle the
+// recognition session (see refreshRecognitionSession()) rather than trust
+// the backend to notify us its own idle session went stale.
+const RECOGNITION_WATCHDOG_MS = 60000;
 
 let recognition;
 let armed = false; // Start/Stop button state; survives pause/resume cycles
@@ -537,6 +541,7 @@ let monitorSource;
 let monitorProcessor;
 let lastVoiceAt = 0;
 let silenceCheckTimer;
+let lastRecognitionRefreshAt = 0;
 
 function log(line) {
   const p = document.createElement("p");
@@ -573,9 +578,34 @@ async function startVoiceMonitor() {
   monitorProcessor.connect(monitorCtx.destination);
 
   lastVoiceAt = Date.now();
+  lastRecognitionRefreshAt = Date.now();
   silenceCheckTimer = setInterval(() => {
-    if (recognizing && Date.now() - lastVoiceAt >= SILENCE_TIMEOUT_MS) setGoogleStatus("statusWaitingForVoice");
+    if (!recognizing) return;
+    if (Date.now() - lastVoiceAt >= SILENCE_TIMEOUT_MS) setGoogleStatus("statusWaitingForVoice");
+    // The backend's own idle session can go stale without ever telling us —
+    // recognition.onend doesn't reliably fire for a cloud-side timeout the
+    // way it does for a local stop()/error, so waiting on it alone means an
+    // extended silence can leave the connection dead with no signal that
+    // anything's wrong until the user starts talking again and nothing
+    // happens. Proactively cycling the session periodically during long
+    // silences avoids depending on that notification at all.
+    if (Date.now() - lastRecognitionRefreshAt >= RECOGNITION_WATCHDOG_MS) refreshRecognitionSession();
   }, 1000);
+}
+
+// Forces a clean session instead of waiting to see whether the old one is
+// actually still alive — see the watchdog comment in startVoiceMonitor().
+function refreshRecognitionSession() {
+  lastRecognitionRefreshAt = Date.now();
+  log("[google] proactively refreshing recognition session after a long silence");
+  recognizing = false; // so the old object's onend, if it fires late, is a no-op (see its own guard)
+  try {
+    recognition.stop();
+  } catch {
+    // Already dead/stopped — fine, we're replacing it either way.
+  }
+  recognition = createRecognition();
+  resumeRecognition();
 }
 
 async function stopVoiceMonitor() {
