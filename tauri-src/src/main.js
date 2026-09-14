@@ -19,6 +19,20 @@ const I18N = {
   navHotkey: { ja: "ホットキー", en: "Hotkey", zh: "快捷键", ko: "단축키" },
   navOther: { ja: "その他", en: "Other", zh: "其他", ko: "기타" },
 
+  micSensitivityHeading: { ja: "マイク感度", en: "Microphone sensitivity", zh: "麦克风灵敏度", ko: "마이크 감도" },
+  micSensitivityLabel: {
+    ja: "無音判定のしきい値",
+    en: "Silence detection threshold",
+    zh: "静音判定阈值",
+    ko: "무음 판정 임계값",
+  },
+  micSensitivityHint: {
+    ja: "値を大きくすると、息や物音などの小さな音を発話と誤認識しにくくなります。大きくしすぎると、小さな声を拾えなくなることがあります。",
+    en: "A higher value makes quiet sounds (breathing, background noise) less likely to be misread as speech. Too high, though, and quiet speech itself may go undetected.",
+    zh: "数值越大，呼吸声等微小声音越不容易被误判为说话；但过大可能导致较小的说话声也无法被识别。",
+    ko: "값을 높이면 숨소리 등 작은 소리를 발화로 오인식하기 어려워집니다. 너무 높이면 작은 목소리를 인식하지 못할 수 있습니다.",
+  },
+
   resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
   resetButton: { ja: "設定を全てリセット", en: "Reset all settings", zh: "重置所有设置", ko: "모든 설정 초기화" },
   resetConfirm: {
@@ -299,6 +313,11 @@ const I18N = {
 
   uiLangLabel: { ja: "UIの言語", en: "UI Language", zh: "界面语言", ko: "UI 언어" },
   sttOff: { ja: "オフ", en: "Off", zh: "关闭", ko: "꺼짐" },
+  // Not a language's own native name (unlike the ja-JP/en-US/zh-CN/ko-KR
+  // radio labels, which are deliberately not translated by UI language —
+  // see this dict's own top comment) — "auto" is a mode, so it goes through
+  // t() like sttOff above instead of a fixed native-name lookup table.
+  sttAuto: { ja: "自動", en: "Auto", zh: "自动", ko: "자동" },
 
   sttEngineHeading: { ja: "音声認識エンジン", en: "Speech Recognition Engine", zh: "语音识别引擎", ko: "음성 인식 엔진" },
   sttEngineLabel: { ja: "エンジン", en: "Engine", zh: "引擎", ko: "엔진" },
@@ -364,6 +383,20 @@ const I18N = {
     zh: "正在加载模型...",
     ko: "모델 불러오는 중...",
   },
+  sttModelDeleteLabel: {
+    ja: "ダウンロード済みモデル",
+    en: "Downloaded model",
+    zh: "已下载的模型",
+    ko: "다운로드된 모델",
+  },
+  sttModelDeleteButton: { ja: "削除", en: "Delete", zh: "删除", ko: "삭제" },
+  sttModelDeleteConfirm: {
+    ja: "このモデルを削除します。よろしいですか？",
+    en: "This will delete this model. Continue?",
+    zh: "将删除此模型，确定吗？",
+    ko: "이 모델을 삭제합니다. 계속하시겠습니까?",
+  },
+  sttModelCancelButton: { ja: "キャンセル", en: "Cancel", zh: "取消", ko: "취소" },
 };
 
 const UI_LANGS = ["ja", "en", "zh", "ko"];
@@ -422,7 +455,7 @@ function refreshDynamicI18nText() {
   if (googleStatusEl && googleStatusKey) googleStatusEl.textContent = t(googleStatusKey);
   if (googleBtn) googleBtn.textContent = t(armed ? "stopButton" : "startButton");
   if (sttStateLabelEl) {
-    sttStateLabelEl.textContent = sttStateValue === "off" ? t("sttOff") : (STT_STATE_LABELS[sttStateValue] ?? sttStateValue);
+    sttStateLabelEl.textContent = sttStateLabel(sttStateValue);
   }
   const hotkeyStatusEl = document.querySelector("#hotkey-status");
   if (hotkeyStatusEl) hotkeyStatusEl.textContent = t(hotkeyStatusKey);
@@ -446,7 +479,30 @@ const SILENCE_TIMEOUT_MS = 5000;
 // which would otherwise add up to another ~1s of its own on top.
 const SENSE_VOICE_SILENCE_MS = 700;
 const SILENCE_CHECK_MS = 150;
-const VOICE_RMS_THRESHOLD = 0.01;
+
+const VOICE_RMS_THRESHOLD_KEY = "mutelink.voiceRmsThreshold";
+const DEFAULT_VOICE_RMS_THRESHOLD = 0.1;
+
+function loadVoiceRmsThreshold() {
+  // Distinguish "never saved" (missing key, use the default) from a
+  // deliberately-saved 0 (allowed since the slider's min is 0 — see
+  // index.html — meaning "treat the mic as always voiced"): Number(null)
+  // is 0, so a plain `raw > 0` check couldn't tell those apart.
+  const stored = localStorage.getItem(VOICE_RMS_THRESHOLD_KEY);
+  if (stored === null) return DEFAULT_VOICE_RMS_THRESHOLD;
+  const raw = Number(stored);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_VOICE_RMS_THRESHOLD;
+}
+
+function saveVoiceRmsThreshold(value) {
+  localStorage.setItem(VOICE_RMS_THRESHOLD_KEY, String(value));
+}
+
+// Set by setupMicSensitivitySettings() (from storage on load, then live as
+// the slider moves) and read by startVoiceMonitor()'s onaudioprocess — a
+// plain module-level variable rather than re-reading localStorage on every
+// audio callback (onaudioprocess fires many times a second).
+let voiceRmsThresholdCache = DEFAULT_VOICE_RMS_THRESHOLD;
 // If this long passes with zero detected voice, proactively cycle the
 // recognition session (see refreshRecognitionSession()) rather than trust
 // the backend to notify us its own idle session went stale.
@@ -634,9 +690,12 @@ function dispatchText(outputText, spokenText, params) {
   // English/中文 come out fairly broken since OpenJTalk (VOICEVOX's text
   // analyzer) isn't built for those scripts, but that's accepted; the
   // per-language checkboxes in 設定 > Other let read-aloud be turned off for
-  // specific languages if the result isn't wanted.
+  // specific languages if the result isn't wanted. "auto" has no checkbox of
+  // its own — which language actually came out varies utterance to
+  // utterance, so there's nothing sensible to gate a single toggle on —
+  // read-aloud always stays on for it.
   const lang = getSttLang();
-  if (loadTtsLangEnabled()[lang]) {
+  if (lang === "auto" || loadTtsLangEnabled()[lang]) {
     // Spaces (half- or full-width) in the recognized text read as an
     // unnatural pause/silence through VOICEVOX, so close them up before
     // speaking — outputText (chatbox) keeps them untouched.
@@ -693,7 +752,7 @@ async function startVoiceMonitor() {
 
   monitorProcessor.onaudioprocess = (event) => {
     const chunk = event.inputBuffer.getChannelData(0);
-    const voiced = rms(chunk) >= VOICE_RMS_THRESHOLD;
+    const voiced = rms(chunk) >= voiceRmsThresholdCache;
 
     // SenseVoice has no concept of "still listening" the way SpeechRecognition
     // does — it only ever sees one already-complete utterance at a time (see
@@ -848,7 +907,7 @@ function handleFinalRecognizedText(text) {
 function createRecognition() {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const r = new SpeechRecognition();
-  r.lang = getSttLang();
+  r.lang = getSttLangForWebSpeech();
   r.continuous = true;
   r.interimResults = true;
 
@@ -1468,14 +1527,18 @@ const DEFAULT_ENDING_PARAMS = {
 // so editing what's in a slot automatically updates whatever hotkey points
 // at that number instead of needing to be re-picked.
 const ENDINGS_SLOT_COUNT = 10;
-// Slots 2/3/5/10 (~, !, ?, にゃん) default to reading the ending aloud —
-// reading left blank so it falls back to the text itself (see applyEnding()).
-const DEFAULT_ENDINGS_SPOKEN_SLOTS = [2, 3, 5, 10];
-const DEFAULT_ENDINGS = ["..o0", "~", "!", "xwx", "?", "♡", "...", "..//", "..zZ", "にゃん"].map((text, i) => ({
-  text,
-  ...DEFAULT_ENDING_PARAMS,
-  speakEnding: DEFAULT_ENDINGS_SPOKEN_SLOTS.includes(i + 1),
-}));
+const DEFAULT_ENDINGS = [
+  { text: "..o0", speedScale: 0.89, pitchScale: 0.01, intonationScale: 1.35, volumeScale: 1.08, speakEnding: false, reading: "" },
+  { text: "ー", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: true, reading: "" },
+  { text: "!", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: true, reading: "" },
+  { text: "xwx", speedScale: 1, pitchScale: -0.05, intonationScale: 0.45, volumeScale: 1, speakEnding: false, reading: "" },
+  { text: "?", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: true, reading: "" },
+  { text: "♡", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: false, reading: "" },
+  { text: "...", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: false, reading: "" },
+  { text: "..//", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: false, reading: "" },
+  { text: "..zZ", speedScale: 1, pitchScale: 0, intonationScale: 1, volumeScale: 1, speakEnding: false, reading: "" },
+  { text: "にゃん=w=", speedScale: 0.93, pitchScale: 0.03, intonationScale: 1.26, volumeScale: 1, speakEnding: true, reading: "にゃん" },
+];
 
 // Always returns exactly ENDINGS_SLOT_COUNT entries, padding with generic
 // placeholders or truncating extras — this used to be a free-length list,
@@ -2087,15 +2150,48 @@ async function setupCharacterPanel() {
   updateLabel();
 }
 
+// Every localStorage key this app writes EXCEPT the ones deliberately left
+// out below — kept as one explicit list (built lazily inside the click
+// handler below, not at module scope: several of these *_KEY consts are
+// declared further down in the file, and referencing them from a top-level
+// const array evaluated immediately at load time hits the temporal dead
+// zone) so a genuinely unrelated key some future feature adds isn't
+// silently wiped by default. Add new settings keys here as they're
+// introduced.
+//
+// Deliberately NOT included (survive a reset):
+// - DEVICE_SETTINGS_KEY — mic/speaker selection, tied to this specific PC's
+//   hardware, not a "preference" a reset should touch.
+// - UI_LANG_KEY — the UI's display language; resetting it would flip the
+//   whole Settings dialog to Japanese for a non-Japanese-reading user.
+// - UI_MODE_KEY — Desktop vs VR mode; in practice tracks whether *this* PC
+//   currently has SteamVR set up, which is closer to machine-specific than
+//   a preference.
+function resetClearsKeys() {
+  return [
+    ENDINGS_STORAGE_KEY,
+    HOTKEY_PROFILES_KEY,
+    HOTKEY_ACTIVE_PROFILE_KEY,
+    HOTKEY_HOLD_DURATION_KEY,
+    HOTKEY_PRIORITY_HAND_KEY,
+    APPEARANCE_STORAGE_KEY,
+    CHATBOX_ENABLED_KEY,
+    TTS_ENABLED_KEY,
+    SEND_MODE_KEY,
+    STT_ENGINE_KEY,
+    STT_MODEL_KEY,
+    SELECTED_STYLE_KEY,
+    TTS_LANG_ENABLED_KEY,
+    STT_CYCLE_LANG_KEY,
+    VOICE_RMS_THRESHOLD_KEY,
+  ];
+}
+
 function setupGeneralPanel() {
   document.querySelector("#settings-reset-btn").addEventListener("click", async () => {
     const ok = await showConfirmDialog(t("resetConfirm"));
     if (!ok) return;
-    localStorage.removeItem(ENDINGS_STORAGE_KEY);
-    localStorage.removeItem(HOTKEY_PROFILES_KEY);
-    localStorage.removeItem(HOTKEY_ACTIVE_PROFILE_KEY);
-    localStorage.removeItem(APPEARANCE_STORAGE_KEY);
-    localStorage.removeItem(DEVICE_SETTINGS_KEY);
+    for (const key of resetClearsKeys()) localStorage.removeItem(key);
     location.reload();
   });
 }
@@ -2124,11 +2220,16 @@ function endingForAssignment(assignment) {
 }
 
 const HOTKEY_HOLD_DURATION_KEY = "mutelink.hotkeyHoldMs";
-const DEFAULT_HOTKEY_HOLD_MS = 1000;
+const DEFAULT_HOTKEY_HOLD_MS = 300;
 
 function loadHotkeyHoldMs() {
-  const raw = Number(localStorage.getItem(HOTKEY_HOLD_DURATION_KEY));
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_HOTKEY_HOLD_MS;
+  // See loadVoiceRmsThreshold()'s comment — same "missing key vs.
+  // deliberately-saved 0" distinction, needed now that the slider's min is
+  // 0 (see index.html).
+  const stored = localStorage.getItem(HOTKEY_HOLD_DURATION_KEY);
+  if (stored === null) return DEFAULT_HOTKEY_HOLD_MS;
+  const raw = Number(stored);
+  return Number.isFinite(raw) && raw >= 0 ? raw : DEFAULT_HOTKEY_HOLD_MS;
 }
 
 function saveHotkeyHoldMs(ms) {
@@ -2155,12 +2256,12 @@ const HOTKEY_HANDS = ["right", "left"];
 // immediately, without needing to be re-picked here. Separate per hand so
 // each hand can be bound to a different slot, and the two hands' defaults
 // differ deliberately: right hand gives quick access to 1/2 and a stick-press
-// cancel; left hand covers 3/4/5, leaving its "none"/stick slots unset since
-// the right hand's stick already handles cancel.
+// cancel; left hand covers 4/5/10, leaving its "none"/stick slots (and
+// ending 3) unset since the right hand's stick already handles cancel.
 function defaultHotkeyAssignments() {
   return {
     right: { both: "1", grip: "", trigger: "2", none: "", stick: HOTKEY_CANCEL_ACTION },
-    left: { both: "3", grip: "4", trigger: "5", none: "", stick: "" },
+    left: { both: "10", grip: "4", trigger: "5", none: "", stick: "" },
   };
 }
 
@@ -2590,10 +2691,25 @@ function getSttLangOrDefault() {
   return current === "off" ? "ja-JP" : current;
 }
 
+// Web Speech API has no equivalent to SenseVoice/Whisper's language: "auto"
+// (see senseVoiceLangCode() below) — recognition.lang needs one concrete
+// BCP-47 tag, so when the stt-lang radio is set to "auto" this falls back
+// to Japanese instead, same as getSttLangOrDefault()'s "off" case.
+function getSttLangForWebSpeech() {
+  const lang = getSttLangOrDefault();
+  return lang === "auto" ? "ja-JP" : lang;
+}
+
 // SenseVoice's own short language codes, not BCP-47 — see load_recognizer()
 // in sense_voice.rs. Pinning one (instead of "auto") skips its language-ID
 // step, which is both faster and avoids the occasional misdetection auto
-// mode is prone to on short utterances.
+// mode is prone to on short utterances — but it also means the model won't
+// output anything outside that one language, which is wrong for utterances
+// that legitimately mix in foreign words (e.g. "VR" inside an otherwise
+// Japanese sentence). "auto" is exposed directly as a 5th stt-lang option
+// (see index.html) for exactly that case: SENSE_VOICE_LANG_CODES has no
+// "auto" key on purpose, so looking it up here falls through to the `??
+// "auto"` default below and passes it straight to sense_voice.rs unchanged.
 const SENSE_VOICE_LANG_CODES = { "ja-JP": "ja", "en-US": "en", "zh-CN": "zh", "ko-KR": "ko" };
 
 function senseVoiceLangCode() {
@@ -2619,8 +2735,14 @@ let sttStateValue = "off";
 let sttStateChain = Promise.resolve();
 
 // Native self-names, deliberately not translated by UI language (see I18N's
-// top comment) — only "off" is an actual UI string, via t("sttOff").
+// top comment) — only "off"/"auto" are actual UI strings, via t().
 const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "中文", "ko-KR": "한국어" };
+
+function sttStateLabel(value) {
+  if (value === "off") return t("sttOff");
+  if (value === "auto") return t("sttAuto");
+  return STT_STATE_LABELS[value] ?? value;
+}
 
 // The single entry point for changing what's being recognized (or turning
 // recognition off) — keeps the desktop radio group, the VR overlay's
@@ -2631,7 +2753,7 @@ const STT_STATE_LABELS = { "ja-JP": "日本語", "en-US": "English", "zh-CN": "�
 function setSttState(value) {
   sttStateValue = value;
   setSttLang(value);
-  sttStateLabelEl.textContent = value === "off" ? t("sttOff") : (STT_STATE_LABELS[value] ?? value);
+  sttStateLabelEl.textContent = sttStateLabel(value);
   flashLangTag(value);
   sttStateChain = sttStateChain.then(async () => {
     if (sttStateValue !== value) return; // superseded by a later call while queued
@@ -2641,7 +2763,12 @@ function setSttState(value) {
 }
 
 const TTS_LANG_ENABLED_KEY = "mutelink.ttsLangEnabled";
-const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true, "ko-KR": true };
+// Japanese only by default — unlike sttCycleLangDefault() above, this is
+// NOT tied to the UI language: VOICEVOX's OpenJTalk text analyzer only
+// really handles Japanese (see ttsLangHint's own text), so English/中文/
+// 한국어 read-aloud coming out broken isn't specific to which language the
+// user happens to have the UI set to.
+const TTS_LANG_ENABLED_DEFAULT = { "ja-JP": true, "en-US": false, "zh-CN": false, "ko-KR": false };
 
 function loadTtsLangEnabled() {
   try {
@@ -2672,18 +2799,33 @@ function setupTtsLangSettings() {
 }
 
 const STT_CYCLE_LANG_KEY = "mutelink.sttCycleLangs";
-const STT_CYCLE_LANG_DEFAULT = { "ja-JP": true, "en-US": true, "zh-CN": true, "ko-KR": true };
+const UI_LANG_TO_STT_LANG = { ja: "ja-JP", en: "en-US", zh: "zh-CN", ko: "ko-KR" };
+
+// Only the language matching the current UI language starts checked — not
+// all four — so a fresh install (or a reset, see resetClearsKeys()) doesn't
+// hand someone who only reads/speaks one of these four languages a cycle
+// that includes the other three unasked. "auto" is never on by default
+// either: it's a slower, occasional-use mode (see
+// SENSE_VOICE_LANG_CODES/senseVoiceLangCode()), so it shouldn't show up
+// uninvited in the middle of an existing cycle. A function, not a plain
+// object, since it depends on loadUiLang() at the time it's actually
+// needed (a reset reads this fresh after clearing storage, not once at
+// module load).
+function sttCycleLangDefault() {
+  const sttLang = UI_LANG_TO_STT_LANG[loadUiLang()] ?? "ja-JP";
+  return { "ja-JP": false, "en-US": false, "zh-CN": false, "ko-KR": false, auto: false, [sttLang]: true };
+}
 
 function loadSttCycleLangs() {
   try {
     const raw = JSON.parse(localStorage.getItem(STT_CYCLE_LANG_KEY) ?? "null");
     if (raw && typeof raw === "object") {
-      return { ...STT_CYCLE_LANG_DEFAULT, ...raw };
+      return { ...sttCycleLangDefault(), ...raw };
     }
   } catch {
     // fall through
   }
-  return { ...STT_CYCLE_LANG_DEFAULT };
+  return sttCycleLangDefault();
 }
 
 function saveSttCycleLangs(map) {
@@ -2702,6 +2844,24 @@ function setupSttCycleLangSettings() {
   }
 }
 
+function setupMicSensitivitySettings() {
+  const input = document.querySelector("#voice-rms-threshold-input");
+  const val = document.querySelector("#voice-rms-threshold-val");
+
+  const render = () => {
+    val.textContent = `${(voiceRmsThresholdCache * 100).toFixed(1)}%`;
+  };
+
+  voiceRmsThresholdCache = loadVoiceRmsThreshold();
+  input.value = voiceRmsThresholdCache;
+  render();
+  input.addEventListener("input", () => {
+    voiceRmsThresholdCache = Number(input.value);
+    render();
+    saveVoiceRmsThreshold(voiceRmsThresholdCache);
+  });
+}
+
 // Switching engines here only takes effect the next time recognition
 // (re)starts — see the `sttEngine = loadSttEngine()` at the top of
 // startGoogleStt() — not live mid-session.
@@ -2711,15 +2871,24 @@ function setupSttEngineSettings() {
   const modelSelect = document.querySelector("#stt-model-select");
   const downloadRow = document.querySelector("#sense-voice-download-row");
   const downloadBtn = document.querySelector("#sense-voice-download-btn");
+  const cancelBtn = document.querySelector("#sense-voice-cancel-btn");
+  const deleteRow = document.querySelector("#sense-voice-delete-row");
+  const deleteBtn = document.querySelector("#sense-voice-delete-btn");
 
+  // downloadRow and deleteRow are two sides of the same state (not
+  // downloaded vs. downloaded) — always refreshed together so they can
+  // never both show, or both hide, for the selected model at once.
   async function refreshDownloadRow() {
     const isLocal = select.value === "sensevoice";
     modelRow.hidden = !isLocal;
     if (!isLocal) {
       downloadRow.hidden = true;
+      deleteRow.hidden = true;
       return;
     }
-    downloadRow.hidden = await window.__TAURI__.core.invoke("stt_model_downloaded", { modelId: modelSelect.value });
+    const downloaded = await window.__TAURI__.core.invoke("stt_model_downloaded", { modelId: modelSelect.value });
+    downloadRow.hidden = downloaded;
+    deleteRow.hidden = !downloaded;
   }
 
   select.value = loadSttEngine();
@@ -2734,6 +2903,22 @@ function setupSttEngineSettings() {
   modelSelect.addEventListener("change", () => {
     saveSttModel(modelSelect.value);
     refreshDownloadRow();
+  });
+
+  deleteBtn.addEventListener("click", async () => {
+    const modelId = modelSelect.value;
+    const ok = await showConfirmDialog(t("sttModelDeleteConfirm"));
+    if (!ok) return;
+    deleteBtn.disabled = true;
+    try {
+      await window.__TAURI__.core.invoke("delete_stt_model", { modelId });
+      log(`[sensevoice] deleted model ${modelId}`);
+      await refreshDownloadRow();
+    } catch (err) {
+      log(`[sensevoice] failed to delete model ${modelId}: ${err}`);
+    } finally {
+      deleteBtn.disabled = false;
+    }
   });
 
   // Emitted from Rust (see download_stt_model() in sense_voice.rs) as each
@@ -2751,10 +2936,23 @@ function setupSttEngineSettings() {
     downloadBtn.textContent = `${t("sttEngineDownloadingButton")} ${percent}%`;
   });
 
+  cancelBtn.addEventListener("click", () => {
+    // Fire-and-forget: the download's own invoke() promise (in the
+    // downloadBtn handler below) is what settles once Rust actually notices
+    // the flag and unwinds — that's what resets the buttons/model select,
+    // not this click itself. See cancel_stt_model_download() in
+    // sense_voice.rs; a no-op (false) if the download already finished on
+    // its own in the meantime, which is fine either way.
+    window.__TAURI__.core.invoke("cancel_stt_model_download", { modelId: modelSelect.value });
+    cancelBtn.disabled = true;
+  });
+
   downloadBtn.addEventListener("click", async () => {
     const modelId = modelSelect.value;
     downloadBtn.disabled = true;
     modelSelect.disabled = true;
+    cancelBtn.hidden = false;
+    cancelBtn.disabled = false;
     downloadBtn.textContent = t("sttEngineDownloadingButton");
     try {
       log(`[sensevoice] downloading model ${modelId}...`);
@@ -2765,16 +2963,18 @@ function setupSttEngineSettings() {
       // time load_stt_model() is running, indistinguishable from the
       // download itself still being in progress.
       log("[sensevoice] download done, loading model...");
+      cancelBtn.hidden = true; // no cancelling the (much quicker) load step
       downloadBtn.textContent = t("sttEngineLoadingButton");
       await window.__TAURI__.core.invoke("load_stt_model", { modelId, language: senseVoiceLangCode() });
       log("[sensevoice] model loaded");
-      downloadRow.hidden = true;
+      await refreshDownloadRow();
     } catch (err) {
       downloadBtn.textContent = t("sttEngineDownloadButton");
-      log(`[sensevoice] model download/load failed: ${err}`);
+      log(err === "cancelled" ? `[sensevoice] download of ${modelId} cancelled` : `[sensevoice] model download/load failed: ${err}`);
     } finally {
       downloadBtn.disabled = false;
       modelSelect.disabled = false;
+      cancelBtn.hidden = true;
     }
   });
 }
@@ -2790,7 +2990,7 @@ let langTagUntil = 0;
 // Matches overlay.rs's render_lang_tag animation: pop-in/settle finishes by
 // 0.3s, holds fully opaque until 2.5s, then fades out linearly through 3.5s.
 const LANG_TAG_DISPLAY_MS = 3500;
-const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN", "ko-KR": "KR" };
+const STT_LANG_TAG_LABELS = { "ja-JP": "JP", "en-US": "EN", "zh-CN": "CN", "ko-KR": "KR", auto: "AUTO" };
 
 // `value` is a stt-lang radio value: a BCP-47 code for JP/EN/CN, or "off".
 function flashLangTag(value) {
@@ -2799,7 +2999,7 @@ function flashLangTag(value) {
   langTagUntil = langTagShownAt + LANG_TAG_DISPLAY_MS;
 }
 
-const STT_CYCLE_LANGS_ALL = ["ja-JP", "en-US", "zh-CN", "ko-KR"];
+const STT_CYCLE_LANGS_ALL = ["ja-JP", "en-US", "zh-CN", "ko-KR", "auto"];
 
 // Only the languages checked in 設定 > General > 言語サイクル participate,
 // always with "off" appended at the end — falls back to all four if
@@ -2876,6 +3076,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupTtsLangSettings();
   setupSttCycleLangSettings();
   setupSttEngineSettings();
+  setupMicSensitivitySettings();
   checkForUpdates();
 
   googleBtn.addEventListener("click", () => {

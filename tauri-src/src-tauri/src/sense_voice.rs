@@ -23,9 +23,11 @@
 // one stt_transcribe call — there's no equivalent of SpeechRecognition's
 // live interim results for any of these.
 
+use std::collections::HashMap;
 use std::io::Write;
 use std::path::PathBuf;
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::StreamExt;
@@ -185,6 +187,31 @@ pub fn stt_model_downloaded(model_id: String) -> bool {
     def.files.all().iter().all(|f| dir.join(f.filename).exists())
 }
 
+// A plain sync fn, not async: deleting a handful of files (at most ~1GB
+// total, but that's just an unlink, not a read) is effectively instant, the
+// same reasoning as stt_model_downloaded()'s stat calls above.
+#[tauri::command]
+pub fn delete_stt_model(model_id: String, app: tauri::AppHandle) -> Result<(), String> {
+    let def = find_model(&model_id)?;
+    let dir = model_dir(def.id);
+    if dir.is_dir() {
+        std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+
+    // If this exact model is the one currently loaded in memory, drop it —
+    // its backing files are gone, so leaving the in-memory recognizer in
+    // place would let it keep working until the next model/language switch
+    // tries to reload from the now-missing path and fails confusingly,
+    // instead of just reporting "not downloaded" like stt_model_downloaded()
+    // would from that point on.
+    let state = app.state::<SenseVoiceState>();
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if guard.as_ref().is_some_and(|loaded| loaded.model_id == model_id) {
+        *guard = None;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Serialize)]
 struct DownloadProgress {
     #[serde(rename = "modelId")]
@@ -200,6 +227,40 @@ struct DownloadProgress {
     // briefly going backwards) at the start of every file.
     #[serde(rename = "bytesBefore")]
     bytes_before: u64,
+}
+
+// Tracks the cancel flag for whichever model is currently downloading, keyed
+// by model_id (in practice at most one at a time — the download button and
+// model dropdown are disabled for the duration in main.js — but keying by
+// id costs nothing and avoids a global "is anything downloading" bool that
+// would be wrong if that assumption ever changes). Entries are removed once
+// their download finishes, fails, or is cancelled, so this never grows
+// unbounded.
+pub struct DownloadCancelState(Mutex<HashMap<String, Arc<AtomicBool>>>);
+
+impl DownloadCancelState {
+    pub fn new() -> Self {
+        Self(Mutex::new(HashMap::new()))
+    }
+}
+
+impl Default for DownloadCancelState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+// Sets the cancel flag for `model_id`'s in-flight download, if there is
+// one — download_stt_model() below polls it once per chunk. Returns false
+// (a no-op, not an error) if nothing is currently downloading for that id,
+// since the frontend's Cancel button and the download finishing on its own
+// can race harmlessly.
+#[tauri::command]
+pub fn cancel_stt_model_download(model_id: String, state: tauri::State<DownloadCancelState>) -> bool {
+    let guard = state.0.lock().unwrap();
+    let Some(flag) = guard.get(&model_id) else { return false };
+    flag.store(true, Ordering::Relaxed);
+    true
 }
 
 // Streams instead of buffering each (up to ~700MB) file in one
@@ -232,6 +293,28 @@ pub async fn download_stt_model(model_id: String, app: tauri::AppHandle) -> Resu
         .build()
         .map_err(|e| e.to_string())?;
 
+    let cancel_flag = Arc::new(AtomicBool::new(false));
+    {
+        let cancel_state = app.state::<DownloadCancelState>();
+        cancel_state.0.lock().unwrap().insert(model_id.clone(), cancel_flag.clone());
+    }
+    // Runs on every exit path (success, error, or cancellation) via the
+    // `result` binding below — a bare `return` inside the loop wouldn't hit
+    // an early "remove the entry" call placed before it, and duplicating
+    // that cleanup at every return site would be easy to miss one of.
+    let result = download_stt_model_inner(def, &dir, &model_id, &app, &client, &cancel_flag).await;
+    app.state::<DownloadCancelState>().0.lock().unwrap().remove(&model_id);
+    result
+}
+
+async fn download_stt_model_inner(
+    def: &ModelDef,
+    dir: &std::path::Path,
+    model_id: &str,
+    app: &tauri::AppHandle,
+    client: &reqwest::Client,
+    cancel_flag: &AtomicBool,
+) -> Result<(), String> {
     let total_bytes = def.total_bytes();
     let mut bytes_before = 0u64;
     for file in def.files.all() {
@@ -245,6 +328,16 @@ pub async fn download_stt_model(model_id: String, app: tauri::AppHandle) -> Resu
         let mut bytes_downloaded = 0u64;
         let mut chunks = response.bytes_stream();
         loop {
+            if cancel_flag.load(Ordering::Relaxed) {
+                // Whatever's on disk for this model is now an arbitrary
+                // partial mix of files — not worth trying to salvage, so
+                // just clear it out. A later download attempt starts fresh
+                // rather than seeing a half-written file and (incorrectly,
+                // since the "already fully downloaded" check above looks at
+                // every file existing, not their sizes) treating it as done.
+                let _ = std::fs::remove_dir_all(dir);
+                return Err("cancelled".to_string());
+            }
             // Per-chunk, not one deadline for the whole download: reqwest's
             // own Client::timeout() bounds the initial send/headers, not
             // however long manually consuming a `.bytes_stream()` takes —
@@ -266,7 +359,7 @@ pub async fn download_stt_model(model_id: String, app: tauri::AppHandle) -> Resu
             let _ = app.emit(
                 "stt-model-download-progress",
                 DownloadProgress {
-                    model_id: model_id.clone(),
+                    model_id: model_id.to_string(),
                     file: file.filename,
                     bytes_downloaded,
                     total_bytes,

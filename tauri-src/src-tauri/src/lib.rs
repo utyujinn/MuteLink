@@ -531,6 +531,7 @@ pub fn run() {
             app.manage(VoicevoxState(Mutex::new(synth)));
             app.manage(OpenVrState(Mutex::new(init_openvr())));
             app.manage(sense_voice::SenseVoiceState::new());
+            app.manage(sense_voice::DownloadCancelState::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -547,6 +548,8 @@ pub fn run() {
             audio_device::set_default_input_device,
             sense_voice::stt_model_downloaded,
             sense_voice::download_stt_model,
+            sense_voice::cancel_stt_model_download,
+            sense_voice::delete_stt_model,
             sense_voice::load_stt_model,
             sense_voice::stt_transcribe
         ])

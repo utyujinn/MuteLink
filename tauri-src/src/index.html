@@ -88,6 +88,7 @@
                 <label><input type="checkbox" name="stt-cycle-lang" value="en-US" checked /> English</label>
                 <label><input type="checkbox" name="stt-cycle-lang" value="zh-CN" checked /> 中文</label>
                 <label><input type="checkbox" name="stt-cycle-lang" value="ko-KR" checked /> 한국어</label>
+                <label><input type="checkbox" name="stt-cycle-lang" value="auto" /> <span data-i18n="sttAuto">自動</span></label>
               </div>
             </div>
             <p class="hint" data-i18n="sttCycleLangHint">
@@ -99,9 +100,9 @@
               <span class="settings-list-label" data-i18n="ttsLangListLabel">VOICEVOXで読み上げる言語</span>
               <div class="settings-radio-row">
                 <label><input type="checkbox" name="tts-lang" value="ja-JP" checked /> 日本語</label>
-                <label><input type="checkbox" name="tts-lang" value="en-US" checked /> English</label>
-                <label><input type="checkbox" name="tts-lang" value="zh-CN" checked /> 中文</label>
-                <label><input type="checkbox" name="tts-lang" value="ko-KR" checked /> 한국어</label>
+                <label><input type="checkbox" name="tts-lang" value="en-US" /> English</label>
+                <label><input type="checkbox" name="tts-lang" value="zh-CN" /> 中文</label>
+                <label><input type="checkbox" name="tts-lang" value="ko-KR" /> 한국어</label>
               </div>
             </div>
             <p class="hint" data-i18n="ttsLangHint">
@@ -131,10 +132,33 @@
             </div>
             <div class="settings-list-row" id="sense-voice-download-row" hidden>
               <span class="settings-list-label" data-i18n="sttEngineDownloadLabel">モデルのダウンロード</span>
-              <button id="sense-voice-download-btn" type="button" data-i18n="sttEngineDownloadButton">
-                ダウンロード
+              <div class="row">
+                <button id="sense-voice-download-btn" type="button" data-i18n="sttEngineDownloadButton">
+                  ダウンロード
+                </button>
+                <button id="sense-voice-cancel-btn" class="danger-btn" type="button" data-i18n="sttModelCancelButton" hidden>
+                  キャンセル
+                </button>
+              </div>
+            </div>
+            <div class="settings-list-row" id="sense-voice-delete-row" hidden>
+              <span class="settings-list-label" data-i18n="sttModelDeleteLabel">ダウンロード済みモデル</span>
+              <button id="sense-voice-delete-btn" class="danger-btn" type="button" data-i18n="sttModelDeleteButton">
+                削除
               </button>
             </div>
+
+            <h3 data-i18n="micSensitivityHeading">マイク感度</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="micSensitivityLabel">無音判定のしきい値</span>
+              <div class="hotkey-hold-duration-control">
+                <input type="range" id="voice-rms-threshold-input" min="0" max="0.5" step="0.001" value="0.1" />
+                <span id="voice-rms-threshold-val" class="hotkey-hold-duration-val">10.0%</span>
+              </div>
+            </div>
+            <p class="hint" data-i18n="micSensitivityHint">
+              値を大きくすると、息や物音などの小さな音を発話と誤認識しにくくなります。大きくしすぎると、小さな声を拾えなくなることがあります。
+            </p>
 
             <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
@@ -260,8 +284,8 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="holdDurationLabel">保持時間</span>
               <div class="hotkey-hold-duration-control">
-                <input type="range" id="hotkey-hold-duration-input" min="0.3" max="3" step="0.1" value="1" />
-                <span id="hotkey-hold-duration-val" class="hotkey-hold-duration-val">1.0秒</span>
+                <input type="range" id="hotkey-hold-duration-input" min="0" max="2" step="0.1" value="0.3" />
+                <span id="hotkey-hold-duration-val" class="hotkey-hold-duration-val">0.3秒</span>
               </div>
             </div>
 
@@ -445,6 +469,7 @@
         <label><input type="radio" name="stt-lang" value="en-US" /> English</label>
         <label><input type="radio" name="stt-lang" value="zh-CN" /> 中文</label>
         <label><input type="radio" name="stt-lang" value="ko-KR" /> 한국어</label>
+        <label><input type="radio" name="stt-lang" value="auto" /> <span data-i18n="sttAuto">自動</span></label>
         <label><input type="radio" name="stt-lang" value="off" checked /> <span data-i18n="sttOff">オフ</span></label>
       </div>
 
