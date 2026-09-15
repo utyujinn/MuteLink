@@ -225,6 +225,7 @@ const I18N = {
 
   updateHeading: { ja: "アップデート", en: "Update", zh: "更新", ko: "업데이트" },
   updateCurrentVersionLabel: { ja: "現在のバージョン", en: "Current version", zh: "当前版本", ko: "현재 버전" },
+  updateCheckButton: { ja: "アップデートを確認", en: "Check for updates", zh: "检查更新", ko: "업데이트 확인" },
   updateInstallButton: {
     ja: "更新をインストールして再起動",
     en: "Install update and restart",
@@ -1331,14 +1332,19 @@ function setupAboutLinks() {
 // or never) doesn't need to re-check.
 let pendingUpdate = null;
 
-// Runs once at startup (see DOMContentLoaded below), independent of
-// whether the settings dialog is even open yet — the Other panel's update
-// section (queried fresh here) just reflects whatever this finds whenever
-// the user eventually looks at it.
+// Runs once at startup (see DOMContentLoaded below) and again any time the
+// user clicks #update-check-btn (see setupUpdater()) — either way,
+// independent of whether the settings dialog is even open yet, since the
+// Other panel's update section (queried fresh here) just reflects whatever
+// this finds whenever the user eventually looks at it. There's no periodic
+// re-check: an update published after the app launched (or after the last
+// manual click) only gets noticed the next time one of those happens.
 async function checkForUpdates() {
   const statusEl = document.querySelector("#update-status");
   const installBtn = document.querySelector("#update-install-btn");
+  const checkBtn = document.querySelector("#update-check-btn");
   statusEl.textContent = t("updateCheckingStatus");
+  checkBtn.disabled = true;
 
   try {
     pendingUpdate = await window.__TAURI__.updater.check();
@@ -1346,6 +1352,8 @@ async function checkForUpdates() {
     statusEl.textContent = t("updateCheckFailedStatus");
     log(`[updater] check failed: ${err}`);
     return;
+  } finally {
+    checkBtn.disabled = false;
   }
 
   if (!pendingUpdate) {
@@ -1367,6 +1375,8 @@ function setupUpdater() {
     .catch(() => {
       // Not critical — the rest of the update section still works without it.
     });
+
+  document.querySelector("#update-check-btn").addEventListener("click", () => checkForUpdates());
 
   document.querySelector("#update-install-btn").addEventListener("click", async () => {
     if (!pendingUpdate) return;
