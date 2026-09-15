@@ -57,3 +57,9 @@
 
 18．SenseVoiceの語彙不足(VR/AIなど日本語文中の英単語)の調査
 　15番で「自動」言語モードを追加した後も、日本語での使用時に「VR」「AI」のような(日本語の文脈でも普通に使われる)英単語がSenseVoiceで認識されない/欠落することがある。速度は良好なので維持しつつ、より語彙が広い(日本語特化のモデルでも可)代替のローカルSTTエンジン/モデルを調査する。sense_voice.rsのMODELS配列は複数モデルを切り替えられる設計になっている(現状SenseVoice軽量/標準・Whisper turbo/medium)ので、有望なものが見つかれば同じ仕組みに追加できる。
+　→ ReazonSpeech-k2-v2-ja-en・NVIDIA Parakeet-ja(NeMo CTC)を追加して解決。reazon-research/reazonspeech-nemo-v2も試したが、ONNX化はできたもののONNX Runtimeのバージョン競合(既存モデルはOrtApi 27以降必須、この export はORT 1.20.x以下でしかロードできない、上流のグラフ最適化まわりの既知不具合)で統合不可と判断し見送り。
+
+19．ローカルSTTのモデル選択・言語対応の整理
+　Whisper medium・ReazonSpeech-k2-v2-ja-en(Transducer系、約73MB)をモデル選択肢から削除する(sense_voice.rsのMODELS配列・ModelFiles::Transducerサポートごと)。ReazonSpeech側の削除により、sherpa-onnxのhotwords(単語ブースト)機能が使える唯一のモデルも無くなるが、hotwords自体は現時点では見送りでよいとのこと。
+　また、選択中のローカルSTTモデルが対応していない言語(例: Parakeet-jaは日本語のみ)を、設定画面の言語サイクル欄でグレーアウトして選べないようにする。
+　あわせて、発話中のプレビュー表示(interim)のオン/オフを設定で切り替えられるようにする(デフォルトはON。Whisperなど処理が重いモデルで負荷を避けたい場合向け)。

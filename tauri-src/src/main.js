@@ -335,10 +335,10 @@ const I18N = {
     ko: "로컬(SenseVoice / Whisper)",
   },
   sttEngineHint: {
-    ja: "ローカル音声認識は発話の区切りごとにまとめて認識するため、Web Speech APIのようなリアルタイムのプレビュー表示はできません。選んだモデルは初回利用時にダウンロードが必要です。",
-    en: "Local speech recognition recognizes one whole utterance at a time, so unlike the Web Speech API it can't show a live real-time preview. The selected model needs to be downloaded the first time you use it.",
-    zh: "本地语音识别按发话段落整体识别，因此不像Web Speech API那样提供实时预览。所选模型首次使用需要下载。",
-    ko: "로컬 음성 인식은 발화 구간 단위로 한꺼번에 인식하므로 Web Speech API처럼 실시간 미리보기는 표시되지 않습니다. 선택한 모델은 처음 사용할 때 다운로드가 필요합니다.",
+    ja: "ローカル音声認識は発話の区切りごとにまとめて認識しますが、発話中も一定間隔で再認識してプレビュー表示します(下の設定でオフにできます)。選んだモデルは初回利用時にダウンロードが必要です。",
+    en: "Local speech recognition recognizes one whole utterance at a time, but also re-recognizes the in-progress audio periodically to show a preview while you're still talking (can be turned off below). The selected model needs to be downloaded the first time you use it.",
+    zh: "本地语音识别按发话段落整体识别，但发话过程中也会定期重新识别以显示预览(可在下方设置关闭)。所选模型首次使用需要下载。",
+    ko: "로컬 음성 인식은 발화 구간 단위로 한꺼번에 인식하지만, 말하는 중에도 일정 간격으로 재인식하여 미리보기를 표시합니다(아래 설정에서 끌 수 있습니다). 선택한 모델은 처음 사용할 때 다운로드가 필요합니다.",
   },
   sttModelLabel: { ja: "モデル", en: "Model", zh: "模型", ko: "모델" },
   sttModelSenseVoiceInt8Option: {
@@ -359,24 +359,9 @@ const I18N = {
     zh: "Whisper turbo(约1.0GB)",
     ko: "Whisper turbo(약 1.0GB)",
   },
-  sttModelWhisperMediumOption: {
-    ja: "Whisper medium(約950MB)",
-    en: "Whisper medium (about 950MB)",
-    zh: "Whisper medium(约950MB)",
-    ko: "Whisper medium(약 950MB)",
-  },
-  // Japanese+English only, unlike the other options' broader zh/ko coverage
-  // — deliberately spelled out in the label itself (see MODELS' own comment
-  // in sense_voice.rs) rather than left implicit.
-  sttModelReazonspeechOption: {
-    ja: "ReazonSpeech 日本語+英語(約73MB)",
-    en: "ReazonSpeech, Japanese + English (about 73MB)",
-    zh: "ReazonSpeech 日语+英语(约73MB)",
-    ko: "ReazonSpeech 일본어+영어(약 73MB)",
-  },
   // NVIDIA Parakeet TDT-CTC 0.6B, Japanese-only — much bigger/slower than
-  // reazonspeech-ja-en (same training corpus, ~4x the params) in exchange
-  // for potentially better accuracy on vocabulary it still gets wrong.
+  // SenseVoice, in exchange for better vocabulary coverage on Japanese
+  // (see TASK.md #18).
   sttModelParakeetOption: {
     ja: "Parakeet 日本語 高精度(約660MB)",
     en: "Parakeet, Japanese, high accuracy (about 660MB)",
@@ -416,6 +401,18 @@ const I18N = {
     ko: "이 모델을 삭제합니다. 계속하시겠습니까?",
   },
   sttModelCancelButton: { ja: "キャンセル", en: "Cancel", zh: "取消", ko: "취소" },
+  sttInterimPreviewLabel: {
+    ja: "発話中のプレビュー表示",
+    en: "Preview while speaking",
+    zh: "发话中的预览显示",
+    ko: "발화 중 미리보기 표시",
+  },
+  sttInterimPreviewHint: {
+    ja: "オフにすると、確定するまで再認識を行わなくなります。Whisperなど処理が重いモデルで負荷を抑えたい場合に。",
+    en: "When off, nothing gets re-recognized until the utterance is Final. Useful for keeping the load down with a slower model like Whisper.",
+    zh: "关闭后，在确定之前不会重新识别。可用于Whisper等处理较重的模型以降低负载。",
+    ko: "끄면 확정될 때까지 재인식을 하지 않습니다. Whisper처럼 처리가 무거운 모델에서 부하를 줄이고 싶을 때 사용하세요.",
+  },
 };
 
 const UI_LANGS = ["ja", "en", "zh", "ko"];
@@ -539,6 +536,11 @@ const RECOGNITION_WATCHDOG_MS = 60000;
 let recognition;
 let sttEngine = "webspeech"; // "webspeech" | "sensevoice" — overwritten from storage on load, see loadSttEngine()
 let sttModel = "sense-voice-fp32"; // which local model backs "sensevoice" above — overwritten from storage on load, see loadSttModel()
+// Whether runSenseVoiceInterim() runs at all — unlike sttEngine/sttModel
+// above, this is also updated live from the settings checkbox itself (see
+// setupSttEngineSettings()), not just re-read on the next startGoogleStt(),
+// since toggling it doesn't need a mic re-arm to take effect.
+let sttInterimPreviewEnabled = true; // overwritten from storage on load, see loadSttInterimPreviewEnabled()
 let armed = false; // Start/Stop button state; survives pause/resume cycles
 let recognizing = false; // true while a recognition session is supposed to be running
 let googleHadError = false;
@@ -688,8 +690,46 @@ function saveSttEngine(engine) {
 }
 
 const STT_MODEL_KEY = "mutelink.sttModel";
-const STT_MODEL_IDS = ["sense-voice-int8", "sense-voice-fp32", "whisper-turbo", "whisper-medium", "reazonspeech-ja-en", "parakeet-ja"];
+const STT_MODEL_IDS = ["sense-voice-int8", "sense-voice-fp32", "whisper-turbo", "parakeet-ja"];
 const DEFAULT_STT_MODEL = "sense-voice-fp32";
+
+// Local models with no per-utterance `language` concept in sherpa-onnx at
+// all (see cache_key_language() in sense_voice.rs) always transcribe their
+// one fixed language regardless of what's selected in this app's STT
+// language UI — listed here (as an override; anything absent supports the
+// full STT_CYCLE_LANGS_ALL set) so the language-cycle settings/hotkey can
+// skip languages that would be a no-op for whichever model is actually
+// loaded. See supportedSttLangs() below.
+const STT_MODEL_SUPPORTED_LANGS = {
+  "parakeet-ja": ["ja-JP"],
+};
+
+// `engine`/`modelId` are passed in rather than read from the live
+// sttEngine/sttModel globals so this can answer for either "what's actually
+// armed right now" (see currentSttSupportedLangs()) or "whatever's
+// currently selected in the Settings dropdowns, before it's armed" (see
+// setupSttEngineSettings()) with the same logic.
+function supportedSttLangs(engine, modelId) {
+  if (engine !== "sensevoice") return STT_CYCLE_LANGS_ALL;
+  return STT_MODEL_SUPPORTED_LANGS[modelId] ?? STT_CYCLE_LANGS_ALL;
+}
+
+function currentSttSupportedLangs() {
+  return supportedSttLangs(sttEngine, sttModel);
+}
+
+const STT_INTERIM_PREVIEW_KEY = "mutelink.sttInterimPreviewEnabled";
+
+// Defaults on — see loadChatboxEnabled()'s own comment for why a missing
+// key means "on" here instead of falling back through `?? true`.
+function loadSttInterimPreviewEnabled() {
+  const raw = localStorage.getItem(STT_INTERIM_PREVIEW_KEY);
+  return raw === null ? true : raw === "true";
+}
+
+function saveSttInterimPreviewEnabled(value) {
+  localStorage.setItem(STT_INTERIM_PREVIEW_KEY, String(value));
+}
 
 // Which local model backs the "sensevoice" engine above — see MODELS in
 // sense_voice.rs for what each id actually downloads/loads. Defaults to the
@@ -822,6 +862,7 @@ async function startVoiceMonitor() {
         flushSenseVoiceUtterance();
       } else if (
         senseVoiceUtteranceActive &&
+        sttInterimPreviewEnabled &&
         !senseVoiceInterimInFlight &&
         Date.now() - senseVoiceLastInterimAt >= SENSE_VOICE_INTERIM_INTERVAL_MS
       ) {
@@ -1122,6 +1163,7 @@ function scheduleGoogleRetry() {
 async function startGoogleStt() {
   sttEngine = loadSttEngine();
   sttModel = loadSttModel();
+  sttInterimPreviewEnabled = loadSttInterimPreviewEnabled();
 
   if (sttEngine === "webspeech" && !(window.SpeechRecognition || window.webkitSpeechRecognition)) {
     setGoogleStatus("statusSpeechNotSupported");
@@ -2308,6 +2350,7 @@ function resetClearsKeys() {
     SEND_MODE_KEY,
     STT_ENGINE_KEY,
     STT_MODEL_KEY,
+    STT_INTERIM_PREVIEW_KEY,
     SELECTED_STYLE_KEY,
     TTS_LANG_ENABLED_KEY,
     STT_CYCLE_LANG_KEY,
@@ -2990,9 +3033,10 @@ function setupMicSensitivitySettings() {
   });
 }
 
-// Switching engines here only takes effect the next time recognition
+// Switching engines/models here only takes effect the next time recognition
 // (re)starts — see the `sttEngine = loadSttEngine()` at the top of
-// startGoogleStt() — not live mid-session.
+// startGoogleStt() — not live mid-session. The interim-preview toggle is the
+// one exception (see its own change handler below).
 function setupSttEngineSettings() {
   const select = document.querySelector("#stt-engine-select");
   const modelRow = document.querySelector("#stt-model-row");
@@ -3002,6 +3046,7 @@ function setupSttEngineSettings() {
   const cancelBtn = document.querySelector("#sense-voice-cancel-btn");
   const deleteRow = document.querySelector("#sense-voice-delete-row");
   const deleteBtn = document.querySelector("#sense-voice-delete-btn");
+  const interimPreviewToggle = document.querySelector("#stt-interim-preview-toggle");
 
   // downloadRow and deleteRow are two sides of the same state (not
   // downloaded vs. downloaded) — always refreshed together so they can
@@ -3019,18 +3064,43 @@ function setupSttEngineSettings() {
     deleteRow.hidden = !downloaded;
   }
 
+  // Greys out (disables, doesn't uncheck) the 言語サイクル checkboxes for
+  // whichever languages the currently-selected engine/model combo can't
+  // actually do anything different for (see STT_MODEL_SUPPORTED_LANGS) —
+  // reflects the Settings dropdowns' own current values, not necessarily
+  // what's actually armed (see this function's own leading comment), so it
+  // updates immediately as those are changed rather than lagging behind a
+  // mic re-arm like sttEngine/sttModel themselves.
+  function refreshLangCycleAvailability() {
+    const supported = supportedSttLangs(select.value, modelSelect.value);
+    for (const checkbox of document.querySelectorAll('input[name="stt-cycle-lang"]')) {
+      const isSupported = supported.includes(checkbox.value);
+      checkbox.disabled = !isSupported;
+      checkbox.closest("label").classList.toggle("stt-cycle-lang-unsupported", !isSupported);
+    }
+  }
+
   select.value = loadSttEngine();
   modelSelect.value = loadSttModel();
+  interimPreviewToggle.checked = loadSttInterimPreviewEnabled();
   refreshDownloadRow();
+  refreshLangCycleAvailability();
 
   select.addEventListener("change", () => {
     saveSttEngine(select.value);
     refreshDownloadRow();
+    refreshLangCycleAvailability();
   });
 
   modelSelect.addEventListener("change", () => {
     saveSttModel(modelSelect.value);
     refreshDownloadRow();
+    refreshLangCycleAvailability();
+  });
+
+  interimPreviewToggle.addEventListener("change", () => {
+    sttInterimPreviewEnabled = interimPreviewToggle.checked;
+    saveSttInterimPreviewEnabled(sttInterimPreviewEnabled);
   });
 
   deleteBtn.addEventListener("click", async () => {
@@ -3130,12 +3200,17 @@ function flashLangTag(value) {
 const STT_CYCLE_LANGS_ALL = ["ja-JP", "en-US", "zh-CN", "ko-KR", "auto"];
 
 // Only the languages checked in 設定 > General > 言語サイクル participate,
-// always with "off" appended at the end — falls back to all four if
-// somehow none are checked, so the cycle never becomes a no-op.
+// further narrowed to whatever the active engine/model can actually do
+// something different for (see currentSttSupportedLangs()) — cycling into a
+// language a fixed-vocabulary local model (e.g. parakeet-ja) would just
+// silently ignore isn't useful. Always ends with "off"; falls back to
+// whatever's supported if none of the checked ones are, so the cycle never
+// becomes a no-op.
 function sttCycleOrder() {
   const enabled = loadSttCycleLangs();
-  const langs = STT_CYCLE_LANGS_ALL.filter((lang) => enabled[lang]);
-  return [...(langs.length > 0 ? langs : STT_CYCLE_LANGS_ALL), "off"];
+  const candidates = STT_CYCLE_LANGS_ALL.filter((lang) => currentSttSupportedLangs().includes(lang));
+  const langs = candidates.filter((lang) => enabled[lang]);
+  return [...(langs.length > 0 ? langs : candidates), "off"];
 }
 
 // Advances one step through whichever languages are enabled for the cycle →

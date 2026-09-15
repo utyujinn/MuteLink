@@ -682,6 +682,15 @@ body.ui-mode-desktop .desktop-controls-row {
   white-space: nowrap;
 }
 
+/* A 言語サイクル checkbox whose language the currently-selected local STT
+   model can't actually do anything different for (see
+   refreshLangCycleAvailability() in main.js) — dimmed rather than hidden so
+   its checked state (kept as-is, just inert) stays visible if the user
+   switches back to a model that does support it. */
+.settings-radio-row label.stt-cycle-lang-unsupported {
+  opacity: 0.4;
+}
+
 /* Custom checkbox, matching the radio button treatment (rounded square
    instead of a circle). Placed before .switch below so that rule's equal-
    specificity "input { opacity: 0 }" override still wins by source order,

@@ -1,8 +1,8 @@
 // Local, offline STT (via the `sherpa-onnx` crate) — the alternative to the
 // Web Speech API path (see setupSttEngineSettings()/sttEngine in main.js).
 // Several models are offered (see MODELS below), from different sherpa-onnx
-// model families (SenseVoice, Whisper, Zipformer-transducer, NeMo CTC); the
-// user picks one in Settings and only that one is ever downloaded. None of
+// model families (SenseVoice, Whisper, NeMo CTC); the user picks one in
+// Settings and only that one is ever downloaded. None of
 // them ship in the installer at all — each is tens of MB to ~1GB, downloaded
 // on demand the same way additional VOICEVOX characters are (see download_character in
 // lib.rs), not baked in via bundle.resources. The sherpa-onnx *runtime*
@@ -32,10 +32,7 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use serde::Serialize;
-use sherpa_onnx::{
-    OfflineNemoEncDecCtcModelConfig, OfflineRecognizer, OfflineRecognizerConfig, OfflineSenseVoiceModelConfig, OfflineTransducerModelConfig,
-    OfflineWhisperModelConfig,
-};
+use sherpa_onnx::{OfflineNemoEncDecCtcModelConfig, OfflineRecognizer, OfflineRecognizerConfig, OfflineSenseVoiceModelConfig, OfflineWhisperModelConfig};
 use tauri::{Emitter, Manager};
 
 struct RemoteFile {
@@ -56,14 +53,10 @@ struct RemoteFile {
 enum ModelFiles {
     SenseVoice { model: RemoteFile, tokens: RemoteFile },
     Whisper { encoder: RemoteFile, decoder: RemoteFile, tokens: RemoteFile },
-    // Zipformer-transducer models (e.g. ReazonSpeech) — a different sherpa-onnx
-    // model family from SenseVoice/Whisper, with its own three-file (encoder/
-    // decoder/joiner) layout and no per-model `language` concept at all (see
-    // load_recognizer() and cache_key_language() below).
-    Transducer { encoder: RemoteFile, decoder: RemoteFile, joiner: RemoteFile, tokens: RemoteFile },
     // NeMo CTC models (e.g. the NVIDIA Parakeet TDT-CTC Japanese export) —
-    // single model file like SenseVoice, but (like Transducer above) no
-    // `language` concept to set.
+    // single model file like SenseVoice, but with no per-model `language`
+    // concept to set at all (see load_recognizer() and cache_key_language()
+    // below).
     NemoCtc { model: RemoteFile, tokens: RemoteFile },
 }
 
@@ -72,7 +65,6 @@ impl ModelFiles {
         match self {
             ModelFiles::SenseVoice { model, tokens } => vec![model, tokens],
             ModelFiles::Whisper { encoder, decoder, tokens } => vec![encoder, decoder, tokens],
-            ModelFiles::Transducer { encoder, decoder, joiner, tokens } => vec![encoder, decoder, joiner, tokens],
             ModelFiles::NemoCtc { model, tokens } => vec![model, tokens],
         }
     }
@@ -143,70 +135,14 @@ const MODELS: &[ModelDef] = &[
             },
         },
     },
-    ModelDef {
-        id: "whisper-medium",
-        files: ModelFiles::Whisper {
-            encoder: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-encoder.int8.onnx",
-                filename: "encoder.onnx",
-                size: 374_196_283,
-            },
-            decoder: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-decoder.int8.onnx",
-                filename: "decoder.onnx",
-                size: 571_059_257,
-            },
-            tokens: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-tokens.txt",
-                filename: "tokens.txt",
-                size: 816_730,
-            },
-        },
-    },
-    // ReazonSpeech-k2-v2 (ja-en variant) — a Zipformer-transducer model
-    // trained on 35,000 hours of Japanese TV broadcast audio (Reazon Human
-    // Interaction Lab, Apache 2.0), with this specific export additionally
-    // tuned for Japanese/English code-switching (see its own test_ja_en.wav
-    // in the source repo). Picked over SenseVoice/Whisper specifically for
-    // vocabulary coverage of English loanwords used mid-Japanese-sentence
-    // ("VR", "AI", ...) that SenseVoice's language-pinned modes drop
-    // entirely (see TASK.md #18) — at 159M params / ~73MB int8 total, it's
-    // also far smaller and faster than any of the other options here.
-    // Japanese/English only, unlike SenseVoice/Whisper's broader zh/ko
-    // coverage — reflected in the option label in main.js.
-    ModelDef {
-        id: "reazonspeech-ja-en",
-        files: ModelFiles::Transducer {
-            encoder: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/encoder-epoch-35-avg-1.int8.onnx",
-                filename: "encoder.onnx",
-                size: 70_876_409,
-            },
-            decoder: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/decoder-epoch-35-avg-1.int8.onnx",
-                filename: "decoder.onnx",
-                size: 1_308_690,
-            },
-            joiner: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/joiner-epoch-35-avg-1.int8.onnx",
-                filename: "joiner.onnx",
-                size: 1_033_417,
-            },
-            tokens: RemoteFile {
-                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/tokens.txt",
-                filename: "tokens.txt",
-                size: 26_631,
-            },
-        },
-    },
-    // NVIDIA NeMo Parakeet TDT-CTC, 0.6B params, Japanese — trained on the
-    // same 35,000-hour ReazonSpeech corpus as the transducer model above,
-    // but a much larger architecture (0.6B vs 159M params). Offered as the
-    // "highest accuracy, don't care as much about size/speed" alternative:
-    // ~4x reazonspeech-ja-en's total size and correspondingly slower to run,
-    // in exchange for whatever accuracy the bigger model buys on vocabulary
-    // reazonspeech-ja-en still gets wrong (casual/internet-slang
-    // expressions like "ねむねむにゃんこ", per TASK.md #18's follow-up).
+    // NVIDIA NeMo Parakeet TDT-CTC, 0.6B params, Japanese-only — trained on
+    // 35,000 hours of Japanese TV broadcast audio (Reazon Human Interaction
+    // Lab corpus). Picked over SenseVoice/Whisper specifically for
+    // vocabulary coverage that SenseVoice's language-pinned modes drop
+    // entirely, English loanwords mid-Japanese-sentence ("VR", "AI", ...)
+    // included (see TASK.md #18) — in exchange for being much bigger/slower
+    // to run than SenseVoice, and Japanese-only unlike SenseVoice/Whisper's
+    // broader zh/ko coverage (reflected in the option label in main.js).
     ModelDef {
         id: "parakeet-ja",
         files: ModelFiles::NemoCtc {
@@ -499,20 +435,10 @@ fn load_recognizer(def: &ModelDef, language: &str) -> Result<OfflineRecognizer, 
             };
             config.model_config.tokens = Some(dir.join(tokens.filename).to_string_lossy().into_owned());
         }
-        ModelFiles::Transducer { encoder, decoder, joiner, tokens } => {
-            // No `language` field here — OfflineTransducerModelConfig has
-            // none to set (see cache_key_language() below for why the
-            // parameter above is otherwise unused in this branch).
-            config.model_config.transducer = OfflineTransducerModelConfig {
-                encoder: Some(dir.join(encoder.filename).to_string_lossy().into_owned()),
-                decoder: Some(dir.join(decoder.filename).to_string_lossy().into_owned()),
-                joiner: Some(dir.join(joiner.filename).to_string_lossy().into_owned()),
-            };
-            config.model_config.tokens = Some(dir.join(tokens.filename).to_string_lossy().into_owned());
-        }
         ModelFiles::NemoCtc { model, tokens } => {
-            // No `language` field here either — OfflineNemoEncDecCtcModelConfig
-            // is just `{ model }` (see cache_key_language() below).
+            // No `language` field here — OfflineNemoEncDecCtcModelConfig is
+            // just `{ model }` (see cache_key_language() below for why the
+            // parameter above is otherwise unused in this branch).
             config.model_config.nemo_ctc = OfflineNemoEncDecCtcModelConfig {
                 model: Some(dir.join(model.filename).to_string_lossy().into_owned()),
             };
@@ -522,16 +448,16 @@ fn load_recognizer(def: &ModelDef, language: &str) -> Result<OfflineRecognizer, 
     OfflineRecognizer::create(&config).ok_or_else(|| "OfflineRecognizer::create returned None".to_string())
 }
 
-// Transducer models (see ModelFiles::Transducer above) have no per-model
+// NeMo CTC models (see ModelFiles::NemoCtc above) have no per-model
 // `language` concept at all — load_recognizer() never reads `language` for
 // them. Normalizing it here to a fixed value (rather than the frontend's
 // actual stt-lang selection) before it's used as part of the "is what's
 // currently loaded still valid" cache key means switching the UI's
-// recognition language doesn't spuriously reload an already-loaded
-// transducer model that was never going to behave differently anyway.
+// recognition language doesn't spuriously reload an already-loaded NeMo CTC
+// model that was never going to behave differently anyway.
 fn cache_key_language(def: &ModelDef, language: &str) -> String {
     match &def.files {
-        ModelFiles::Transducer { .. } | ModelFiles::NemoCtc { .. } => String::new(),
+        ModelFiles::NemoCtc { .. } => String::new(),
         _ => language.to_string(),
     }
 }

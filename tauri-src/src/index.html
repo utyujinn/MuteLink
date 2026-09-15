@@ -118,8 +118,7 @@
               </select>
             </div>
             <p class="hint" data-i18n="sttEngineHint">
-              ローカル音声認識は発話の区切りごとにまとめて認識するため、Web Speech
-              APIのようなリアルタイムのプレビュー表示はできません。選んだモデルは初回利用時にダウンロードが必要です。
+              ローカル音声認識は発話の区切りごとにまとめて認識しますが、発話中も一定間隔で再認識してプレビュー表示します(下の設定でオフにできます)。選んだモデルは初回利用時にダウンロードが必要です。
             </p>
             <div class="settings-list-row" id="stt-model-row" hidden>
               <span class="settings-list-label" data-i18n="sttModelLabel">モデル</span>
@@ -127,8 +126,6 @@
                 <option value="sense-voice-int8" data-i18n="sttModelSenseVoiceInt8Option">SenseVoice 軽量版(約240MB)</option>
                 <option value="sense-voice-fp32" data-i18n="sttModelSenseVoiceFp32Option">SenseVoice 標準版(約940MB)</option>
                 <option value="whisper-turbo" data-i18n="sttModelWhisperTurboOption">Whisper turbo(約1.0GB)</option>
-                <option value="whisper-medium" data-i18n="sttModelWhisperMediumOption">Whisper medium(約950MB)</option>
-                <option value="reazonspeech-ja-en" data-i18n="sttModelReazonspeechOption">ReazonSpeech 日本語+英語(約73MB)</option>
                 <option value="parakeet-ja" data-i18n="sttModelParakeetOption">Parakeet 日本語 高精度(約660MB)</option>
               </select>
             </div>
@@ -149,6 +146,16 @@
                 削除
               </button>
             </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="sttInterimPreviewLabel">発話中のプレビュー表示</span>
+              <label class="switch">
+                <input type="checkbox" id="stt-interim-preview-toggle" checked />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <p class="hint" data-i18n="sttInterimPreviewHint">
+              オフにすると、確定するまで再認識を行わなくなります。Whisperなど処理が重いモデルで負荷を抑えたい場合に。
+            </p>
 
             <h3 data-i18n="micSensitivityHeading">マイク感度</h3>
             <div class="settings-list-row">
