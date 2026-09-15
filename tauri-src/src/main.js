@@ -365,6 +365,24 @@ const I18N = {
     zh: "Whisper medium(约950MB)",
     ko: "Whisper medium(약 950MB)",
   },
+  // Japanese+English only, unlike the other options' broader zh/ko coverage
+  // — deliberately spelled out in the label itself (see MODELS' own comment
+  // in sense_voice.rs) rather than left implicit.
+  sttModelReazonspeechOption: {
+    ja: "ReazonSpeech 日本語+英語(約73MB)",
+    en: "ReazonSpeech, Japanese + English (about 73MB)",
+    zh: "ReazonSpeech 日语+英语(约73MB)",
+    ko: "ReazonSpeech 일본어+영어(약 73MB)",
+  },
+  // NVIDIA Parakeet TDT-CTC 0.6B, Japanese-only — much bigger/slower than
+  // reazonspeech-ja-en (same training corpus, ~4x the params) in exchange
+  // for potentially better accuracy on vocabulary it still gets wrong.
+  sttModelParakeetOption: {
+    ja: "Parakeet 日本語 高精度(約660MB)",
+    en: "Parakeet, Japanese, high accuracy (about 660MB)",
+    zh: "Parakeet 日语 高精度(约660MB)",
+    ko: "Parakeet 일본어 고정밀(약 660MB)",
+  },
   sttEngineDownloadLabel: {
     ja: "モデルのダウンロード",
     en: "Model download",
@@ -480,6 +498,15 @@ const SILENCE_TIMEOUT_MS = 5000;
 // which would otherwise add up to another ~1s of its own on top.
 const SENSE_VOICE_SILENCE_MS = 700;
 const SILENCE_CHECK_MS = 150;
+// How often to re-run SenseVoice against the in-progress utterance buffer
+// while the user is still talking, purely to drive the same 入力中 preview
+// the Web Speech API gives for free via interimResults — SenseVoice itself
+// has no concept of interim results (see startVoiceMonitor's comment), so
+// this fakes it by just re-transcribing the growing buffer from scratch on
+// an interval. Short enough to feel live, long enough that a full decode
+// pass (which grows with buffer length as the utterance goes on) reliably
+// finishes before the next one fires (see senseVoiceInterimInFlight below).
+const SENSE_VOICE_INTERIM_INTERVAL_MS = 600;
 
 const VOICE_RMS_THRESHOLD_KEY = "mutelink.voiceRmsThreshold";
 const DEFAULT_VOICE_RMS_THRESHOLD = 0.1;
@@ -661,7 +688,7 @@ function saveSttEngine(engine) {
 }
 
 const STT_MODEL_KEY = "mutelink.sttModel";
-const STT_MODEL_IDS = ["sense-voice-int8", "sense-voice-fp32", "whisper-turbo", "whisper-medium"];
+const STT_MODEL_IDS = ["sense-voice-int8", "sense-voice-fp32", "whisper-turbo", "whisper-medium", "reazonspeech-ja-en", "parakeet-ja"];
 const DEFAULT_STT_MODEL = "sense-voice-fp32";
 
 // Which local model backs the "sensevoice" engine above — see MODELS in
@@ -758,13 +785,23 @@ async function startVoiceMonitor() {
     // SenseVoice has no concept of "still listening" the way SpeechRecognition
     // does — it only ever sees one already-complete utterance at a time (see
     // sense_voice.rs) — so this buffers raw samples for the whole utterance
-    // (from the first voiced chunk through to the silence that ends it,
-    // brief in-between pauses included) and hands the lot to
-    // transcribeSenseVoiceUtterance() once silenceCheckTimer below decides
-    // the utterance is over.
-    if (sttEngine === "sensevoice" && recognizing && (voiced || senseVoiceUtteranceActive)) {
-      senseVoiceUtteranceActive = true;
-      senseVoiceBuffer.push(chunk.slice()); // copy — the browser reuses this buffer next callback
+    // (from just before the first voiced chunk — see the preroll buffer
+    // below — through to the silence that ends it, brief in-between pauses
+    // included) and hands the lot to transcribeSenseVoiceUtterance() once
+    // silenceCheckTimer below decides the utterance is over.
+    if (sttEngine === "sensevoice" && recognizing) {
+      if (voiced || senseVoiceUtteranceActive) {
+        if (voiced && !senseVoiceUtteranceActive) {
+          senseVoiceBuffer.push(...senseVoicePrerollBuffer);
+          senseVoiceUtteranceId++;
+          senseVoiceLastInterimAt = Date.now();
+        }
+        senseVoiceUtteranceActive = true;
+        senseVoiceBuffer.push(chunk.slice()); // copy — the browser reuses this buffer next callback
+      } else {
+        senseVoicePrerollBuffer.push(chunk.slice());
+        if (senseVoicePrerollBuffer.length > SENSE_VOICE_PREROLL_CHUNKS) senseVoicePrerollBuffer.shift();
+      }
     }
 
     if (!voiced) return;
@@ -781,7 +818,15 @@ async function startVoiceMonitor() {
     if (!recognizing) return;
     const silentFor = Date.now() - lastVoiceAt;
     if (sttEngine === "sensevoice") {
-      if (senseVoiceUtteranceActive && silentFor >= SENSE_VOICE_SILENCE_MS) flushSenseVoiceUtterance();
+      if (senseVoiceUtteranceActive && silentFor >= SENSE_VOICE_SILENCE_MS) {
+        flushSenseVoiceUtterance();
+      } else if (
+        senseVoiceUtteranceActive &&
+        !senseVoiceInterimInFlight &&
+        Date.now() - senseVoiceLastInterimAt >= SENSE_VOICE_INTERIM_INTERVAL_MS
+      ) {
+        runSenseVoiceInterim();
+      }
     } else if (silentFor >= SILENCE_TIMEOUT_MS) {
       setGoogleStatus("statusWaitingForVoice");
     }
@@ -800,6 +845,23 @@ async function startVoiceMonitor() {
 
 let senseVoiceBuffer = [];
 let senseVoiceUtteranceActive = false;
+// Bumped every time a new utterance starts (see onaudioprocess) so a
+// runSenseVoiceInterim() call that was in flight when the utterance ended
+// (flushed to Final, or superseded by the next utterance already starting)
+// can tell its result is stale and drop it instead of clobbering
+// currentInterimText after the fact.
+let senseVoiceUtteranceId = 0;
+let senseVoiceInterimInFlight = false;
+let senseVoiceLastInterimAt = 0;
+// A short rolling lookback of recent chunks, kept regardless of `voiced` —
+// prepended to senseVoiceBuffer the instant an utterance actually starts
+// (see onaudioprocess in startVoiceMonitor), so whatever onset/attack
+// portion of the sound came in *before* RMS crossed the threshold isn't
+// lost. The trailing end doesn't need the equivalent: chunks keep getting
+// buffered through the full SENSE_VOICE_SILENCE_MS of trailing silence
+// before a flush, which already acts as tail padding on its own.
+const SENSE_VOICE_PREROLL_CHUNKS = 3;
+let senseVoicePrerollBuffer = [];
 
 // Matches Hiragana/Katakana, CJK ideographs, Hangul, and full-width forms —
 // the ranges where a space between two such characters is never meaningful
@@ -819,6 +881,58 @@ function cleanSttText(text) {
   return text.replace(CJK_SPACE_RE, "").replace(STT_STRIP_PUNCTUATION_RE, "").trim();
 }
 
+function concatSenseVoiceChunks(chunks) {
+  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
+  const samples = new Float32Array(totalLength);
+  let offset = 0;
+  for (const c of chunks) {
+    samples.set(c, offset);
+    offset += c.length;
+  }
+  return samples;
+}
+
+// SenseVoice (and the other local models) only ever see one already-complete
+// utterance at a time — there's no native interim/partial result the way
+// SpeechRecognition has (see startVoiceMonitor's comment) — so this fakes
+// one by re-transcribing a snapshot of the in-progress buffer on an
+// interval and shoving the result into the same currentInterimText the Web
+// Speech API path drives. Called from the same silenceCheckTimer loop as
+// flushSenseVoiceUtterance, never concurrently with itself (see
+// senseVoiceInterimInFlight), but freely concurrently WITH a flush — both
+// go through stt_transcribe's own Mutex-guarded recognizer, so they just
+// serialize on the Rust side rather than racing.
+async function runSenseVoiceInterim() {
+  const utteranceId = senseVoiceUtteranceId;
+  const samples = concatSenseVoiceChunks(senseVoiceBuffer);
+  if (samples.length === 0) return;
+
+  senseVoiceInterimInFlight = true;
+  senseVoiceLastInterimAt = Date.now();
+  try {
+    const text = cleanSttText(
+      await window.__TAURI__.core.invoke("stt_transcribe", {
+        samples: Array.from(samples),
+        sampleRate: monitorCtx.sampleRate,
+        modelId: sttModel,
+        language: senseVoiceLangCode(),
+      }),
+    );
+    // The utterance this was transcribing may have already been flushed to
+    // Final (or superseded by a new one starting) while the decode was in
+    // flight — applying a stale partial on top of that would flicker the
+    // just-confirmed Final text back into "still recognizing".
+    if (utteranceId !== senseVoiceUtteranceId || !senseVoiceUtteranceActive) return;
+    currentInterimText = text;
+    renderMergedText();
+    log(`[sensevoice:partial] text=${text}`);
+  } catch (err) {
+    log(`[sensevoice:error] ${err}`);
+  } finally {
+    senseVoiceInterimInFlight = false;
+  }
+}
+
 // Concatenates the buffered chunks into one Float32Array and sends it to
 // stt_transcribe in one shot — reset happens up front so a slow
 // transcribe (or the user starting to talk again immediately) doesn't get
@@ -827,15 +941,18 @@ async function flushSenseVoiceUtterance() {
   const chunks = senseVoiceBuffer;
   senseVoiceBuffer = [];
   senseVoiceUtteranceActive = false;
+  // Otherwise this would still hold whatever was rolling right before the
+  // utterance that's *just now* being flushed started — stale by however
+  // long that utterance plus SENSE_VOICE_SILENCE_MS of trailing silence
+  // lasted, since the preroll buffer isn't touched while an utterance is
+  // active (see onaudioprocess). Left in place, a new utterance starting
+  // again quickly would get that stale audio prepended instead of a fresh,
+  // actually-adjacent preroll.
+  senseVoicePrerollBuffer = [];
 
-  const totalLength = chunks.reduce((sum, c) => sum + c.length, 0);
-  if (totalLength === 0) return;
-  const samples = new Float32Array(totalLength);
-  let offset = 0;
-  for (const c of chunks) {
-    samples.set(c, offset);
-    offset += c.length;
-  }
+  if (chunks.length === 0) return;
+  const samples = concatSenseVoiceChunks(chunks);
+  if (samples.length === 0) return;
 
   setGoogleStatus("statusTranscribing");
   try {
@@ -1059,6 +1176,7 @@ function stopGoogleStt() {
   if (sttEngine === "webspeech" && recognition) recognition.stop();
   senseVoiceBuffer = [];
   senseVoiceUtteranceActive = false;
+  senseVoicePrerollBuffer = [];
   stopVoiceMonitor();
   setGoogleStatus("statusIdle");
   googleBtn.textContent = t("startButton");

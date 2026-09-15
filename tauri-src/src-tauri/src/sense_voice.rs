@@ -1,10 +1,10 @@
 // Local, offline STT (via the `sherpa-onnx` crate) — the alternative to the
 // Web Speech API path (see setupSttEngineSettings()/sttEngine in main.js).
 // Several models are offered (see MODELS below), from different sherpa-onnx
-// model families (SenseVoice, Whisper); the user picks one in Settings and
-// only that one is ever downloaded. None of them ship in the installer at
-// all — each is several hundred MB to ~1GB, downloaded on demand the same
-// way additional VOICEVOX characters are (see download_character in
+// model families (SenseVoice, Whisper, Zipformer-transducer, NeMo CTC); the
+// user picks one in Settings and only that one is ever downloaded. None of
+// them ship in the installer at all — each is tens of MB to ~1GB, downloaded
+// on demand the same way additional VOICEVOX characters are (see download_character in
 // lib.rs), not baked in via bundle.resources. The sherpa-onnx *runtime*
 // (onnxruntime.dll/sherpa-onnx-c-api.dll/sherpa-onnx-cxx-api.dll) is
 // different — those DO ship with the installer (see bundle.resources in
@@ -32,7 +32,10 @@ use std::time::Duration;
 
 use futures_util::StreamExt;
 use serde::Serialize;
-use sherpa_onnx::{OfflineRecognizer, OfflineRecognizerConfig, OfflineSenseVoiceModelConfig, OfflineWhisperModelConfig};
+use sherpa_onnx::{
+    OfflineNemoEncDecCtcModelConfig, OfflineRecognizer, OfflineRecognizerConfig, OfflineSenseVoiceModelConfig, OfflineTransducerModelConfig,
+    OfflineWhisperModelConfig,
+};
 use tauri::{Emitter, Manager};
 
 struct RemoteFile {
@@ -53,6 +56,15 @@ struct RemoteFile {
 enum ModelFiles {
     SenseVoice { model: RemoteFile, tokens: RemoteFile },
     Whisper { encoder: RemoteFile, decoder: RemoteFile, tokens: RemoteFile },
+    // Zipformer-transducer models (e.g. ReazonSpeech) — a different sherpa-onnx
+    // model family from SenseVoice/Whisper, with its own three-file (encoder/
+    // decoder/joiner) layout and no per-model `language` concept at all (see
+    // load_recognizer() and cache_key_language() below).
+    Transducer { encoder: RemoteFile, decoder: RemoteFile, joiner: RemoteFile, tokens: RemoteFile },
+    // NeMo CTC models (e.g. the NVIDIA Parakeet TDT-CTC Japanese export) —
+    // single model file like SenseVoice, but (like Transducer above) no
+    // `language` concept to set.
+    NemoCtc { model: RemoteFile, tokens: RemoteFile },
 }
 
 impl ModelFiles {
@@ -60,6 +72,8 @@ impl ModelFiles {
         match self {
             ModelFiles::SenseVoice { model, tokens } => vec![model, tokens],
             ModelFiles::Whisper { encoder, decoder, tokens } => vec![encoder, decoder, tokens],
+            ModelFiles::Transducer { encoder, decoder, joiner, tokens } => vec![encoder, decoder, joiner, tokens],
+            ModelFiles::NemoCtc { model, tokens } => vec![model, tokens],
         }
     }
 }
@@ -146,6 +160,65 @@ const MODELS: &[ModelDef] = &[
                 url: "https://huggingface.co/csukuangfj/sherpa-onnx-whisper-medium/resolve/main/medium-tokens.txt",
                 filename: "tokens.txt",
                 size: 816_730,
+            },
+        },
+    },
+    // ReazonSpeech-k2-v2 (ja-en variant) — a Zipformer-transducer model
+    // trained on 35,000 hours of Japanese TV broadcast audio (Reazon Human
+    // Interaction Lab, Apache 2.0), with this specific export additionally
+    // tuned for Japanese/English code-switching (see its own test_ja_en.wav
+    // in the source repo). Picked over SenseVoice/Whisper specifically for
+    // vocabulary coverage of English loanwords used mid-Japanese-sentence
+    // ("VR", "AI", ...) that SenseVoice's language-pinned modes drop
+    // entirely (see TASK.md #18) — at 159M params / ~73MB int8 total, it's
+    // also far smaller and faster than any of the other options here.
+    // Japanese/English only, unlike SenseVoice/Whisper's broader zh/ko
+    // coverage — reflected in the option label in main.js.
+    ModelDef {
+        id: "reazonspeech-ja-en",
+        files: ModelFiles::Transducer {
+            encoder: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/encoder-epoch-35-avg-1.int8.onnx",
+                filename: "encoder.onnx",
+                size: 70_876_409,
+            },
+            decoder: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/decoder-epoch-35-avg-1.int8.onnx",
+                filename: "decoder.onnx",
+                size: 1_308_690,
+            },
+            joiner: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/joiner-epoch-35-avg-1.int8.onnx",
+                filename: "joiner.onnx",
+                size: 1_033_417,
+            },
+            tokens: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/reazonspeech-k2-v2-ja-en/resolve/main/tokens.txt",
+                filename: "tokens.txt",
+                size: 26_631,
+            },
+        },
+    },
+    // NVIDIA NeMo Parakeet TDT-CTC, 0.6B params, Japanese — trained on the
+    // same 35,000-hour ReazonSpeech corpus as the transducer model above,
+    // but a much larger architecture (0.6B vs 159M params). Offered as the
+    // "highest accuracy, don't care as much about size/speed" alternative:
+    // ~4x reazonspeech-ja-en's total size and correspondingly slower to run,
+    // in exchange for whatever accuracy the bigger model buys on vocabulary
+    // reazonspeech-ja-en still gets wrong (casual/internet-slang
+    // expressions like "ねむねむにゃんこ", per TASK.md #18's follow-up).
+    ModelDef {
+        id: "parakeet-ja",
+        files: ModelFiles::NemoCtc {
+            model: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8/resolve/main/model.int8.onnx",
+                filename: "model.onnx",
+                size: 655_542_604,
+            },
+            tokens: RemoteFile {
+                url: "https://huggingface.co/csukuangfj/sherpa-onnx-nemo-parakeet-tdt_ctc-0.6b-ja-35000-int8/resolve/main/tokens.txt",
+                filename: "tokens.txt",
+                size: 28_557,
             },
         },
     },
@@ -426,8 +499,41 @@ fn load_recognizer(def: &ModelDef, language: &str) -> Result<OfflineRecognizer, 
             };
             config.model_config.tokens = Some(dir.join(tokens.filename).to_string_lossy().into_owned());
         }
+        ModelFiles::Transducer { encoder, decoder, joiner, tokens } => {
+            // No `language` field here — OfflineTransducerModelConfig has
+            // none to set (see cache_key_language() below for why the
+            // parameter above is otherwise unused in this branch).
+            config.model_config.transducer = OfflineTransducerModelConfig {
+                encoder: Some(dir.join(encoder.filename).to_string_lossy().into_owned()),
+                decoder: Some(dir.join(decoder.filename).to_string_lossy().into_owned()),
+                joiner: Some(dir.join(joiner.filename).to_string_lossy().into_owned()),
+            };
+            config.model_config.tokens = Some(dir.join(tokens.filename).to_string_lossy().into_owned());
+        }
+        ModelFiles::NemoCtc { model, tokens } => {
+            // No `language` field here either — OfflineNemoEncDecCtcModelConfig
+            // is just `{ model }` (see cache_key_language() below).
+            config.model_config.nemo_ctc = OfflineNemoEncDecCtcModelConfig {
+                model: Some(dir.join(model.filename).to_string_lossy().into_owned()),
+            };
+            config.model_config.tokens = Some(dir.join(tokens.filename).to_string_lossy().into_owned());
+        }
     }
     OfflineRecognizer::create(&config).ok_or_else(|| "OfflineRecognizer::create returned None".to_string())
+}
+
+// Transducer models (see ModelFiles::Transducer above) have no per-model
+// `language` concept at all — load_recognizer() never reads `language` for
+// them. Normalizing it here to a fixed value (rather than the frontend's
+// actual stt-lang selection) before it's used as part of the "is what's
+// currently loaded still valid" cache key means switching the UI's
+// recognition language doesn't spuriously reload an already-loaded
+// transducer model that was never going to behave differently anyway.
+fn cache_key_language(def: &ModelDef, language: &str) -> String {
+    match &def.files {
+        ModelFiles::Transducer { .. } | ModelFiles::NemoCtc { .. } => String::new(),
+        _ => language.to_string(),
+    }
 }
 
 // Called both when Settings first switches the STT engine to local and
@@ -449,6 +555,7 @@ fn load_recognizer(def: &ModelDef, language: &str) -> Result<OfflineRecognizer, 
 pub async fn load_stt_model(model_id: String, language: String, app: tauri::AppHandle) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let def = find_model(&model_id)?;
+        let language = cache_key_language(def, &language);
         let state = app.state::<SenseVoiceState>();
         let mut guard = state.0.lock().map_err(|e| e.to_string())?;
         let stale = guard.as_ref().is_none_or(|loaded| loaded.model_id != model_id || loaded.language != language);
@@ -480,6 +587,7 @@ pub async fn stt_transcribe(
 ) -> Result<String, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let def = find_model(&model_id)?;
+        let language = cache_key_language(def, &language);
         let state = app.state::<SenseVoiceState>();
         let mut guard = state.0.lock().map_err(|e| e.to_string())?;
         let stale = guard.as_ref().is_none_or(|loaded| loaded.model_id != model_id || loaded.language != language);
@@ -497,3 +605,4 @@ pub async fn stt_transcribe(
     .await
     .map_err(|e| e.to_string())?
 }
+
