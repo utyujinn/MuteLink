@@ -1,7 +1,12 @@
 mod audio_device;
 mod overlay;
 mod overlay_gpu;
-mod sense_voice;
+// pub, not just mod: examples/gain_test.rs (cargo run --example) reaches
+// sense_voice::create_recognizer_for_testing() through this to exercise the
+// exact same model-loading/decoding path the app ships, without going
+// through the Tauri command layer.
+pub mod sense_voice;
+mod vad;
 
 use std::fs;
 use std::net::UdpSocket;
@@ -532,6 +537,7 @@ pub fn run() {
             app.manage(OpenVrState(Mutex::new(init_openvr())));
             app.manage(sense_voice::SenseVoiceState::new());
             app.manage(sense_voice::DownloadCancelState::new());
+            app.manage(vad::VadState::new());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -551,7 +557,9 @@ pub fn run() {
             sense_voice::cancel_stt_model_download,
             sense_voice::delete_stt_model,
             sense_voice::load_stt_model,
-            sense_voice::stt_transcribe
+            sense_voice::stt_transcribe,
+            vad::vad_process_chunk,
+            vad::vad_reset
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

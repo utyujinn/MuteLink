@@ -39,6 +39,7 @@
     ],
     "resources": {
       "voicevox_core": "voicevox_core",
+      "vad": "vad",
       "ort-resource/onnxruntime.dll": "onnxruntime.dll",
       "ort-resource/onnxruntime_providers_shared.dll": "onnxruntime_providers_shared.dll",
       "target/release/sherpa-onnx-c-api.dll": "sherpa-onnx-c-api.dll",

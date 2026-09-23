@@ -17,11 +17,13 @@
 // Unlike the Web Speech API, none of these are streaming recognizers: each
 // transcribes one already-complete utterance at a time (see
 // OfflineRecognizer below — "Offline" is sherpa-onnx's own term for
-// whole-utterance, non-streaming models). The frontend is what decides where
-// one utterance ends (a short silence-timeout VAD, see SENSE_VOICE_SILENCE_MS
-// in main.js), buffers raw samples for it, and sends the whole thing over in
-// one stt_transcribe call — there's no equivalent of SpeechRecognition's
-// live interim results for any of these.
+// whole-utterance, non-streaming models). vad.rs (Silero VAD, also via
+// sherpa-onnx) is what decides where one utterance ends — the frontend
+// streams raw mic samples there continuously and gets back already-segmented
+// speech segments (see vad_process_chunk/handleVadResult in main.js), each
+// of which becomes one stt_transcribe call — there's no equivalent of
+// SpeechRecognition's live interim results for any of these (main.js fakes
+// one, see runSenseVoiceInterim there).
 
 use std::collections::HashMap;
 use std::io::Write;

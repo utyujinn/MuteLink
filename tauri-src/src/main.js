@@ -27,10 +27,10 @@ const I18N = {
     ko: "무음 판정 임계값",
   },
   micSensitivityHint: {
-    ja: "値を大きくすると、息や物音などの小さな音を発話と誤認識しにくくなります。大きくしすぎると、小さな声を拾えなくなることがあります。",
-    en: "A higher value makes quiet sounds (breathing, background noise) less likely to be misread as speech. Too high, though, and quiet speech itself may go undetected.",
-    zh: "数值越大，呼吸声等微小声音越不容易被误判为说话；但过大可能导致较小的说话声也无法被识别。",
-    ko: "값을 높이면 숨소리 등 작은 소리를 발화로 오인식하기 어려워집니다. 너무 높이면 작은 목소리를 인식하지 못할 수 있습니다.",
+    ja: "値を大きくすると、息や物音などの小さな音を発話と誤認識しにくくなります。大きくしすぎると、小さな声を拾えなくなることがあります。ローカル音声認識(SenseVoice/Whisper/Parakeet)の発話区切り判定にはこの値ではなくVADモデルが使われるため、その誤認識対策としてはあまり効きません。",
+    en: "A higher value makes quiet sounds (breathing, background noise) less likely to be misread as speech. Too high, though, and quiet speech itself may go undetected. Local speech recognition (SenseVoice/Whisper/Parakeet) uses a VAD model rather than this value to detect utterance boundaries, so raising it won't help much against false triggers there.",
+    zh: "数值越大，呼吸声等微小声音越不容易被误判为说话；但过大可能导致较小的说话声也无法被识别。本地语音识别(SenseVoice/Whisper/Parakeet)的发话区间判定使用的是VAD模型而非此数值，因此对本地识别的误判帮助有限。",
+    ko: "값을 높이면 숨소리 등 작은 소리를 발화로 오인식하기 어려워집니다. 너무 높이면 작은 목소리를 인식하지 못할 수 있습니다. 로컬 음성 인식(SenseVoice/Whisper/Parakeet)의 발화 구간 판정은 이 값이 아니라 VAD 모델을 사용하므로, 그쪽 오인식 대책으로는 큰 효과가 없습니다.",
   },
 
   resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
@@ -484,17 +484,18 @@ function refreshDynamicI18nText() {
 }
 
 const GOOGLE_RETRY_MS = 3000;
+// How long a pause has to last before "nothing's being said at all" desktop
+// status / webspeech watchdog kicks in — separate from Silero VAD's own
+// min_silence_duration (vad.rs) that decides the equivalent for SenseVoice's
+// utterance-end-and-transcribe timing.
 const SILENCE_TIMEOUT_MS = 5000;
-// How long a pause has to last before SenseVoice treats it as "the utterance
-// is over, start transcribing" rather than a mid-sentence breath. Separate
-// from (and much shorter than) SILENCE_TIMEOUT_MS above, which is only about
-// the "nothing's being said at all" desktop status / webspeech watchdog —
-// this one directly IS the speak-to-text latency floor for SenseVoice, since
-// nothing gets sent for transcription until it elapses. Checked via
-// SILENCE_CHECK_MS below, not SILENCE_TIMEOUT_MS's old 1s polling interval,
-// which would otherwise add up to another ~1s of its own on top.
-const SENSE_VOICE_SILENCE_MS = 700;
 const SILENCE_CHECK_MS = 150;
+// Silero VAD's own internal chunking runs at 16kHz regardless of what rate
+// the browser's mic capture happens to be — the SpeechSegment samples
+// vad_process_chunk hands back (see handleVadResult) are already in that
+// domain, so dispatchSenseVoiceSegment needs this instead of
+// monitorCtx.sampleRate. Must match vad.rs's VAD_SAMPLE_RATE.
+const VAD_SEGMENT_SAMPLE_RATE = 16000;
 // How often to re-run SenseVoice against the in-progress utterance buffer
 // while the user is still talking, purely to drive the same 入力中 preview
 // the Web Speech API gives for free via interimResults — SenseVoice itself
@@ -822,26 +823,14 @@ async function startVoiceMonitor() {
     const chunk = event.inputBuffer.getChannelData(0);
     const voiced = rms(chunk) >= voiceRmsThresholdCache;
 
-    // SenseVoice has no concept of "still listening" the way SpeechRecognition
-    // does — it only ever sees one already-complete utterance at a time (see
-    // sense_voice.rs) — so this buffers raw samples for the whole utterance
-    // (from just before the first voiced chunk — see the preroll buffer
-    // below — through to the silence that ends it, brief in-between pauses
-    // included) and hands the lot to transcribeSenseVoiceUtterance() once
-    // silenceCheckTimer below decides the utterance is over.
+    // Utterance segmentation for local STT is handled by Silero VAD on the
+    // Rust side now (see vad.rs) — this just forwards the raw chunk there
+    // and reacts to what comes back (see enqueueVadChunk/handleVadResult).
+    // Used to be a plain RMS-threshold buffer/preroll scheme entirely in
+    // JS; a trained VAD tells actual speech apart from breath/airflow noise
+    // far better than an amplitude threshold does (see TASK.md #20).
     if (sttEngine === "sensevoice" && recognizing) {
-      if (voiced || senseVoiceUtteranceActive) {
-        if (voiced && !senseVoiceUtteranceActive) {
-          senseVoiceBuffer.push(...senseVoicePrerollBuffer);
-          senseVoiceUtteranceId++;
-          senseVoiceLastInterimAt = Date.now();
-        }
-        senseVoiceUtteranceActive = true;
-        senseVoiceBuffer.push(chunk.slice()); // copy — the browser reuses this buffer next callback
-      } else {
-        senseVoicePrerollBuffer.push(chunk.slice());
-        if (senseVoicePrerollBuffer.length > SENSE_VOICE_PREROLL_CHUNKS) senseVoicePrerollBuffer.shift();
-      }
+      enqueueVadChunk(chunk.slice(), monitorCtx.sampleRate); // copy — the browser reuses this buffer next callback
     }
 
     if (!voiced) return;
@@ -858,10 +847,13 @@ async function startVoiceMonitor() {
     if (!recognizing) return;
     const silentFor = Date.now() - lastVoiceAt;
     if (sttEngine === "sensevoice") {
-      if (senseVoiceUtteranceActive && silentFor >= SENSE_VOICE_SILENCE_MS) {
-        flushSenseVoiceUtterance();
-      } else if (
-        senseVoiceUtteranceActive &&
+      // Flushing to Final on silence used to be a plain wall-clock timer
+      // here — now Silero VAD (min_silence_duration, see vad.rs) decides
+      // that on the Rust side and hands back a completed segment via
+      // handleVadResult() instead, so all that's left for this timer is
+      // the interim-preview trigger.
+      if (
+        vadInSpeech &&
         sttInterimPreviewEnabled &&
         !senseVoiceInterimInFlight &&
         Date.now() - senseVoiceLastInterimAt >= SENSE_VOICE_INTERIM_INTERVAL_MS
@@ -884,9 +876,18 @@ async function startVoiceMonitor() {
   }, SILENCE_CHECK_MS);
 }
 
-let senseVoiceBuffer = [];
-let senseVoiceUtteranceActive = false;
-// Bumped every time a new utterance starts (see onaudioprocess) so a
+// Whether Rust's Silero VAD currently considers us mid-utterance — mirrors
+// vad_process_chunk's own detected() state (see vad.rs), kept here purely
+// so runSenseVoiceInterim's trigger and the interim-preview buffer below
+// know when an utterance is in progress without an extra round-trip.
+let vadInSpeech = false;
+// Raw chunks (at monitorCtx.sampleRate, NOT the 16kHz Silero resamples to
+// internally) accumulated while vadInSpeech is true, for
+// runSenseVoiceInterim() only — the actual Final segment boundary comes
+// from Rust (see handleVadResult), this is just a live snapshot to
+// re-transcribe for the 入力中 preview.
+let senseVoiceInterimBuffer = [];
+// Bumped every time a new utterance starts (see handleVadResult) so a
 // runSenseVoiceInterim() call that was in flight when the utterance ended
 // (flushed to Final, or superseded by the next utterance already starting)
 // can tell its result is stale and drop it instead of clobbering
@@ -894,15 +895,69 @@ let senseVoiceUtteranceActive = false;
 let senseVoiceUtteranceId = 0;
 let senseVoiceInterimInFlight = false;
 let senseVoiceLastInterimAt = 0;
-// A short rolling lookback of recent chunks, kept regardless of `voiced` —
-// prepended to senseVoiceBuffer the instant an utterance actually starts
-// (see onaudioprocess in startVoiceMonitor), so whatever onset/attack
-// portion of the sound came in *before* RMS crossed the threshold isn't
-// lost. The trailing end doesn't need the equivalent: chunks keep getting
-// buffered through the full SENSE_VOICE_SILENCE_MS of trailing silence
-// before a flush, which already acts as tail padding on its own.
-const SENSE_VOICE_PREROLL_CHUNKS = 3;
-let senseVoicePrerollBuffer = [];
+
+// vad_process_chunk() feeds a single stateful Silero VAD instance on the
+// Rust side (see vad.rs) — chunks MUST reach it in the same order
+// onaudioprocess produced them, or the segmentation it's tracking
+// internally gets scrambled. A plain per-chunk invoke() with no queue would
+// let round-trips race/reorder if one call ever took longer than the next
+// chunk's arrival; this pump drains a FIFO one invoke() at a time instead.
+let vadChunkQueue = [];
+let vadPumping = false;
+
+function enqueueVadChunk(chunk, sampleRate) {
+  vadChunkQueue.push({ chunk, sampleRate });
+  pumpVadQueue();
+}
+
+async function pumpVadQueue() {
+  if (vadPumping) return;
+  vadPumping = true;
+  try {
+    while (vadChunkQueue.length > 0) {
+      const { chunk, sampleRate } = vadChunkQueue.shift();
+      // Stopped or switched engines while this was queued — stale, drop it
+      // rather than feeding a now-irrelevant chunk into a VAD state nothing
+      // will read the result of.
+      if (sttEngine !== "sensevoice" || !recognizing) continue;
+      try {
+        const result = await window.__TAURI__.core.invoke("vad_process_chunk", {
+          samples: Array.from(chunk),
+          sampleRate,
+        });
+        handleVadResult(result, chunk);
+      } catch (err) {
+        log(`[vad:error] ${err}`);
+      }
+    }
+  } finally {
+    vadPumping = false;
+  }
+}
+
+// `chunk` is the same raw (monitorCtx.sampleRate) samples that were just
+// sent to vad_process_chunk — kept here only to feed
+// senseVoiceInterimBuffer; the segments in `result` are already resampled
+// to 16kHz on the Rust side (see vad.rs's resample_to_16k), which is why
+// dispatchSenseVoiceSegment below hardcodes VAD_SEGMENT_SAMPLE_RATE instead
+// of reusing monitorCtx.sampleRate the way the interim path does.
+function handleVadResult(result, chunk) {
+  if (result.inSpeech) {
+    if (!vadInSpeech) {
+      senseVoiceUtteranceId++;
+      senseVoiceInterimBuffer = [];
+      senseVoiceLastInterimAt = Date.now();
+    }
+    senseVoiceInterimBuffer.push(chunk);
+  } else if (vadInSpeech) {
+    senseVoiceInterimBuffer = [];
+  }
+  vadInSpeech = result.inSpeech;
+
+  for (const segment of result.segments) {
+    dispatchSenseVoiceSegment(segment);
+  }
+}
 
 // Matches Hiragana/Katakana, CJK ideographs, Hangul, and full-width forms —
 // the ranges where a space between two such characters is never meaningful
@@ -916,7 +971,7 @@ const CJK_SPACE_RE = new RegExp(`(?<=[${CJK_CHAR}])\\s+(?=[${CJK_CHAR}])`, "g");
 const STT_STRIP_PUNCTUATION_RE = /[？?！!]/g;
 
 // See the two regexes above — only applied to local-model output (see
-// flushSenseVoiceUtterance below), not the Web Speech API path, since that
+// dispatchSenseVoiceSegment below), not the Web Speech API path, since that
 // one doesn't exhibit either artifact.
 function cleanSttText(text) {
   return text.replace(CJK_SPACE_RE, "").replace(STT_STRIP_PUNCTUATION_RE, "").trim();
@@ -938,14 +993,15 @@ function concatSenseVoiceChunks(chunks) {
 // SpeechRecognition has (see startVoiceMonitor's comment) — so this fakes
 // one by re-transcribing a snapshot of the in-progress buffer on an
 // interval and shoving the result into the same currentInterimText the Web
-// Speech API path drives. Called from the same silenceCheckTimer loop as
-// flushSenseVoiceUtterance, never concurrently with itself (see
-// senseVoiceInterimInFlight), but freely concurrently WITH a flush — both
-// go through stt_transcribe's own Mutex-guarded recognizer, so they just
-// serialize on the Rust side rather than racing.
+// Speech API path drives. Called from the same silenceCheckTimer loop that
+// used to also flush to Final here — that job moved to Rust (see
+// handleVadResult/dispatchSenseVoiceSegment) — never concurrently with
+// itself (see senseVoiceInterimInFlight), but freely concurrently WITH a
+// dispatch — both go through stt_transcribe's own Mutex-guarded recognizer,
+// so they just serialize on the Rust side rather than racing.
 async function runSenseVoiceInterim() {
   const utteranceId = senseVoiceUtteranceId;
-  const samples = concatSenseVoiceChunks(senseVoiceBuffer);
+  const samples = concatSenseVoiceChunks(senseVoiceInterimBuffer);
   if (samples.length === 0) return;
 
   senseVoiceInterimInFlight = true;
@@ -959,11 +1015,11 @@ async function runSenseVoiceInterim() {
         language: senseVoiceLangCode(),
       }),
     );
-    // The utterance this was transcribing may have already been flushed to
-    // Final (or superseded by a new one starting) while the decode was in
-    // flight — applying a stale partial on top of that would flicker the
-    // just-confirmed Final text back into "still recognizing".
-    if (utteranceId !== senseVoiceUtteranceId || !senseVoiceUtteranceActive) return;
+    // The utterance this was transcribing may have already been dispatched
+    // to Final (or superseded by a new one starting) while the decode was
+    // in flight — applying a stale partial on top of that would flicker
+    // the just-confirmed Final text back into "still recognizing".
+    if (utteranceId !== senseVoiceUtteranceId || !vadInSpeech) return;
     currentInterimText = text;
     renderMergedText();
     log(`[sensevoice:partial] text=${text}`);
@@ -974,33 +1030,19 @@ async function runSenseVoiceInterim() {
   }
 }
 
-// Concatenates the buffered chunks into one Float32Array and sends it to
-// stt_transcribe in one shot — reset happens up front so a slow
-// transcribe (or the user starting to talk again immediately) doesn't get
-// tangled up with whatever's buffered for the *next* utterance.
-async function flushSenseVoiceUtterance() {
-  const chunks = senseVoiceBuffer;
-  senseVoiceBuffer = [];
-  senseVoiceUtteranceActive = false;
-  // Otherwise this would still hold whatever was rolling right before the
-  // utterance that's *just now* being flushed started — stale by however
-  // long that utterance plus SENSE_VOICE_SILENCE_MS of trailing silence
-  // lasted, since the preroll buffer isn't touched while an utterance is
-  // active (see onaudioprocess). Left in place, a new utterance starting
-  // again quickly would get that stale audio prepended instead of a fresh,
-  // actually-adjacent preroll.
-  senseVoicePrerollBuffer = [];
-
-  if (chunks.length === 0) return;
-  const samples = concatSenseVoiceChunks(chunks);
-  if (samples.length === 0) return;
+// `segment` is one already-VAD-segmented utterance's samples, already
+// resampled to 16kHz by vad.rs (see handleVadResult) — sent to
+// stt_transcribe as-is, no local buffering/concatenation needed since Rust
+// owns the whole segment now.
+async function dispatchSenseVoiceSegment(segment) {
+  if (segment.length === 0) return;
 
   setGoogleStatus("statusTranscribing");
   try {
     const text = cleanSttText(
       await window.__TAURI__.core.invoke("stt_transcribe", {
-        samples: Array.from(samples),
-        sampleRate: monitorCtx.sampleRate,
+        samples: segment,
+        sampleRate: VAD_SEGMENT_SAMPLE_RATE,
         modelId: sttModel,
         language: senseVoiceLangCode(),
       }),
@@ -1216,9 +1258,14 @@ function stopGoogleStt() {
   googleHadError = false;
   clearTimeout(googleRetryTimer);
   if (sttEngine === "webspeech" && recognition) recognition.stop();
-  senseVoiceBuffer = [];
-  senseVoiceUtteranceActive = false;
-  senseVoicePrerollBuffer = [];
+  vadInSpeech = false;
+  senseVoiceInterimBuffer = [];
+  vadChunkQueue = [];
+  // Fire-and-forget: clears Rust's VAD internal state (a half-open speech
+  // segment, buffered silence) so the next session starts clean instead of
+  // inheriting whatever was happening right before this stop (see
+  // vad_reset's own comment in vad.rs).
+  window.__TAURI__.core.invoke("vad_reset").catch((err) => log(`[vad:error] failed to reset: ${err}`));
   stopVoiceMonitor();
   setGoogleStatus("statusIdle");
   googleBtn.textContent = t("startButton");

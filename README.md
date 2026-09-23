@@ -58,6 +58,7 @@
 - Rustバックエンド(`tauri-src/src-tauri/`)
   - VOICEVOX CORE をアプリに直接組み込み(外部プロセスやHTTPサーバーを使わない)、テキストからWAVを合成する`synthesize`コマンドを提供
   - `sense_voice.rs`: ローカル音声認識モデル(SenseVoice軽量/標準、Whisper turbo、Parakeet)のダウンロード・ロード・推論
+  - `vad.rs`: ローカル音声認識の発話区切り判定(Silero VAD、`sherpa-onnx`経由)。単純な音量しきい値ではなく学習済みモデルで発話を検出するため、呼吸音・環境ノイズによる誤検出に強い
 
 `python/` はFunASRベースのローカル音声認識を検討していた頃の実験コードで、現在は未使用(参考として残置)。
 

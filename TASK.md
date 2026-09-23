@@ -63,3 +63,6 @@
 　Whisper medium・ReazonSpeech-k2-v2-ja-en(Transducer系、約73MB)をモデル選択肢から削除する(sense_voice.rsのMODELS配列・ModelFiles::Transducerサポートごと)。ReazonSpeech側の削除により、sherpa-onnxのhotwords(単語ブースト)機能が使える唯一のモデルも無くなるが、hotwords自体は現時点では見送りでよいとのこと。
 　また、選択中のローカルSTTモデルが対応していない言語(例: Parakeet-jaは日本語のみ)を、設定画面の言語サイクル欄でグレーアウトして選べないようにする。
 　あわせて、発話中のプレビュー表示(interim)のオン/オフを設定で切り替えられるようにする(デフォルトはON。Whisperなど処理が重いモデルで負荷を避けたい場合向け)。
+
+20．ローカルSTTの発話区切り判定をSilero VADに置き換える
+　現状、ローカルSTT(SenseVoice/Whisper/Parakeet)の発話区切り判定は`main.js`の単純なRMS(音量)しきい値のみ(`voiceRmsThresholdCache`)で、呼吸音・気流音(布団に寝転んで使用時など)や環境ノイズを誤って発話開始と判定しやすい。`sherpa-onnx`クレートには既にSilero VAD(`VoiceActivityDetector`/`SileroVadModelConfig`)が組み込まれているので、新規の重い依存追加無しで使える。Rust側にVADを実装し、生の音声をRustへ継続的に送って区切りを判定する方式に置き換える(WebSpeech APIは対象外、独自のエンドポイント検出を持つため変更不要)。
