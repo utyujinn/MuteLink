@@ -332,7 +332,43 @@
 
             <h3 data-i18n="vrKeyboardHeading">VRキーボード(開発中)</h3>
             <p class="hint" data-i18n="vrKeyboardHint">
-              右スティック押し込みでVR内キーボードの表示/非表示を切り替え、編集後にもう一度押すと送信します(表示中はグリップ/トリガーでの送信は無効になります)。開発中の機能です。
+              右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中は既定でグリップ/トリガーの長押しによる送信は無効になりますが、下の「キーボード表示中もホットキーを有効にする」をオンにすると有効化できます)。開発中の機能です。
+            </p>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="hotkeyActiveDuringKeyboardLabel">キーボード表示中もホットキーを有効にする</span>
+              <label class="switch">
+                <input type="checkbox" id="hotkey-active-during-keyboard-toggle" />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <p class="hint" data-i18n="hotkeyActiveDuringKeyboardHint">
+              オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオフ — キーボード自身の送信ボタン/スティック/ダブルクリックと競合しないように)。
+            </p>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrKeyboardAutoCloseOnSendLabel">送信でキーボードを自動的に閉じる</span>
+              <label class="switch">
+                <input type="checkbox" id="vr-keyboard-auto-close-on-send-toggle" checked />
+                <span class="switch-track"></span>
+              </label>
+            </div>
+            <p class="hint" data-i18n="vrKeyboardAutoCloseOnSendHint">
+              オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(続けて入力したいときに)。
+            </p>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrKeyboardPositionModeLabel">キーボードの位置</span>
+              <div class="settings-radio-row">
+                <label
+                  ><input type="radio" name="vr-keyboard-position-mode" value="centered" checked />
+                  <span data-i18n="vrKeyboardPositionCentered">視界の中央に追従</span></label
+                >
+                <label
+                  ><input type="radio" name="vr-keyboard-position-mode" value="fixed" />
+                  <span data-i18n="vrKeyboardPositionFixed">開いた位置に固定</span></label
+                >
+              </div>
+            </div>
+            <p class="hint" data-i18n="vrKeyboardPositionModeHint">
+              「開いた位置に固定」では、開いたときの正面に表示され、頭を動かしてもその場に留まります。キーボードにポインターを当ててグリップを握るとつかんで動かせます(離した位置に固定)。閉じて開き直すと、また正面に表示されます。
             </p>
 
             <h3 data-i18n="handRight">右手</h3>
@@ -345,8 +381,16 @@
               <select id="hotkey-right-grip"></select>
             </div>
             <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotGripDouble">グリップ ダブルクリック</span>
+              <select id="hotkey-right-gripDouble"></select>
+            </div>
+            <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotTrigger">トリガーのみ</span>
               <select id="hotkey-right-trigger"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotTriggerDouble">トリガー ダブルクリック</span>
+              <select id="hotkey-right-triggerDouble"></select>
             </div>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>
@@ -371,8 +415,16 @@
               <select id="hotkey-left-grip"></select>
             </div>
             <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotGripDouble">グリップ ダブルクリック</span>
+              <select id="hotkey-left-gripDouble"></select>
+            </div>
+            <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotTrigger">トリガーのみ</span>
               <select id="hotkey-left-trigger"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotTriggerDouble">トリガー ダブルクリック</span>
+              <select id="hotkey-left-triggerDouble"></select>
             </div>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>

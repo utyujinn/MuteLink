@@ -263,6 +263,19 @@ struct Hud {
     // shouldn't ever have to touch the confirm/discard box's).
     keyboard_handle: openvr::overlay::OverlayHandle,
     keyboard_gpu: overlay_gpu::GpuOverlay,
+    // Which transform the compositor is currently rendering the keyboard
+    // panel with — see KeyboardPlacement. The single source of truth every
+    // ray-cast (hit-testing, pointer/beam length) derives the panel's world
+    // pose from, via keyboard_world_transform, so what's hit-tested always
+    // matches what's actually drawn.
+    keyboard_placement: KeyboardPlacement,
+    // Whether update_keyboard_overlay last ran with visible=true (including
+    // through its fade-out) — the confirm/discard box only follows the
+    // keyboard while it's actually on screen; see sync_box_to_keyboard.
+    keyboard_shown: bool,
+    // The transform currently applied to the confirm/discard box (`handle`)
+    // — see BoxBinding / sync_box_to_keyboard.
+    box_binding: BoxBinding,
     // CPU-side raster memos for the box and keyboard — see update_overlay's
     // own comment. These only ever skip *rasterizing* identical content
     // again; the GPU upload still happens every tick regardless.
@@ -273,6 +286,40 @@ struct Hud {
     // (which hand's trigger actually types is main.js's
     // vrKeyboardActiveHand, a separate concern).
     pointers: [PointerSet; 2],
+}
+
+// How the keyboard overlay's transform is currently set on the compositor
+// side. main.js owns the *setting* ("centered"/"fixed", see its
+// loadVrKeyboardPositionMode) and passes it on every update_keyboard_overlay
+// call; this tracks what's actually been pushed to SteamVR, which lags the
+// setting by design (e.g. Fixed is only entered once an HMD pose was
+// available to anchor from — see apply_keyboard_placement).
+#[derive(Clone, Copy)]
+enum KeyboardPlacement {
+    // HMD-relative (KEYBOARD_TRANSFORM via set_transform_tracked_device_relative)
+    // — SteamVR re-derives the world pose from the live HMD pose every frame,
+    // so the panel follows the head. The "centered" setting, and also the
+    // state init_hud_overlay leaves it in.
+    Centered,
+    // Absolute (Standing-universe) world transform, set via
+    // set_transform_absolute — stays put in the room regardless of head motion.
+    Fixed([[f32; 4]; 3]),
+    // Being dragged by a controller's grip: tracked-device-relative to that
+    // controller, with `relative` = inverse(controller pose at grab start) *
+    // panel pose at grab start (see begin_keyboard_grab). Parenting to the
+    // controller on the compositor side, rather than pushing a fresh absolute
+    // transform from here every tick, is what makes the drag feel rigid:
+    // SteamVR then moves it with its own per-frame (predicted) controller
+    // pose, same as the HMD-relative case, instead of at our IPC poll rate
+    // with our own (unpredicted) pose samples — which would visibly stutter/
+    // lag behind the hand. `last_world` is the most recently computed world
+    // pose (controller pose * relative), kept only as a fallback for
+    // end_keyboard_grab if the controller's tracking is lost right at release.
+    Grabbed {
+        role: openvr::TrackedControllerRole,
+        relative: [[f32; 4]; 3],
+        last_world: [[f32; 4]; 3],
+    },
 }
 
 // One hand's dot + beam overlays.
@@ -436,6 +483,11 @@ fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
         lang_tag_gpu,
         keyboard_handle,
         keyboard_gpu,
+        // Matches the set_transform_tracked_device_relative call above.
+        keyboard_placement: KeyboardPlacement::Centered,
+        keyboard_shown: false,
+        // Matches the box's own HUD_TRANSFORM call above.
+        box_binding: BoxBinding::Hmd,
         box_raster: None,
         keyboard_cache: overlay::KeyboardCache::default(),
         pointers,
@@ -512,10 +564,12 @@ fn init_pointer_set(overlay: &mut openvr::Overlay, keys: [&str; 3], hand: &str) 
 // low in the view (see the Y offset below), and viewed dead-on at that
 // height it reads as leaning away; tilting so its *bottom* edge comes
 // toward the viewer (like a reclined music stand/drafting table) makes it
-// easier to read while looking down at it. ray_cast_keyboard_plane derives
+// easier to read while looking down at it. keyboard_world_transform derives
 // the panel's actual world-space normal/right/up from this transform's own
-// rotation (composed with the HMD's), so the hit-test and the visual tilt
-// always agree — see that function's own comment. Sits below the
+// rotation (composed with the HMD's) for the hit-test, so the hit-test and
+// the visual tilt always agree — see ray_cast_keyboard_plane's own comment.
+// The "fixed" position mode (see KeyboardPlacement) anchors from this same
+// composition, so it opens exactly where the centered mode would. Sits below the
 // confirm/discard box (hand-tuned Y so the two don't overlap — the keyboard
 // has no text preview of its own, see overlay.rs's render_keyboard, so that
 // box is what shows pending text + cursor while typing).
@@ -527,16 +581,42 @@ fn init_pointer_set(overlay: &mut openvr::Overlay, keys: [&str; 3], hand: &str) 
 // off-diagonal ±sin entries below.
 // 0.56 (was 0.8) — a ~30% width cut; see overlay.rs's KEYBOARD_CANVAS_HEIGHT
 // for the matching ~10% *height* cut, done separately since width/height
-// need different percentages here.
-const KEYBOARD_WORLD_WIDTH: f32 = 0.56;
+// need different percentages here. Then ×1289/900 ≈ 0.8020 when
+// KEYBOARD_CANVAS_WIDTH grew from 900 to 1289 (a 2x2 cursor-control block
+// added to the grid's right, in its own visually separate box — see that
+// constant's own comment): scaling world width by the same ratio the
+// canvas grew by keeps every existing pixel's physical size unchanged
+// (ray_cast_keyboard's px/py math is already written in terms of this
+// ratio, so it stays correct too) and, since KEYBOARD_CANVAS_HEIGHT didn't
+// change, leaves the panel's world *height* untouched — the widening only
+// extends it sideways.
+const KEYBOARD_WORLD_WIDTH: f32 = 0.8020;
 const KEYBOARD_TILT_SIN: f32 = -0.42262; // sin(-25 deg)
 const KEYBOARD_TILT_COS: f32 = 0.90631; // cos(-25 deg)
+// Widening KEYBOARD_CANVAS_WIDTH asymmetrically (all the new width goes to
+// the right, for the cursor block — see that constant's own comment) also
+// shifts the *texture's own center* right relative to the original
+// 5-column grid, which sits at the same pixel position (0..900) it always
+// has: since an OpenVR overlay is centered on its transform, that alone
+// would drag the whole existing grid visibly left in the world — exactly
+// the "keyboard moved" regression this shift fixes, reported after the
+// canvas was first widened without it.
+//
+// KEYBOARD_RECENTER_X compensates by moving the transform itself right by
+// half the added width, converted to world meters at the *new* pixel
+// density: (1289-900)/2 * (0.56/900) ≈ 0.1210 (the 900 here is the 0.56
+// pre-widen width/canvas pair — the ratio simplifies so KEYBOARD_WORLD_WIDTH's
+// own post-widen value doesn't need to appear in this formula). With this
+// applied, the original grid's pixels land at exactly the same world
+// position as before the widening — not just its center, every pixel,
+// since both the scale (pixel density) and this translation are uniform.
+const KEYBOARD_RECENTER_X: f32 = 0.1210;
 // -0.62: -0.62 originally, then +0.15, -0.08, -0.03, -0.04 (net back to the
 // original -0.62, same net change as HUD_TRANSFORM's own — see its comment)
 // after successive in-headset feedback, keeping the same clearance below
 // the confirm/discard box above it throughout.
 const KEYBOARD_TRANSFORM: [[f32; 4]; 3] = [
-    [1.0, 0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0, KEYBOARD_RECENTER_X],
     [0.0, KEYBOARD_TILT_COS, -KEYBOARD_TILT_SIN, -0.62],
     [0.0, KEYBOARD_TILT_SIN, KEYBOARD_TILT_COS, -1.0],
 ];
@@ -653,6 +733,46 @@ fn mat_rotate_vec_inverse(m: &[[f32; 4]; 3], v: [f32; 3]) -> [f32; 3] {
     ]
 }
 
+// Assembles a 3x4 transform from its three basis vectors (local X/Y/Z, each
+// already expressed in the target space) and translation — the inverse of
+// mat_basis_col/mat_translation: each basis vector is a *column* of the
+// rotation part (see mat_basis_col's own comment for the convention), so row
+// `i` is every vector's i-th component side by side.
+fn mat_from_basis(x: [f32; 3], y: [f32; 3], z: [f32; 3], t: [f32; 3]) -> [[f32; 4]; 3] {
+    [[x[0], y[0], z[0], t[0]], [x[1], y[1], z[1], t[1]], [x[2], y[2], z[2], t[2]]]
+}
+
+// a * b for two 3x4 affine transforms: "b's local frame, placed inside a's"
+// — e.g. mat_compose(hmd_pose, &KEYBOARD_TRANSFORM) is the panel's world
+// pose exactly as SteamVR itself derives it for an HMD-relative overlay.
+// Built column-by-column (each of b's basis vectors, and its translation as
+// a point, carried through a) rather than as a general 4x4 product, since
+// that's the only shape of multiply this file needs.
+fn mat_compose(a: &[[f32; 4]; 3], b: &[[f32; 4]; 3]) -> [[f32; 4]; 3] {
+    mat_from_basis(
+        mat_rotate_vec(a, mat_basis_col(b, 0)),
+        mat_rotate_vec(a, mat_basis_col(b, 1)),
+        mat_rotate_vec(a, mat_basis_col(b, 2)),
+        vec_add(mat_translation(a), mat_rotate_vec(a, mat_translation(b))),
+    )
+}
+
+// inverse(a) * b — b re-expressed in a's own local frame (e.g. the panel's
+// pose *relative to* a controller, for a grab — see begin_keyboard_grab).
+// Only valid for a *rigid* `a` (orthonormal rotation, no scale), where
+// inverse(a) = [R^T | -R^T * t_a]: its rotation part is exactly
+// mat_rotate_vec_inverse, and its translation applied to b's origin gives
+// R^T * t_b - R^T * t_a = R^T * (t_b - t_a). Round trip:
+// mat_compose(a, mat_inverse_compose(a, b)) == b, since R * R^T = I.
+fn mat_inverse_compose(a: &[[f32; 4]; 3], b: &[[f32; 4]; 3]) -> [[f32; 4]; 3] {
+    mat_from_basis(
+        mat_rotate_vec_inverse(a, mat_basis_col(b, 0)),
+        mat_rotate_vec_inverse(a, mat_basis_col(b, 1)),
+        mat_rotate_vec_inverse(a, mat_basis_col(b, 2)),
+        mat_rotate_vec_inverse(a, vec_sub(mat_translation(b), mat_translation(a))),
+    )
+}
+
 // The controller's raw local -Z ("look down -Z" convention) points
 // noticeably higher than where a hand actually aims when held comfortably
 // — a common adjustment for VR laser pointers. Tilting the aim ray down by
@@ -692,13 +812,13 @@ const AIM_ORIGIN_OFFSET: [f32; 3] = [0.0, -0.06, 0.0];
 // comment) — `None` if the ray points away from the plane (or is ~parallel
 // to it).
 //
-// KEYBOARD_TRANSFORM is HMD-relative, so the panel's true world-space
-// basis is the HMD's own rotation applied to KEYBOARD_TRANSFORM's *own*
-// local basis columns (mat_rotate_vec composes rotations this way already,
-// for the translation offset below) — this stays correct regardless of
-// whatever rotation KEYBOARD_TRANSFORM itself carries (including its own
-// tilt, see that constant's comment), unlike assuming the panel's
-// orientation is simply the HMD's.
+// `panel` is the panel's world-space pose *as currently rendered* — always
+// from keyboard_world_transform, never re-derived here, since depending on
+// KeyboardPlacement it's either HMD-relative (the HMD's pose composed with
+// KEYBOARD_TRANSFORM, whose own basis columns carry its tilt — so the panel's
+// orientation is not simply the HMD's), a stored fixed transform, or
+// controller-relative mid-grab. Its basis columns are the panel's
+// right/up/normal and its translation the panel's center.
 //
 // Not empirically verified against a real headset yet (see TASK.md #23) —
 // if the hit point ends up mirrored/offset, the likely culprits are the
@@ -711,13 +831,11 @@ const AIM_ORIGIN_OFFSET: [f32; 3] = [0.0, -0.06, 0.0];
 // the pointer/beam should keep tracking the plane's depth right up to (and
 // past) its edges rather than snapping back to a fallback distance the
 // moment the aim drifts off the panel.
-fn ray_cast_keyboard_plane(hmd_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
-    let hmd_pos = mat_translation(hmd_pose);
-    let kbd_offset = mat_rotate_vec(hmd_pose, mat_translation(&KEYBOARD_TRANSFORM));
-    let kbd_pos = vec_add(hmd_pos, kbd_offset);
-    let kbd_right = mat_rotate_vec(hmd_pose, mat_basis_col(&KEYBOARD_TRANSFORM, 0));
-    let kbd_up = mat_rotate_vec(hmd_pose, mat_basis_col(&KEYBOARD_TRANSFORM, 1));
-    let normal = mat_rotate_vec(hmd_pose, mat_basis_col(&KEYBOARD_TRANSFORM, 2));
+fn ray_cast_keyboard_plane(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
+    let kbd_pos = mat_translation(panel);
+    let kbd_right = mat_basis_col(panel, 0);
+    let kbd_up = mat_basis_col(panel, 1);
+    let normal = mat_basis_col(panel, 2);
 
     let ray_origin = vec_add(mat_translation(controller_pose), mat_rotate_vec(controller_pose, AIM_ORIGIN_OFFSET));
     let Some(ray_dir) = vec_normalize(mat_rotate_vec(controller_pose, controller_aim_direction())) else {
@@ -740,8 +858,8 @@ fn ray_cast_keyboard_plane(hmd_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]
     Some((local_x, local_y, t))
 }
 
-fn ray_cast_keyboard(hmd_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
-    let (local_x, local_y, t) = ray_cast_keyboard_plane(hmd_pose, controller_pose)?;
+fn ray_cast_keyboard(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
+    let (local_x, local_y, t) = ray_cast_keyboard_plane(panel, controller_pose)?;
 
     let kbd_world_height = KEYBOARD_WORLD_WIDTH * (overlay::KEYBOARD_CANVAS_HEIGHT as f32 / overlay::KEYBOARD_CANVAS_WIDTH as f32);
     let px = (local_x + KEYBOARD_WORLD_WIDTH / 2.0) / KEYBOARD_WORLD_WIDTH * overlay::KEYBOARD_CANVAS_WIDTH as f32;
@@ -891,6 +1009,19 @@ struct OverlayProgressArg {
     fraction: f32,
 }
 
+// Mirrors OverlayProgressArg's shape/naming for the same reason: "may or
+// may not be active, and if active has two coupled fields" — stage is 0
+// (never sent as Some at 0, see main.js's doubleClickDisplayFor), 1 (first
+// click registered, one dot lit) or 2 (second just fired, both lit);
+// is_send is false only when the double-click in progress is assigned to
+// HOTKEY_CANCEL_ACTION, same green/red convention as progress's own.
+#[derive(Deserialize)]
+struct DoubleClickArg {
+    stage: u8,
+    #[serde(rename = "isSend")]
+    is_send: bool,
+}
+
 // Polled from the frontend at the same cadence as hotkey_state (see
 // setupHotkeys() in main.js), which already tracks how long the current
 // combo has been held / how long it's been idle since Final appeared —
@@ -918,6 +1049,11 @@ async fn update_overlay(
     interim_text: String,
     ending_preview: Option<String>,
     progress: Option<OverlayProgressArg>,
+    // The double-click two-circle indicator — see DoubleClickArg's own
+    // comment. main.js already keeps this and `progress` from both being
+    // Some at once for the same hand (see its own holdDisplay comment), so
+    // there's no priority to resolve here, just draw whichever is present.
+    double_click: Option<DoubleClickArg>,
     fade_alpha: f32,
     // Char index into final_text — only ever Some while the VR keyboard is
     // open AND the blink cycle (see main.js's CURSOR_BLINK_MS) currently
@@ -991,6 +1127,7 @@ async fn update_overlay(
         interim_text,
         ending_preview,
         progress: progress.map(|p| (p.is_send, p.fraction)),
+        double_click: double_click.map(|d| (d.stage, d.is_send)),
         cursor,
         highlight_range: highlight_start.zip(highlight_end),
     };
@@ -1004,6 +1141,7 @@ async fn update_overlay(
             &inputs.interim_text,
             inputs.ending_preview.as_deref(),
             progress.as_ref(),
+            inputs.double_click,
             inputs.cursor,
             inputs.highlight_range,
         );
@@ -1023,6 +1161,7 @@ struct BoxRasterInputs {
     interim_text: String,
     ending_preview: Option<String>,
     progress: Option<(bool, f32)>,
+    double_click: Option<(u8, bool)>,
     cursor: Option<usize>,
     highlight_range: Option<(usize, usize)>,
 }
@@ -1039,7 +1178,31 @@ fn controller_absolute_pose(system: &openvr::System, role: openvr::TrackedContro
     pose.pose_is_valid().then(|| *pose.device_to_absolute_tracking())
 }
 
+// The cursor-control column's own background box (see overlay.rs's
+// CURSOR_BOX_* and update_keyboard_overlay below) — drawn as a visually
+// separate rectangle from the main panel so the 2x2 cursor-move buttons
+// read as their own distinct control, not part of the kana grid. Derived
+// from fixed pixel constants in main.js's computeVrKeyboardLayout (never
+// from anything that changes at runtime), so despite being sent every
+// call like `buttons`, it only actually ever needs to be drawn once — see
+// overlay::keyboard_panel.
 #[derive(Deserialize)]
+struct RectArg {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+}
+
+// rename_all: Tauri's own JS-camelCase -> Rust-snake_case conversion only
+// covers a command's *top-level* argument names, not fields nested inside
+// them (like this struct, reached via update_keyboard_overlay's `buttons`
+// argument) — those go through plain serde against the JSON exactly as
+// main.js sent it. Without this, `flick_hint` silently never matched the
+// incoming `flickHint` key and always deserialized to None (the bug behind
+// flick hints not appearing at all).
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct KeyButtonArg {
     x: f32,
     y: f32,
@@ -1053,7 +1216,15 @@ struct KeyButtonArg {
     #[serde(default)]
     selected: bool,
     #[serde(default)]
+    toggled_on: bool,
+    #[serde(default)]
     flick: Option<overlay::FlickCross>,
+    // A small, dim, corner-drawn hint of what flicking up on this key gives
+    // (e.g. "!" hints "`") — see overlay::KeyButton's own comment for why
+    // this exists as a permanent label rather than only showing while
+    // actually flicking.
+    #[serde(default)]
+    flick_hint: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -1094,11 +1265,11 @@ impl UpdateKeyboardResult {
 // trigger press on the *other* hand engage a stale highlight left over from
 // before it became active, since that hand's own hover hadn't been
 // ray-cast at all until the *next* tick).
-fn hand_hit(system: &openvr::System, hmd_pose: Option<[[f32; 4]; 3]>, role: openvr::TrackedControllerRole, buttons: &[KeyButtonArg]) -> HandHit {
+fn hand_hit(system: &openvr::System, panel: Option<[[f32; 4]; 3]>, role: openvr::TrackedControllerRole, buttons: &[KeyButtonArg]) -> HandHit {
     let hit = (|| {
-        let hmd_pose = hmd_pose?;
+        let panel = panel?;
         let controller_pose = controller_absolute_pose(system, role)?;
-        let (px, py, _t) = ray_cast_keyboard(&hmd_pose, &controller_pose)?;
+        let (px, py, _t) = ray_cast_keyboard(&panel, &controller_pose)?;
         Some((px, py))
     })();
     let highlighted_index =
@@ -1127,6 +1298,19 @@ async fn update_keyboard_overlay(
     // of cutting straight to hidden (see its own BOX_FADE_*-style constants
     // for the keyboard).
     fade_alpha: f32,
+    // See RectArg's own comment.
+    cursor_box: RectArg,
+    // main.js's position-mode setting ("fixed" vs "centered" — see
+    // KeyboardPlacement / apply_keyboard_placement). Sent every call rather
+    // than via a separate "set mode" command so a settings change applies
+    // on the very next tick, even with the keyboard already open.
+    fixed_position: bool,
+    // True only on the first tick of a fresh open (main.js's own
+    // hidden -> visible edge) — tells fixed mode to re-anchor in front of
+    // the head. Can't be derived here from `visible` alone: through a
+    // fade-out main.js keeps sending visible=true, so a close-then-reopen
+    // inside that window never shows up as a visibility change on this end.
+    reanchor: bool,
     state: State<'_, OpenVrState>,
 ) -> Result<UpdateKeyboardResult, String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
@@ -1137,12 +1321,25 @@ async fn update_keyboard_overlay(
 
     if !visible {
         hud.overlay.set_visibility(hud.keyboard_handle, false).map_err(|e| format!("{e:?}"))?;
+        hud.keyboard_shown = false;
+        sync_box_to_keyboard(hud, &handles.system)?;
         return Ok(UpdateKeyboardResult::none());
     }
 
     let hmd_pose = hmd_absolute_pose(&handles.system);
-    let right = hand_hit(&handles.system, hmd_pose, openvr::TrackedControllerRole::RightHand, &buttons);
-    let left = hand_hit(&handles.system, hmd_pose, openvr::TrackedControllerRole::LeftHand, &buttons);
+    // Before anything else this tick: the placement decides the transform
+    // the hit-tests below must agree with, and on a reanchor it must land
+    // before set_visibility(true) further down, so a fixed-mode reopen never
+    // flashes a frame at the previous session's spot.
+    apply_keyboard_placement(hud, hmd_pose, fixed_position, reanchor)?;
+    hud.keyboard_shown = true;
+    sync_box_to_keyboard(hud, &handles.system)?;
+    let panel = keyboard_world_transform(&hud.keyboard_placement, &handles.system, hmd_pose);
+    if let (KeyboardPlacement::Grabbed { last_world, .. }, Some(p)) = (&mut hud.keyboard_placement, panel) {
+        *last_world = p;
+    }
+    let right = hand_hit(&handles.system, panel, openvr::TrackedControllerRole::RightHand, &buttons);
+    let left = hand_hit(&handles.system, panel, openvr::TrackedControllerRole::LeftHand, &buttons);
 
     let render_buttons: Vec<overlay::KeyButton> = buttons
         .into_iter()
@@ -1158,7 +1355,9 @@ async fn update_keyboard_overlay(
             // stays fully separate, tracked per hand in main.js.
             highlighted: Some(i) == right.highlighted_index || Some(i) == left.highlighted_index,
             selected: b.selected,
+            toggled_on: b.toggled_on,
             flick: b.flick,
+            flick_hint: b.flick_hint,
         })
         .collect();
 
@@ -1175,12 +1374,258 @@ async fn update_keyboard_overlay(
     // resting-key layer) — see render_keyboard's own comment; a full redraw
     // every tick measured well over the tick budget. Fade is
     // compositor-side, same as update_overlay's.
-    let pixels = overlay::render_keyboard(&mut hud.keyboard_cache, render_buttons);
+    let cursor_box = (cursor_box.x, cursor_box.y, cursor_box.w, cursor_box.h);
+    let pixels = overlay::render_keyboard(&mut hud.keyboard_cache, render_buttons, cursor_box);
     hud.keyboard_gpu.update(hud.keyboard_handle.0, pixels)?;
     hud.overlay.set_opacity(hud.keyboard_handle, fade_alpha.clamp(0.0, 1.0)).map_err(|e| format!("{e:?}"))?;
     hud.overlay.set_visibility(hud.keyboard_handle, true).map_err(|e| format!("{e:?}"))?;
 
     Ok(UpdateKeyboardResult { right, left })
+}
+
+// The keyboard panel's world-space (Standing-universe) pose as the
+// compositor is currently rendering it — every ray-cast against the panel
+// goes through this, so hit-testing and the pointer/beam length can never
+// disagree with what's on screen whichever mode is active. None only in the
+// Centered case with no HMD pose this tick (nothing to derive it from).
+fn keyboard_world_transform(
+    placement: &KeyboardPlacement,
+    system: &openvr::System,
+    hmd_pose: Option<[[f32; 4]; 3]>,
+) -> Option<[[f32; 4]; 3]> {
+    match placement {
+        // Same composition SteamVR applies to an HMD-relative overlay.
+        KeyboardPlacement::Centered => hmd_pose.map(|h| mat_compose(&h, &KEYBOARD_TRANSFORM)),
+        KeyboardPlacement::Fixed(p) => Some(*p),
+        // Mirrors the controller-relative transform begin_keyboard_grab set:
+        // world = controller * relative. Falls back to the last computed pose
+        // while that controller's tracking is momentarily lost.
+        KeyboardPlacement::Grabbed { role, relative, last_world } => {
+            Some(controller_absolute_pose(system, *role).map_or(*last_world, |c| mat_compose(&c, relative)))
+        }
+    }
+}
+
+fn set_keyboard_centered(hud: &mut Hud) -> Result<(), String> {
+    hud.overlay
+        .set_transform_tracked_device_relative(
+            hud.keyboard_handle,
+            openvr::tracked_device_index::HMD,
+            &openvr::pose::Matrix3x4(KEYBOARD_TRANSFORM),
+        )
+        .map_err(|e| format!("{e:?}"))?;
+    hud.keyboard_placement = KeyboardPlacement::Centered;
+    Ok(())
+}
+
+fn set_keyboard_fixed(hud: &mut Hud, panel: [[f32; 4]; 3]) -> Result<(), String> {
+    hud.overlay
+        .set_transform_absolute(hud.keyboard_handle, openvr::TrackingUniverseOrigin::Standing, &openvr::pose::Matrix3x4(panel))
+        .map_err(|e| format!("{e:?}"))?;
+    hud.keyboard_placement = KeyboardPlacement::Fixed(panel);
+    Ok(())
+}
+
+// Brings the compositor-side transform in line with main.js's position-mode
+// setting. Only ever pushes a transform on a *change* — Centered and Fixed
+// both need nothing per-tick (SteamVR tracks the HMD for the former; the
+// latter is supposed to stay still), same "set once" spirit as the original
+// init-time-only HMD-relative transform.
+//
+// A setting change applies immediately, even with the keyboard open: to
+// "fixed" it anchors right where the centered panel currently is (the same
+// mat_compose SteamVR itself uses — no visible jump, it just stops
+// following the head); to "centered" it snaps back in front of the head
+// (also dropping any in-progress grab — its later end_keyboard_grab is then
+// a no-op). Deferring to the next open was the alternative, but would leave
+// the settings screen not matching what's on screen in between.
+fn apply_keyboard_placement(hud: &mut Hud, hmd_pose: Option<[[f32; 4]; 3]>, fixed_position: bool, reanchor: bool) -> Result<(), String> {
+    let is_centered = matches!(hud.keyboard_placement, KeyboardPlacement::Centered);
+    if !fixed_position {
+        return if is_centered { Ok(()) } else { set_keyboard_centered(hud) };
+    }
+    // Re-anchored on every fresh open (not persisted across closes) — the
+    // point of the mode is "stays where it was shown", and each open is a
+    // new "shown"; a spot picked minutes ago in a different part of the room
+    // could easily be behind the user now. Centered here also means "fixed
+    // mode was just switched on" or "no HMD pose last time we tried".
+    if !reanchor && !is_centered {
+        return Ok(());
+    }
+    match hmd_pose {
+        Some(h) => set_keyboard_fixed(hud, mat_compose(&h, &KEYBOARD_TRANSFORM)),
+        // Nothing to anchor from this tick (HMD tracking momentarily lost).
+        // Fall back to HMD-relative instead of leaving the previous
+        // session's fixed spot in place — being Centered also makes the
+        // check above retry the anchor on the very next tick.
+        None if is_centered => Ok(()),
+        None => set_keyboard_centered(hud),
+    }
+}
+
+fn controller_role_for_hand(hand: &str) -> openvr::TrackedControllerRole {
+    if hand == "left" { openvr::TrackedControllerRole::LeftHand } else { openvr::TrackedControllerRole::RightHand }
+}
+
+// Grip-grab (fixed position mode only) — main.js's processKeyboardGrab owns
+// the press/release edges and the "one hand at a time" rule; this just does
+// the geometry. Returns whether a grab actually started: only while the
+// panel is anchored (Fixed — which also rejects a second hand while one is
+// already Grabbed) and only if *this* hand's aim ray currently lands on the
+// panel's own rectangle (ray_cast_keyboard, same test as button hovering —
+// any spot on the panel, not necessarily a key), so a grip squeezed while
+// pointing elsewhere stays a plain grip for the hotkey system.
+//
+// The grab records the panel's pose relative to the controller,
+// relative = inverse(C0) * P0, and re-parents the overlay to the controller
+// with exactly that transform. SteamVR then renders it at C * relative for
+// the controller's live pose C, i.e. at P0 at the instant of grabbing (no
+// jump: C0 * inverse(C0) * P0 = P0) and afterwards moving and rotating
+// rigidly with the hand, held at the same spot on the panel it was grabbed by.
+//
+// `async fn` — see trigger_hand_haptic's own comment (this shares the same
+// mutex as the render-tick commands; waiting on it shouldn't happen on the
+// main thread).
+#[tauri::command]
+async fn begin_keyboard_grab(hand: String, state: State<'_, OpenVrState>) -> Result<bool, String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(handles) = guard.as_mut() else {
+        return Ok(false);
+    };
+    let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
+    let KeyboardPlacement::Fixed(panel) = hud.keyboard_placement else {
+        return Ok(false);
+    };
+    let role = controller_role_for_hand(&hand);
+    let Some(index) = handles.system.tracked_device_index_for_controller_role(role) else {
+        return Ok(false);
+    };
+    let Some(controller_pose) = controller_absolute_pose(&handles.system, role) else {
+        return Ok(false);
+    };
+    if ray_cast_keyboard(&panel, &controller_pose).is_none() {
+        return Ok(false);
+    }
+    let relative = mat_inverse_compose(&controller_pose, &panel);
+    hud.overlay
+        .set_transform_tracked_device_relative(hud.keyboard_handle, index, &openvr::pose::Matrix3x4(relative))
+        .map_err(|e| format!("{e:?}"))?;
+    hud.keyboard_placement = KeyboardPlacement::Grabbed { role, relative, last_world: panel };
+    // Re-parent the box in the same call, not on the next render tick, so
+    // there's never a frame where the panel is already riding the controller
+    // while the box is still pinned to the room.
+    sync_box_to_keyboard(hud, &handles.system)?;
+    // Same short tick as a key press (see trigger_hand_haptic) — confirms the
+    // grab took, since a grip squeezed just off the panel's edge silently
+    // doesn't grab.
+    handles.system.trigger_haptic_pulse(index, 0, 2000);
+    Ok(true)
+}
+
+// Grip released (or the keyboard closed mid-grab): bakes the panel's
+// current world pose, controller * relative, back into a plain absolute
+// transform, so it stays exactly where it was let go and any later
+// re-grab starts from there. A no-op unless a grab is actually active
+// (e.g. switching to centered mid-grab already ended it — see
+// apply_keyboard_placement).
+//
+// This pose is our own unpredicted sample, while the compositor was drawing
+// the controller-relative overlay with its predicted controller pose — a
+// hand still moving fast at the instant of release could see a few mm of
+// settle. Accepted: at release the hand is normally near-still.
+#[tauri::command]
+async fn end_keyboard_grab(state: State<'_, OpenVrState>) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    let Some(handles) = guard.as_mut() else {
+        return Ok(());
+    };
+    let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
+    let KeyboardPlacement::Grabbed { role, relative, last_world } = hud.keyboard_placement else {
+        return Ok(());
+    };
+    let panel = controller_absolute_pose(&handles.system, role).map_or(last_world, |c| mat_compose(&c, &relative));
+    set_keyboard_fixed(hud, panel)?;
+    // Same-call reason as begin_keyboard_grab's: bake the box down together
+    // with the panel, from the very same `panel` pose.
+    sync_box_to_keyboard(hud, &handles.system)
+}
+
+// Which transform the confirm/discard box (Hud::handle) is currently bound
+// with — tracked so sync_box_to_keyboard only calls into SteamVR on an
+// actual change (the same "set once, let the compositor track it" approach
+// the keyboard itself uses), and so returning to Hmd always explicitly
+// re-applies HUD_TRANSFORM instead of leaving a stale absolute/controller
+// binding behind.
+#[derive(Clone, Copy, PartialEq)]
+enum BoxBinding {
+    // HUD_TRANSFORM, HMD-relative — the box's original, and still default,
+    // placement.
+    Hmd,
+    // Absolute Standing-universe transform (keyboard is Fixed).
+    Absolute([[f32; 4]; 3]),
+    // Relative to this controller (keyboard is Grabbed by it).
+    Device(openvr::TrackedDeviceIndex, [[f32; 4]; 3]),
+}
+
+// The box's pose in the keyboard panel's own local frame, as implied by
+// the two HMD-relative constants: inverse(KEYBOARD_TRANSFORM) * HUD_TRANSFORM.
+// Composing it onto any keyboard pose K_world gives the box's pose that
+// keeps today's (centered-mode) box/keyboard offset. With a centered panel,
+// K_world = hmd * KEYBOARD_TRANSFORM, so K_world * this = hmd * K * K^-1 *
+// HUD_TRANSFORM = hmd * HUD_TRANSFORM — exactly the box's own HMD-relative
+// placement. That's why following the keyboard is only switched on for
+// Fixed/Grabbed: in Centered it'd compute the identical pose anyway, just
+// with extra work. Recomputed on use (a few multiplies) rather than cached —
+// it only runs on a binding change.
+fn box_relative_to_keyboard() -> [[f32; 4]; 3] {
+    mat_inverse_compose(&KEYBOARD_TRANSFORM, &HUD_TRANSFORM)
+}
+
+// Keeps the box at its usual offset from the keyboard panel whenever the
+// panel isn't head-locked, mirroring the panel's own binding type rather
+// than chasing its pose per tick: an absolute transform while it's Fixed,
+// and the same controller as the panel while it's Grabbed (for the same
+// smoothness reason the panel is re-parented — see KeyboardPlacement::Grabbed;
+// controller * (relative * box_rel) = panel * box_rel, so the two stay
+// locked together at the compositor's own frame rate).
+//
+// Only while the keyboard is on screen: once it's fully hidden the box goes
+// back to HMD-relative, since the box also shows voice-recognized text with
+// no keyboard at all, and a fixed room-space spot left over from the last
+// keyboard session could be anywhere (behind the user, another room).
+// "On screen" includes the keyboard's fade-out (update_keyboard_overlay
+// still gets visible=true then), so if text is still pending when the
+// keyboard is closed, the box stays by the keyboard for that ~0.5s fade and
+// then snaps back in front of the head.
+fn sync_box_to_keyboard(hud: &mut Hud, system: &openvr::System) -> Result<(), String> {
+    let desired = match hud.keyboard_placement {
+        _ if !hud.keyboard_shown => BoxBinding::Hmd,
+        KeyboardPlacement::Centered => BoxBinding::Hmd,
+        KeyboardPlacement::Fixed(panel) => BoxBinding::Absolute(mat_compose(&panel, &box_relative_to_keyboard())),
+        KeyboardPlacement::Grabbed { role, relative, .. } => match system.tracked_device_index_for_controller_role(role) {
+            Some(index) => BoxBinding::Device(index, mat_compose(&relative, &box_relative_to_keyboard())),
+            // Controller dropped out mid-grab — leave the box as it is;
+            // update_keyboard_overlay retries every render tick.
+            None => return Ok(()),
+        },
+    };
+    if desired == hud.box_binding {
+        return Ok(());
+    }
+    match desired {
+        BoxBinding::Hmd => hud.overlay.set_transform_tracked_device_relative(
+            hud.handle,
+            openvr::tracked_device_index::HMD,
+            &openvr::pose::Matrix3x4(HUD_TRANSFORM),
+        ),
+        BoxBinding::Absolute(m) => {
+            hud.overlay.set_transform_absolute(hud.handle, openvr::TrackingUniverseOrigin::Standing, &openvr::pose::Matrix3x4(m))
+        }
+        BoxBinding::Device(index, m) => hud.overlay.set_transform_tracked_device_relative(hud.handle, index, &openvr::pose::Matrix3x4(m)),
+    }
+    .map_err(|e| format!("{e:?}"))?;
+    hud.box_binding = desired;
+    Ok(())
 }
 
 // Both the dot and the beam sit at a *dynamic* distance out along the
@@ -1201,7 +1646,8 @@ async fn update_keyboard_overlay(
 // visible *thickness* is locked to its length by the beam texture's fixed
 // aspect ratio (see overlay.rs's POINTER_BEAM_CANVAS_HEIGHT — OpenVR has no
 // separate "set height"), and ray_cast_keyboard_plane intersects the panel's
-// *infinite* plane, which is HMD-relative and so tilts with the head. Aiming
+// *infinite* plane, which (in the centered position mode) is HMD-relative
+// and so tilts with the head. Aiming
 // anywhere close to parallel to that plane (e.g. pointing roughly forward
 // while looking down, or aiming up toward the HUD box) gives a grazing hit
 // tens or hundreds of meters out — and a 50m beam is also 50cm thick,
@@ -1330,18 +1776,28 @@ fn hide_pointer_set(overlay: &mut openvr::Overlay, set: &mut PointerSet) -> Resu
 
 // Both hands in one IPC call rather than one per hand — it's a render-tick
 // command, and each hand is independent anyway (either can be off/untracked
-// while the other still shows).
+// while the other still shows). Visibility is per-hand (right_visible/
+// left_visible), not a single shared flag — main.js only asks for a hand's
+// laser once that hand's own aim is actually landing within the keyboard
+// panel's bounds (one tick of lag, from the previous update_keyboard_overlay
+// call's hitX/hitY — see main.js's own comment), not just "the keyboard is
+// open", so pointing off into the room doesn't leave a laser hanging in
+// space toward nothing.
 //
 // `async fn` — see update_overlay's own comment for why (keeps the raster +
 // texture upload off the main WebView2/UI thread).
 #[tauri::command]
-async fn update_pointer_overlays(visible: bool, state: State<'_, OpenVrState>) -> Result<(), String> {
+async fn update_pointer_overlays(right_visible: bool, left_visible: bool, state: State<'_, OpenVrState>) -> Result<(), String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     let Some(handles) = guard.as_mut() else { return Ok(()) };
     let hud = handles.hud.as_mut().map_err(|e| e.clone())?;
     let hmd_pose = hmd_absolute_pose(&handles.system);
-    for (set, role) in hud.pointers.iter_mut().zip(POINTER_HANDS) {
-        update_pointer_set(&mut hud.overlay, set, &handles.system, role, visible, hmd_pose)?;
+    // Read-only here — update_keyboard_overlay (same render tick) is what
+    // moves keyboard_placement along; this just follows whatever it
+    // currently is, so the beam ends where the panel is actually drawn.
+    let panel = keyboard_world_transform(&hud.keyboard_placement, &handles.system, hmd_pose);
+    for ((set, role), visible) in hud.pointers.iter_mut().zip(POINTER_HANDS).zip([right_visible, left_visible]) {
+        update_pointer_set(&mut hud.overlay, set, &handles.system, role, visible, hmd_pose, panel)?;
     }
     Ok(())
 }
@@ -1353,6 +1809,7 @@ fn update_pointer_set(
     role: openvr::TrackedControllerRole,
     visible: bool,
     hmd_pose: Option<[[f32; 4]; 3]>,
+    panel: Option<[[f32; 4]; 3]>,
 ) -> Result<(), String> {
     if !visible {
         return hide_pointer_set(overlay, set);
@@ -1365,8 +1822,8 @@ fn update_pointer_set(
     };
 
     let aim_dir = controller_aim_direction();
-    let distance = hmd_pose
-        .and_then(|h| ray_cast_keyboard_plane(&h, &controller_pose))
+    let distance = panel
+        .and_then(|p| ray_cast_keyboard_plane(&p, &controller_pose))
         .map_or(POINTER_FALLBACK_DISTANCE, |(_, _, t)| t.clamp(POINTER_MIN_DISTANCE, POINTER_MAX_DISTANCE));
     // Falls back to a fixed "up"-facing orientation (the pre-billboard
     // default) on the rare case the HMD pose is briefly unavailable, rather
@@ -1505,6 +1962,8 @@ pub fn run() {
             update_lang_tag,
             update_keyboard_overlay,
             update_pointer_overlays,
+            begin_keyboard_grab,
+            end_keyboard_grab,
             character_catalog,
             download_character,
             load_character,

@@ -441,6 +441,7 @@ pub fn render(
     interim_text: &str,
     ending_preview: Option<&str>,
     progress: Option<&OverlayProgress>,
+    double_click: Option<(u8, bool)>,
     cursor: Option<usize>,
     highlight_range: Option<(usize, usize)>,
 ) -> Vec<u8> {
@@ -464,8 +465,49 @@ pub fn render(
     if let Some(progress) = progress {
         draw_progress_bar(&mut buf, progress);
     }
+    if let Some((stage, is_send)) = double_click {
+        draw_double_click_dots(&mut buf, stage, is_send);
+    }
 
     buf
+}
+
+// Two small circles in the same bottom-margin band draw_progress_bar uses
+// (never both active at once for the same hand — main.js's holdDisplay
+// keeps a double-click in progress from also showing a hold bar — so
+// there's no real layout conflict to resolve). stage 1 lights the left dot
+// (first click registered), stage 2 lights both (the second just fired) —
+// see lib.rs's update_overlay/main.js's processDoubleClick for how this
+// stage is produced. is_send picks the same green/red convention
+// draw_progress_bar uses, for a double-click assigned to cancel-send.
+const DOUBLE_CLICK_DOT_RADIUS: f32 = 7.0;
+const DOUBLE_CLICK_DOT_SPACING: f32 = 28.0; // center-to-center
+const DOUBLE_CLICK_DOT_UNLIT_COLOR: [u8; 3] = [90, 94, 106];
+
+fn draw_double_click_dots(buf: &mut [u8], stage: u8, is_send: bool) {
+    let lit_color = if is_send { SEND_COLOR } else { DISCARD_COLOR };
+    let cy = CANVAS_HEIGHT as f32 - BAR_MARGIN - BAR_HEIGHT / 2.0;
+    let cx = CANVAS_WIDTH as f32 / 2.0;
+    let r = DOUBLE_CLICK_DOT_RADIUS;
+    for (i, &dot_cx) in [cx - DOUBLE_CLICK_DOT_SPACING / 2.0, cx + DOUBLE_CLICK_DOT_SPACING / 2.0].iter().enumerate() {
+        let color = if (i as u8) < stage { lit_color } else { DOUBLE_CLICK_DOT_UNLIT_COLOR };
+        let x0 = (dot_cx - r).floor().max(0.0) as usize;
+        let x1 = ((dot_cx + r).ceil() as usize).min(CANVAS_WIDTH);
+        let y0 = (cy - r).floor().max(0.0) as usize;
+        let y1 = ((cy + r).ceil() as usize).min(CANVAS_HEIGHT);
+        for y in y0..y1 {
+            for x in x0..x1 {
+                let dx = x as f32 + 0.5 - dot_cx;
+                let dy = y as f32 + 0.5 - cy;
+                let coverage = (r + 0.5 - (dx * dx + dy * dy).sqrt()).clamp(0.0, 1.0);
+                if coverage <= 0.0 {
+                    continue;
+                }
+                let idx = (y * CANVAS_WIDTH + x) * 4;
+                blend(buf, idx, color, coverage);
+            }
+        }
+    }
 }
 
 /// Renders just the language tag ("EN"/"JP"/"CN"), bold, white, translucent.
@@ -540,10 +582,41 @@ pub fn render_lang_tag(label: &str, elapsed_secs: f32) -> Vec<u8> {
 // — meant changing this pixel height rather than lib.rs's
 // KEYBOARD_WORLD_WIDTH alone). Must stay in sync with main.js's own copy
 // of this constant, same as KEYBOARD_CANVAS_WIDTH always has.
-pub const KEYBOARD_CANVAS_WIDTH: usize = 900;
+//
+// KEYBOARD_CANVAS_WIDTH: 1289, not 900 — main.js's own VR_KB_CANVAS_WIDTH
+// comment has the derivation (the original 900px-wide 5-column grid, a
+// gap plus a few extra px, a 2x2 cursor-control block the same cell size
+// as the grid's own keys, and CURSOR_BOX_PADDING clearance on every side
+// of that block — see cursorActions in computeVrKeyboardLayout, and
+// CURSOR_BOX_* below for how it's drawn as its own visually distinct box).
+// lib.rs's KEYBOARD_WORLD_WIDTH is scaled up by the same 1289/900 ratio,
+// and KEYBOARD_TRANSFORM's own translation carries a matching compensating
+// shift (see its own comment) — between the two, every existing pixel
+// (the original 5-column grid) keeps both its physical size *and* its
+// exact world position; only the new right-hand strip is actually new.
+// World height follows the *unchanged* KEYBOARD_CANVAS_HEIGHT below, so
+// the panel doesn't get any taller either.
+pub const KEYBOARD_CANVAS_WIDTH: usize = 1289;
 pub const KEYBOARD_CANVAS_HEIGHT: usize = 823;
+// The main panel's own background only covers the original 5-column
+// grid's own width — matches main.js's VR_KB_GRID_WIDTH. Drawing the main
+// panel across the *full* (wider) KEYBOARD_CANVAS_WIDTH instead — tried
+// first — read as one single frame that happened to also contain the
+// cursor block, rather than two separate ones, since the cursor box's own
+// (only slightly different) color just layered on top of it rather than
+// standing apart. Leaving everything past this width transparent, with
+// only the cursor block's own independently-rounded box drawn there (see
+// CURSOR_BOX_* below), is what actually reads as two distinct controls.
+const KEYBOARD_GRID_WIDTH: f32 = 900.0;
 const KEYBOARD_BG_ALPHA: f32 = 0.88;
 const KEYBOARD_BG_COLOR: [u8; 3] = [12, 12, 18];
+// The cursor-control block's own background — a visually distinct box
+// (lighter/bluer than KEYBOARD_BG_COLOR, drawn with a bit of padding
+// around the 2x2 buttons) so it reads as its own separate control rather
+// than an extension of the kana grid. See RectArg (lib.rs) / keyboard_panel.
+const CURSOR_BOX_COLOR: [u8; 3] = [22, 26, 40];
+const CURSOR_BOX_ALPHA: f32 = 0.88;
+const CURSOR_BOX_PADDING: f32 = 14.0;
 const KEY_COLOR: [u8; 3] = [40, 44, 56];
 const KEY_HIGHLIGHT_COLOR: [u8; 3] = [70, 120, 210];
 // The henkan candidate list's currently-active entry (see KeyButton's own
@@ -551,6 +624,13 @@ const KEY_HIGHLIGHT_COLOR: [u8; 3] = [70, 120, 210];
 // (pointer hover) so the two states stay visually distinguishable when a
 // candidate button happens to also be under the pointer.
 const SELECTED_COLOR: [u8; 3] = [190, 130, 40];
+// The Auto/Chatbox/TTS quick-settings buttons' own "currently on" color
+// (see KeyButton::toggled_on) — much darker/less saturated than either
+// SELECTED_COLOR above or KEY_HIGHLIGHT_COLOR (pointer hover): those two are
+// meant to grab attention (a one-off active choice, a live hover), while
+// this is closer to "black shifted toward blue" — a background-level
+// indicator you'd notice by scanning, not one competing for a glance.
+const TOGGLE_ON_COLOR: [u8; 3] = [48, 68, 108];
 const KEY_LABEL_COLOR: [u8; 3] = [235, 235, 235];
 const KEY_RADIUS: f32 = 12.0;
 const KEY_LABEL_SIZE: f32 = 30.0;
@@ -581,14 +661,27 @@ pub struct KeyButton {
     // as `engaged` below, which main.js controls directly).
     pub highlighted: bool,
     // main.js wants this button drawn as the currently-active choice
-    // (the henkan candidate list's selected entry) — a plain caller-set
-    // flag, independent of pointer hover.
+    // (the henkan candidate list's selected entry, or the currently-active
+    // mode button) — a plain caller-set flag, independent of pointer hover.
     pub selected: bool,
+    // Quieter than `selected` above — the Auto/Chatbox/TTS quick-settings
+    // buttons (see computeVrKeyboardLayout's cursorActions) are "on" a lot
+    // of the time, so marking that with the same bright SELECTED_COLOR used
+    // for a one-off active choice would read as far more insistent than the
+    // state actually warrants; this gets its own dim TOGGLE_ON_COLOR instead.
+    pub toggled_on: bool,
     // Some only while this kana key's trigger is held (mid-flick) — see
     // draw_flick_cross. Cell positions/labels come from main.js
     // (vrKeyboardFlickCells/resolveFlickChar), per this section's own "dumb
     // renderer" comment.
     pub flick: Option<FlickCross>,
+    // A small, dim label drawn in the key's own top-left corner showing
+    // what flicking up on it gives (e.g. the "!" key hints "`") — unlike
+    // `flick` above, this is drawn *whenever set*, not just while held: the
+    // flick cross popup only exists mid-gesture, so without a permanent
+    // hint there was no way to learn/remember which keys have an up-flick
+    // at all short of trying each one.
+    pub flick_hint: Option<String>,
 }
 
 /// One cell of a held key's flick cross, in keyboard-canvas pixels.
@@ -753,8 +846,8 @@ fn draw_label_centered(buf: &mut [u8], canvas_width: usize, font: &Font, text: &
 /// full redraw would produce, and lib.rs still uploads it to the GPU every
 /// tick regardless — so it does *not* reintroduce the "skip the upload when
 /// nothing changed" design that caused the one-input-behind bug.
-pub fn render_keyboard(cache: &mut KeyboardCache, buttons: Vec<KeyButton>) -> &[u8] {
-    let panel = keyboard_panel();
+pub fn render_keyboard(cache: &mut KeyboardCache, buttons: Vec<KeyButton>, cursor_box: Rect) -> &[u8] {
+    let panel = keyboard_panel(cursor_box);
     let Some(font) = font() else {
         return panel;
     };
@@ -772,7 +865,16 @@ pub fn render_keyboard(cache: &mut KeyboardCache, buttons: Vec<KeyButton>) -> &[
 fn compose_keyboard_frame(base_cache: &mut Option<(Vec<BaseKey>, Vec<u8>)>, panel: &[u8], font: &Font, buttons: &[KeyButton]) -> Vec<u8> {
     let keys: Vec<BaseKey> = buttons
         .iter()
-        .map(|b| BaseKey { x: b.x, y: b.y, w: b.w, h: b.h, label: b.label.clone(), selected: b.selected })
+        .map(|b| BaseKey {
+            x: b.x,
+            y: b.y,
+            w: b.w,
+            h: b.h,
+            label: b.label.clone(),
+            selected: b.selected,
+            toggled_on: b.toggled_on,
+            flick_hint: b.flick_hint.clone(),
+        })
         .collect();
     if base_cache.as_ref().is_some_and(|(prev, _)| *prev != keys) {
         *base_cache = None;
@@ -780,7 +882,13 @@ fn compose_keyboard_frame(base_cache: &mut Option<(Vec<BaseKey>, Vec<u8>)>, pane
     let (_, base) = base_cache.get_or_insert_with(|| {
         let mut pixels = panel.to_vec();
         for btn in buttons {
-            let color = if btn.selected { SELECTED_COLOR } else { KEY_COLOR };
+            let color = if btn.selected {
+                SELECTED_COLOR
+            } else if btn.toggled_on {
+                TOGGLE_ON_COLOR
+            } else {
+                KEY_COLOR
+            };
             draw_key(&mut pixels, font, btn, color);
         }
         (keys, pixels)
@@ -836,11 +944,17 @@ struct BaseKey {
     h: f32,
     label: String,
     selected: bool,
+    toggled_on: bool,
+    flick_hint: Option<String>,
 }
 
 // Same as render()'s box: the full-canvas panel (the single largest
-// per-pixel pass here, ~740k px) is static, so it's computed once.
-fn keyboard_panel() -> &'static Vec<u8> {
+// per-pixel pass here, ~1M px) is static, so it's computed once — `OnceLock`
+// means `cursor_box` only actually matters on the very first call; every
+// later call's argument is ignored in favor of the cached result. Safe
+// because it's derived from fixed pixel constants in main.js (see RectArg's
+// own comment in lib.rs), so it's the same rect on every call regardless.
+fn keyboard_panel(cursor_box: Rect) -> &'static Vec<u8> {
     static PANEL: OnceLock<Vec<u8>> = OnceLock::new();
     PANEL.get_or_init(|| {
         let mut buf = vec![0u8; KEYBOARD_CANVAS_WIDTH * KEYBOARD_CANVAS_HEIGHT * 4];
@@ -849,12 +963,18 @@ fn keyboard_panel() -> &'static Vec<u8> {
             KEYBOARD_CANVAS_WIDTH,
             0.0,
             0.0,
-            KEYBOARD_CANVAS_WIDTH as f32,
+            KEYBOARD_GRID_WIDTH,
             KEYBOARD_CANVAS_HEIGHT as f32,
             CORNER_RADIUS,
             KEYBOARD_BG_COLOR,
             KEYBOARD_BG_ALPHA,
         );
+        // The cursor-control block's own box, padded out a bit around the
+        // 2x2 buttons it holds (see CURSOR_BOX_PADDING) so it visibly reads
+        // as a separate control rather than a continuation of the grid.
+        let (cx, cy, cw, ch) = cursor_box;
+        let p = CURSOR_BOX_PADDING;
+        draw_rect(&mut buf, KEYBOARD_CANVAS_WIDTH, cx - p, cy - p, cw + p * 2.0, ch + p * 2.0, CORNER_RADIUS, CURSOR_BOX_COLOR, CURSOR_BOX_ALPHA);
         buf
     })
 }
@@ -862,6 +982,44 @@ fn keyboard_panel() -> &'static Vec<u8> {
 fn draw_key(buf: &mut [u8], font: &Font, btn: &KeyButton, color: [u8; 3]) {
     draw_rect(buf, KEYBOARD_CANVAS_WIDTH, btn.x, btn.y, btn.w, btn.h, KEY_RADIUS, color, 0.95);
     draw_label_centered(buf, KEYBOARD_CANVAS_WIDTH, font, &btn.label, btn.x + btn.w / 2.0, btn.y + btn.h / 2.0, btn.w, btn.h, KEY_LABEL_SIZE, KEY_LABEL_COLOR);
+    if let Some(hint) = &btn.flick_hint {
+        draw_hint_text(buf, font, hint, btn.x + FLICK_HINT_INSET, btn.y + FLICK_HINT_INSET, FLICK_HINT_SIZE, FLICK_HINT_COLOR);
+    }
+}
+
+// A small, dim, un-centered label anchored by its own top-left corner —
+// unlike draw_label_centered, no auto-shrink/wrap/padding-for-a-full-key
+// logic, since that machinery assumes a box roughly key-sized and would
+// just clip or over-shrink a tiny corner hint (see KeyButton::flick_hint).
+// `y` is treated as roughly the glyph's visual top, not a baseline.
+const FLICK_HINT_SIZE: f32 = 15.0;
+const FLICK_HINT_COLOR: [u8; 3] = [150, 154, 168];
+const FLICK_HINT_INSET: f32 = 5.0;
+
+fn draw_hint_text(buf: &mut [u8], font: &Font, text: &str, x: f32, y: f32, size: f32, color: [u8; 3]) {
+    let mut pen_x = x;
+    let baseline_y = y + size;
+    for ch in text.chars() {
+        let (metrics, bitmap) = rasterize_cached(font, ch, size);
+        let glyph_x0 = pen_x + metrics.xmin as f32;
+        let glyph_y0 = baseline_y - metrics.ymin as f32 - metrics.height as f32;
+        for gy in 0..metrics.height {
+            for gx in 0..metrics.width {
+                let coverage = bitmap[gy * metrics.width + gx] as f32 / 255.0;
+                if coverage <= 0.0 {
+                    continue;
+                }
+                let px = (glyph_x0 + gx as f32).round();
+                let py = (glyph_y0 + gy as f32).round();
+                if px < 0.0 || py < 0.0 || px >= KEYBOARD_CANVAS_WIDTH as f32 || py >= KEYBOARD_CANVAS_HEIGHT as f32 {
+                    continue;
+                }
+                let idx = (py as usize * KEYBOARD_CANVAS_WIDTH + px as usize) * 4;
+                blend(buf, idx, color, coverage);
+            }
+        }
+        pen_x += metrics.advance_width;
+    }
 }
 
 // Phone flick-keyboard style (iOS/Gboard's press-and-hold guide): the

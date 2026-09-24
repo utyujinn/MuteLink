@@ -169,25 +169,28 @@ const I18N = {
     ko: "VR 키보드(개발 중)",
   },
   vrKeyboardHint: {
-    ja: "右スティック押し込み(単押し)でVR内キーボードの表示/非表示を切り替え、編集後にもう一度押すと送信します(表示中はグリップ/トリガーでの送信は無効になります)。右スティック長押しで入力中の文章を全消しします。どちらも下の「スティック押し込み」「スティック押し込み(長押し)」欄で割り当てを変更できます。開発中の機能です。",
-    en: "A short right-stick press toggles the in-VR keyboard; press it again after editing to send (grip/trigger-based sending is disabled while it's shown). A long right-stick press clears whatever's pending. Both are reassignable below (\"Stick press\" / \"Stick press (long)\"). Still in development.",
-    zh: "短按右摇杆可切换VR内键盘的显示/隐藏，编辑后再按一次即可发送(显示期间握把/扳机发送将被禁用)。长按右摇杆会清空当前输入内容。两者均可在下方的「摇杆按下」「摇杆按下(长按)」中重新分配。此功能仍在开发中。",
-    ko: "오른쪽 스틱을 짧게 누르면 VR 키보드 표시/숨김이 전환되며, 편집 후 다시 누르면 전송됩니다(표시 중에는 그립/트리거 전송이 비활성화됩니다). 오른쪽 스틱을 길게 누르면 입력 중인 내용이 모두 지워집니다. 두 동작 모두 아래의 「스틱 누름」/「스틱 누름(길게)」에서 재할당할 수 있습니다. 아직 개발 중인 기능입니다.",
+    ja: "右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中は既定でグリップ/トリガーの長押しによる送信は無効になりますが、下の「キーボード表示中もホットキーを有効にする」をオンにすると有効化できます)。開発中の機能です。",
+    en: "A right-trigger double-click (default) toggles the in-VR keyboard; send from its own on-screen Send button after editing. A short right-stick press (default) clears whatever's pending. Every grip/trigger gesture (hold, double-click) is reassignable below (grip/trigger-hold sending is disabled by default while the keyboard is shown — enable \"Keep hotkeys active while the keyboard is open\" below to allow it too). Still in development.",
+    zh: "双击右扳机(默认)可切换VR内键盘的显示/隐藏，编辑后用屏幕上的发送按钮发送。短按右摇杆(默认)会清空当前输入内容。握把/扳机的按住、双击均可在下方重新分配(显示键盘时默认禁用握把/扳机长按发送，可在下方开启「键盘显示时也启用热键」来允许)。此功能仍在开发中。",
+    ko: "오른쪽 트리거 더블클릭(기본값)으로 VR 키보드 표시/숨김을 전환하고, 편집 후에는 화면의 전송 버튼으로 전송합니다. 오른쪽 스틱 짧게 누름(기본값)으로 입력 중인 내용을 모두 지웁니다. 그립/트리거의 길게 누름·더블클릭은 모두 아래에서 재할당할 수 있습니다(키보드 표시 중에는 기본적으로 그립/트리거 길게 누름 전송이 비활성화되지만, 아래 「키보드가 열려 있어도 단축키 유지」를 켜면 활성화할 수 있습니다). 아직 개발 중인 기능입니다.",
   },
   // The VR keyboard's own on-screen send button — rendered inside the
   // SteamVR overlay texture by Rust (see overlay.rs's render_keyboard), not
   // an HTML element, so this can't just be a data-i18n attribute like most
   // UI text; computeVrKeyboardLayout() reads it directly via t().
-  vrKbSendButton: { ja: "送信", en: "Send", zh: "发送", ko: "전송" },
   // VR keyboard mode buttons (same t()-in-layout situation as above).
   // vrKbModeKana is what an active mode's own button relabels to — it
   // names the destination (back to kana input) rather than a generic
   // "back", since the other mode buttons jump sideways, not back.
   vrKbModeTemplate: { ja: "テンプレ", en: "Phrases", zh: "模板", ko: "템플릿" },
-  vrKbModeSymbol: { ja: "記号", en: "Symbols", zh: "符号", ko: "기호" },
-  vrKbModeNumber: { ja: "数字", en: "123", zh: "数字", ko: "숫자" },
+  // Same label in every language — a digit+symbol combo reads as "numbers
+  // and symbols" regardless of UI language, matching the convention phone
+  // keyboards already use for this exact combined mode (see
+  // VR_KB_NUMSYM_ROWS' own comment for why number/symbol merged into one).
+  vrKbModeNumber: { ja: "?123", en: "?123", zh: "?123", ko: "?123" },
   vrKbModeEnglish: { ja: "英字", en: "ABC", zh: "英文", ko: "영문" },
   vrKbModeKana: { ja: "かな", en: "Kana", zh: "假名", ko: "가나" },
+  vrKbNewlineButton: { ja: "改行", en: "Newline", zh: "换行", ko: "줄바꿈" },
   vrKbSpaceButton: { ja: "空白", en: "Space", zh: "空格", ko: "스페이스" },
   // Column 5's 確定 button (see computeVrKeyboardLayout) — ends 変換
   // conversion mode without also typing, moving the cursor, or sending.
@@ -227,7 +230,9 @@ const I18N = {
 
   slotBoth: { ja: "グリップ+トリガー", en: "Grip + Trigger", zh: "握把+扳机", ko: "그립+트리거" },
   slotGrip: { ja: "グリップのみ", en: "Grip only", zh: "仅握把", ko: "그립만" },
+  slotGripDouble: { ja: "グリップ ダブルクリック", en: "Grip double-click", zh: "握把双击", ko: "그립 더블클릭" },
   slotTrigger: { ja: "トリガーのみ", en: "Trigger only", zh: "仅扳机", ko: "트리거만" },
+  slotTriggerDouble: { ja: "トリガー ダブルクリック", en: "Trigger double-click", zh: "扳机双击", ko: "트리거 더블클릭" },
   slotNone: { ja: "どちらも押していない", en: "Neither pressed", zh: "都未按下", ko: "아무것도 안 누름" },
   slotStick: { ja: "スティック押し込み", en: "Stick press", zh: "摇杆按下", ko: "스틱 누름" },
   slotStickLong: {
@@ -479,6 +484,54 @@ const I18N = {
     en: "When off, nothing gets re-recognized until the utterance is Final. Useful for keeping the load down with a slower model like Whisper.",
     zh: "关闭后，在确定之前不会重新识别。可用于Whisper等处理较重的模型以降低负载。",
     ko: "끄면 확정될 때까지 재인식을 하지 않습니다. Whisper처럼 처리가 무거운 모델에서 부하를 줄이고 싶을 때 사용하세요.",
+  },
+  hotkeyActiveDuringKeyboardLabel: {
+    ja: "キーボード表示中もホットキーを有効にする",
+    en: "Keep hotkeys active while the keyboard is open",
+    zh: "键盘显示时也启用热键",
+    ko: "키보드가 열려 있어도 단축키 유지",
+  },
+  hotkeyActiveDuringKeyboardHint: {
+    ja: "オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオフ — キーボード自身の送信ボタン/スティック/ダブルクリックと競合しないように)。",
+    en: "When on, holding grip/trigger still sends an ending or cancels even while the VR keyboard is open (off by default, so it doesn't race the keyboard's own Send button/stick/double-click).",
+    zh: "开启后，即使VR键盘处于打开状态，长按握把/扳机发送语尾或取消发送依然有效(默认关闭，避免与键盘自身的发送按钮/摇杆/双击冲突)。",
+    ko: "켜면 VR 키보드가 열려 있는 동안에도 그립/트리거를 길게 눌러 어미 전송·전송 취소를 할 수 있습니다(기본값은 꺼짐 — 키보드 자체의 전송 버튼/스틱/더블클릭과 겹치지 않도록).",
+  },
+  vrKeyboardAutoCloseOnSendLabel: {
+    ja: "送信でキーボードを自動的に閉じる",
+    en: "Close the keyboard automatically on send",
+    zh: "发送时自动关闭键盘",
+    ko: "전송 시 키보드 자동으로 닫기",
+  },
+  vrKeyboardAutoCloseOnSendHint: {
+    ja: "オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(続けて入力したいときに)。",
+    en: "When off, pressing the Send button or one of the ending buttons at the bottom of the VR keyboard sends the text but leaves the keyboard open instead of closing it — useful when you want to keep typing right after.",
+    zh: "关闭后，在VR键盘显示时按下发送按钮或下方的语尾按钮会发送文本，但不会关闭键盘(便于继续输入)。",
+    ko: "끄면 VR 키보드가 열려 있을 때 전송 버튼이나 아래쪽 어미 버튼을 눌러도 텍스트는 전송되지만 키보드는 닫히지 않고 열린 채로 유지됩니다(계속 입력하고 싶을 때 유용).",
+  },
+  vrKeyboardPositionModeLabel: {
+    ja: "キーボードの位置",
+    en: "Keyboard position",
+    zh: "键盘位置",
+    ko: "키보드 위치",
+  },
+  vrKeyboardPositionCentered: {
+    ja: "視界の中央に追従",
+    en: "Follow your view",
+    zh: "跟随视野中央",
+    ko: "시야 중앙에 따라가기",
+  },
+  vrKeyboardPositionFixed: {
+    ja: "開いた位置に固定",
+    en: "Stay where opened",
+    zh: "固定在打开时的位置",
+    ko: "열었던 위치에 고정",
+  },
+  vrKeyboardPositionModeHint: {
+    ja: "「開いた位置に固定」では、開いたときの正面に表示され、頭を動かしてもその場に留まります。キーボードにポインターを当ててグリップを握るとつかんで動かせます(離した位置に固定)。閉じて開き直すと、また正面に表示されます。",
+    en: "With “Stay where opened”, the keyboard appears in front of you when opened and stays put as you move your head. Point at it and squeeze grip to grab and move it (it stays wherever you let go). Reopening it brings it back in front of you.",
+    zh: "选择“固定在打开时的位置”时，键盘会显示在打开时的正前方，转头也会留在原处。将指针对准键盘并按住握把即可抓住移动(松开后固定在该位置)。关闭后重新打开，会再次显示在正前方。",
+    ko: "'열었던 위치에 고정'을 선택하면 키보드를 열 때 정면에 나타나고, 고개를 돌려도 그 자리에 머뭅니다. 포인터를 키보드에 맞추고 그립을 쥐면 잡아서 옮길 수 있습니다(놓은 위치에 고정). 닫았다가 다시 열면 다시 정면에 나타납니다.",
   },
 };
 
@@ -741,6 +794,41 @@ function saveSendMode(mode) {
   localStorage.setItem(SEND_MODE_KEY, mode);
 }
 
+// Single entry points for Auto/Chatbox/TTS, same reasoning as
+// setHotkeyProfileIndex above — the desktop toggle buttons and the VR
+// keyboard's own copies of these (see computeVrKeyboardLayout's cursor-block
+// rows) both need to flip the same state and stay visually in sync,
+// regardless of which one was actually pressed.
+function setSendMode(mode) {
+  sendMode = mode;
+  saveSendMode(mode);
+  const btn = document.querySelector("#mode-toggle-btn");
+  if (btn) {
+    btn.classList.toggle("active", mode === "auto");
+    btn.setAttribute("aria-pressed", String(mode === "auto"));
+  }
+}
+
+function setChatboxEnabled(value) {
+  chatboxEnabled = value;
+  saveChatboxEnabled(value);
+  const btn = document.querySelector("#chatbox-toggle-btn");
+  if (btn) {
+    btn.classList.toggle("active", value);
+    btn.setAttribute("aria-pressed", String(value));
+  }
+}
+
+function setTtsEnabled(value) {
+  ttsEnabled = value;
+  saveTtsEnabled(value);
+  const btn = document.querySelector("#tts-toggle-btn");
+  if (btn) {
+    btn.classList.toggle("active", value);
+    btn.setAttribute("aria-pressed", String(value));
+  }
+}
+
 const UI_MODE_KEY = "mutelink.uiMode";
 
 // Defaults to "vr" — existing users keep the exact screen they already had
@@ -836,21 +924,17 @@ function dispatchText(outputText, spokenText, params) {
   if (!ttsEnabled) return;
   // Everything gets sent to VOICEVOX regardless of recognition language —
   // English/中文 come out fairly broken since OpenJTalk (VOICEVOX's text
-  // analyzer) isn't built for those scripts, but that's accepted; the
-  // per-language checkboxes in 設定 > Other let read-aloud be turned off for
-  // specific languages if the result isn't wanted. "auto" has no checkbox of
-  // its own — which language actually came out varies utterance to
-  // utterance, so there's nothing sensible to gate a single toggle on —
-  // read-aloud always stays on for it.
-  const lang = getSttLang();
-  if (lang === "auto" || loadTtsLangEnabled()[lang]) {
-    // Spaces (half- or full-width) in the recognized text read as an
-    // unnatural pause/silence through VOICEVOX, so close them up before
-    // speaking — outputText (chatbox) keeps them untouched.
-    speak(spokenText.replace(/\s+/g, ""), params);
-  } else {
-    log(`[voicevox] skipped: read-aloud disabled for ${lang}`);
-  }
+  // analyzer) isn't built for those scripts, but that's accepted. There used
+  // to be a per-language gate here too (settings > Other's checkboxes, via
+  // loadTtsLangEnabled) — read-aloud is ttsEnabled-only for now, so that
+  // settings UI still exists and still saves, it's just not consulted in
+  // this decision at the moment; revisit if/when the per-language behavior
+  // comes back.
+  //
+  // Spaces (half- or full-width) in the recognized text read as an
+  // unnatural pause/silence through VOICEVOX, so close them up before
+  // speaking — outputText (chatbox) keeps them untouched.
+  speak(spokenText.replace(/\s+/g, ""), params);
 }
 
 // SpeechRecognition owns mic capture internally and doesn't expose audio
@@ -1183,6 +1267,10 @@ function handleFinalRecognizedText(text) {
     // fresh from pendingFinalText.length whenever the keyboard next opens.
     vrKeyboardCursorPos = pendingFinalText.length;
     markVrKeyboardCursorActivity();
+    // Dictated text never goes through the VR keyboard's own henkan flow —
+    // there's nothing to convert or confirm about it — so it should never
+    // show up blue/pending (see vrKeyboardConfirmedLength's own comment).
+    vrKeyboardConfirmedLength = pendingFinalText.length;
   } else {
     dispatchText(text, text);
   }
@@ -1989,6 +2077,15 @@ function applyEnding(ending) {
     volumeScale: ending.volumeScale,
   });
   pendingFinalText = "";
+  // The VR keyboard can still be open after this (auto-close-on-ending is
+  // itself an option — see loadVrKeyboardAutoCloseOnSend) — without this,
+  // vrKeyboardCursorPos stays wherever it was in the now-gone text (e.g.
+  // past the end), and every insert after that lands mid-air past the end
+  // of the new text instead of appending to it, with no visible cursor
+  // bar at all (draw_text_block in overlay.rs only draws one when the
+  // cursor index is actually within the line it's drawing).
+  vrKeyboardCursorPos = 0;
+  vrKeyboardConfirmedLength = 0;
   renderMergedText();
 }
 
@@ -2028,6 +2125,12 @@ function setupUiMode() {
 
   pendingTextEditorEl.addEventListener("input", () => {
     pendingFinalText = pendingTextEditorEl.value;
+    // Editing here can shorten the text out from under an open VR
+    // keyboard's own cursor (same class of bug as applyEnding/the cancel
+    // hotkey — see their own comments) — clamped rather than reset to 0,
+    // since unlike a send/clear this doesn't imply "start over".
+    vrKeyboardCursorPos = Math.min(vrKeyboardCursorPos, pendingFinalText.length);
+    vrKeyboardConfirmedLength = Math.min(vrKeyboardConfirmedLength, pendingFinalText.length);
     renderMergedText();
   });
 
@@ -2577,6 +2680,9 @@ function resetClearsKeys() {
     TTS_LANG_ENABLED_KEY,
     STT_CYCLE_LANG_KEY,
     VOICE_RMS_THRESHOLD_KEY,
+    HOTKEY_ACTIVE_DURING_KEYBOARD_KEY,
+    VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY,
+    VR_KEYBOARD_POSITION_MODE_KEY,
   ];
 }
 
@@ -2604,14 +2710,19 @@ const HOTKEY_PROFILE_COUNT = 3;
 // "stick" (short press) and "stickLong" are two independent slots sharing
 // one physical control — see processStickPress for why that needs its own
 // dispatch, separate from how the other 4 slots fire (processHandHotkey).
-const HOTKEY_SLOTS = ["both", "grip", "trigger", "none", "stick", "stickLong"];
+// "gripDouble"/"triggerDouble" are the same idea applied to grip/trigger —
+// see processDoubleClick — independent of (and can coexist with) their
+// plain grip/trigger hold-based counterparts.
+const HOTKEY_SLOTS = ["both", "grip", "gripDouble", "trigger", "triggerDouble", "none", "stick", "stickLong"];
 // Map to I18N keys, not translated text directly, so hotkeyRefsForEndingSlot()
 // (and anywhere else) always reflects the *current* uiLang via t() rather
 // than whatever language was active when this module evaluated.
 const HOTKEY_SLOT_LABEL_KEYS = {
   both: "slotBoth",
   grip: "slotGrip",
+  gripDouble: "slotGripDouble",
   trigger: "slotTrigger",
+  triggerDouble: "slotTriggerDouble",
   none: "slotNone",
   stick: "slotStick",
   stickLong: "slotStickLong",
@@ -2655,6 +2766,58 @@ function saveHotkeyHoldMs(ms) {
   localStorage.setItem(HOTKEY_HOLD_DURATION_KEY, String(ms));
 }
 
+// Whether the grip/trigger *hold* slots (processHandHotkey) stay active
+// while the VR keyboard is open — off by default, matching the original
+// design (the keyboard's own send button/stick-press/double-click own
+// confirming text while it's up, so the hold-based flow racing it would be
+// surprising by default). The stick and double-click slots were always
+// active regardless of this — only the hold-based combo slots (both/grip/
+// trigger/none) were ever suppressed, see the poll loop's own comment.
+const HOTKEY_ACTIVE_DURING_KEYBOARD_KEY = "mutelink.hotkeyActiveDuringKeyboard";
+
+function loadHotkeyActiveDuringKeyboard() {
+  return localStorage.getItem(HOTKEY_ACTIVE_DURING_KEYBOARD_KEY) === "true";
+}
+
+function saveHotkeyActiveDuringKeyboard(value) {
+  localStorage.setItem(HOTKEY_ACTIVE_DURING_KEYBOARD_KEY, String(value));
+}
+
+// Whether selecting a 語尾 from the VR keyboard's own on-screen row (see
+// applyVrKeyboardAction's "ending" case) closes the keyboard afterward —
+// on by default, matching the original design. Turning it off keeps
+// typing right where it left off after a quick ending-send mid-edit,
+// instead of needing to reopen the keyboard for the next line.
+const VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY = "mutelink.vrKeyboardAutoCloseOnSend";
+
+function loadVrKeyboardAutoCloseOnSend() {
+  const raw = localStorage.getItem(VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY);
+  return raw === null ? true : raw === "true";
+}
+
+function saveVrKeyboardAutoCloseOnSend(value) {
+  localStorage.setItem(VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY, String(value));
+}
+
+// Where the VR keyboard panel lives: "centered" (default, the original
+// behavior — HMD-relative, always in front of wherever you look) or "fixed"
+// (placed in front of the head at the moment it opens, then stays put in the
+// room and can be grabbed/moved with grip — see processKeyboardGrab). Only
+// the setting lives here; lib.rs's KeyboardPlacement does the actual
+// transform handling, driven by this value on every update_keyboard_overlay
+// call (so a change applies immediately, even with the keyboard open).
+const VR_KEYBOARD_POSITION_MODE_KEY = "mutelink.vrKeyboardPositionMode";
+const VR_KEYBOARD_POSITION_MODES = ["centered", "fixed"];
+
+function loadVrKeyboardPositionMode() {
+  const raw = localStorage.getItem(VR_KEYBOARD_POSITION_MODE_KEY);
+  return VR_KEYBOARD_POSITION_MODES.includes(raw) ? raw : "centered";
+}
+
+function saveVrKeyboardPositionMode(mode) {
+  localStorage.setItem(VR_KEYBOARD_POSITION_MODE_KEY, mode);
+}
+
 // Both hands act independently now (each can be bound to a different
 // ending), but only one hand's hold can be shown on the overlay at once —
 // this picks which one wins when both happen to be mid-hold simultaneously.
@@ -2675,16 +2838,27 @@ const HOTKEY_HANDS = ["right", "left"];
 // immediately, without needing to be re-picked here. Separate per hand so
 // each hand can be bound to a different slot, and the two hands' defaults
 // differ deliberately: right hand gives quick access to 1/2, plus its
-// stick short-pressed toggles the VR keyboard and long-pressed clears
-// whatever's pending (see HOTKEY_KEYBOARD_TOGGLE_ACTION/HOTKEY_CANCEL_ACTION
-// — the keyboard toggle used to be hardcoded to right-stick rather than a
-// real assignment, but out-of-the-box short-press behavior stays the
-// same); left hand covers 4/5/10 plus a stick-press cancel (ending 3 left
-// unset).
+// trigger double-clicked toggles the VR keyboard and stick short-pressed
+// clears whatever's pending (see HOTKEY_KEYBOARD_TOGGLE_ACTION/
+// HOTKEY_CANCEL_ACTION — the keyboard toggle used to be hardcoded to
+// right-stick rather than a real assignment before double-click existed;
+// moving it to double-click freed the stick back up, so cancel moved from
+// stick's long press to its short one — a long press was reported as
+// uncomfortably slow to trigger deliberately); left hand covers 4/5/10
+// plus a stick-press cancel (ending 3 left unset).
 function defaultHotkeyAssignments() {
   return {
-    right: { both: "1", grip: "", trigger: "2", none: "", stick: HOTKEY_KEYBOARD_TOGGLE_ACTION, stickLong: HOTKEY_CANCEL_ACTION },
-    left: { both: "10", grip: "4", trigger: "5", none: "", stick: HOTKEY_CANCEL_ACTION, stickLong: "" },
+    right: {
+      both: "1",
+      grip: "",
+      gripDouble: "",
+      trigger: "2",
+      triggerDouble: HOTKEY_KEYBOARD_TOGGLE_ACTION,
+      none: "",
+      stick: HOTKEY_CANCEL_ACTION,
+      stickLong: "",
+    },
+    left: { both: "10", grip: "4", gripDouble: "", trigger: "5", triggerDouble: "", none: "", stick: HOTKEY_CANCEL_ACTION, stickLong: "" },
   };
 }
 
@@ -2828,6 +3002,15 @@ function resetHotkeyHold() {
 function fireHotkeyAssignment(assignment) {
   if (assignment === HOTKEY_CANCEL_ACTION) {
     pendingFinalText = "";
+    // Same reasoning as applyEnding's own reset — this can fire (stick
+    // short-press, or a grip/trigger hold if hotkeyActiveDuringKeyboard is
+    // on) while the VR keyboard is still open, and without resetting these
+    // too the next few keystrokes would land past the end of the (now
+    // empty) text with no visible cursor, and any half-done 変換
+    // conversion would keep pointing at text that's no longer there.
+    vrKeyboardCursorPos = 0;
+    vrKeyboardConfirmedLength = 0;
+    resetVrKeyboardConversion();
     renderMergedText();
   } else if (assignment === HOTKEY_KEYBOARD_TOGGLE_ACTION) {
     toggleVrKeyboard();
@@ -2890,6 +3073,18 @@ let vrKeyboardVisible = false;
 // useful starting point (append to what voice recognition already
 // produced) — the cursor move buttons (still TODO) move it from there.
 let vrKeyboardCursorPos = 0;
+// Index into pendingFinalText: [0, vrKeyboardConfirmedLength) is confirmed
+// (plain) text, [vrKeyboardConfirmedLength, pendingFinalText.length) is not
+// yet confirmed (drawn with the same light-blue background draw_text_block
+// already used for the henkan focus highlight — see the render loop's own
+// highlightStart/End). Only confirmVrKeyboardConversion ever advances it;
+// everything that clears pendingFinalText resets it back to 0 alongside
+// vrKeyboardCursorPos, for the same reason (a stale boundary past the end
+// of shorter/empty text). Dictated (voice-recognized) text bumps it
+// immediately in handleFinalRecognizedText — the henkan flow only applies
+// to text typed on the VR keyboard itself, so dictated text should never
+// show as pending.
+let vrKeyboardConfirmedLength = 0;
 // Timestamp of the last cursor move/edit — see the render loop's own
 // CURSOR_BLINK_PAUSE_MS comment for why the blink pauses (stays solid)
 // for a bit after this, instead of blinking straight through a move and
@@ -2925,9 +3120,7 @@ function moveVrKeyboardCursor(delta) {
 // closes AND sends if it was open — mirrors applyEnding()'s own "clear
 // pendingFinalText and dispatch" but with no ending appended, since the
 // keyboard's own text is already exactly what the user typed (same
-// no-ending path handleFinalRecognizedText's "auto" sendMode uses). A
-// screen send button does the same thing without needing the controller
-// (see applyVrKeyboardAction's "send" case).
+// no-ending path handleFinalRecognizedText's "auto" sendMode uses).
 function openVrKeyboard() {
   vrKeyboardVisible = true;
   vrKeyboardCursorPos = pendingFinalText.length;
@@ -2940,11 +3133,13 @@ function openVrKeyboard() {
 
 // Hides the keyboard only — leaves pendingFinalText untouched, so the same
 // in-progress text is still there (and still pending, still editable) next
-// time the keyboard is reopened. Sending is a separate, explicit action
-// (the on-keyboard Send key, see sendVrKeyboardTextAndClose) — toggling the
-// keyboard off with the stick used to also send/clear the text, which meant
-// a plain "put the keyboard away for a second" press quietly submitted
-// whatever had been typed so far.
+// time the keyboard is reopened. Sending is a separate, explicit action —
+// picking an ending/template button (see applyEnding, still gated by
+// loadVrKeyboardAutoCloseOnSend) or a controller hotkey, there's no bare
+// "just send the raw text" key on the grid any more — toggling the keyboard
+// off with the stick used to also send/clear the text, which meant a plain
+// "put the keyboard away for a second" press quietly submitted whatever had
+// been typed so far.
 function closeVrKeyboard() {
   vrKeyboardVisible = false;
 }
@@ -2955,15 +3150,6 @@ function toggleVrKeyboard() {
   } else {
     openVrKeyboard();
   }
-}
-
-function sendVrKeyboardTextAndClose() {
-  if (pendingFinalText) {
-    dispatchText(pendingFinalText, pendingFinalText);
-    pendingFinalText = "";
-    renderMergedText();
-  }
-  closeVrKeyboard();
 }
 
 // The stick's short (HOTKEY_SLOTS "stick") and long (HOTKEY_SLOTS
@@ -2979,7 +3165,7 @@ function sendVrKeyboardTextAndClose() {
 // system does) rather than waiting for release, and latching that with
 // `firedLong`, is what guarantees the short assignment can't *also* fire
 // on release right after.
-const HOTKEY_STICK_LONG_PRESS_MS = 500;
+const HOTKEY_STICK_LONG_PRESS_MS = 200;
 function newStickPressState() {
   return { since: 0, firedLong: false };
 }
@@ -2999,11 +3185,238 @@ function processStickPress(hand, handState, handAssignments) {
   }
 }
 
+// Double-click for grip/trigger (HOTKEY_SLOTS "gripDouble"/"triggerDouble")
+// — detected independently of, and in parallel with, each button's own
+// hold-based single slot (processHandHotkey): a double-click fires the
+// instant the second press lands, without waiting for it to be held at
+// all, so it stays useful for a quick default like toggling the VR
+// keyboard (works with nothing pending, same reasoning as the stick slots
+// above — this runs unconditionally in the poll loop, not gated on
+// pendingFinalText the way processHandHotkey is). HOTKEY_DOUBLE_CLICK_MS
+// matches XSOverlay's own quick-double-press window (see
+// CYCLE_DOUBLE_PRESS_MS, declared later in the file — kept a literal here
+// rather than a reference to it, since a module-scope `const` referencing
+// one declared further down throws at load time, before this module's own
+// DOMContentLoaded handler even registers) as "how fast counts as
+// deliberate", rather than picking a fresh number.
+const HOTKEY_DOUBLE_CLICK_MS = 300;
+// How long the two-circle indicator holds at "both lit" after firing (see
+// doubleClickStageFor) before it'd naturally read as 0 again — well past
+// one render tick, so it's reliably captured into boxFrozenContent (see the
+// render loop) and visible through the box's own fade-out, but short
+// enough that it's back to a clean 0 well before any *new* double-click
+// sequence could plausibly start.
+const HOTKEY_DOUBLE_CLICK_DOT_HOLD_MS = 150;
+function newDoubleClickButtonState() {
+  return { pendingSince: 0, wasPressed: false };
+}
+let hotkeyDoubleClickState = {
+  right: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
+  left: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
+};
+
+// Derives the two-circle indicator's stage (0/1/2 — see draw_double_click_dots
+// in overlay.rs) purely from timestamps already being tracked for detection,
+// rather than a separately-set/reset flag: grip-double and trigger-double
+// share one hand's worth of display (same as the hold system already
+// collapses both/grip/trigger/none into one activeSlot per hand), and
+// nothing here needs an explicit reset anywhere else — once `firedAt` and
+// every button's `pendingSince` are both stale, this naturally reads 0
+// again on its own. An earlier version stored the stage as a plain field,
+// set to 2 on fire — that field only ever got reset to 0 on a *timeout*,
+// so a fire followed by nothing else (the normal case: firing closes the
+// keyboard, or sends and clears pendingFinalText) left it stuck at 2, and
+// the *next* time the box became visible for an unrelated reason (e.g. the
+// next voice Final), it would incorrectly show "just fired" again.
+// Stage 1 only shows once the *first* click has actually been released —
+// while a button is still down, there's no way yet to tell a hold from the
+// first half of a double-click, so the hold bar gets first say (see the
+// render loop's holdDisplay, which already only shows while a hand isn't
+// reporting a double-click stage here — this is the other half of that:
+// whichever button is physically down keeps this at 0). The moment it's
+// released short of firing the hold, `pendingSince` is still set (it isn't
+// cleared until the double-click window itself expires) and neither button
+// is held anymore, so this flips to 1 right then — reading exactly as "that
+// was a click, waiting on a possible second one" instead of "still mid-hold".
+function doubleClickStageFor(hand) {
+  const handState = hotkeyDoubleClickState[hand];
+  const now = Date.now();
+  if (now - handState.firedAt < HOTKEY_DOUBLE_CLICK_DOT_HOLD_MS) return 2;
+  if (handState.grip.wasPressed || handState.trigger.wasPressed) return 0;
+  if (handState.grip.pendingSince || handState.trigger.pendingSince) return 1;
+  return 0;
+}
+
+// { stage, assignment } for the render loop's ending-preview text/dot
+// color, or null while stage is 0 — assignment is whichever button
+// (grip/trigger) most recently drove the stage above 0 (see
+// processDoubleClick, which keeps it current on every press-edge).
+function doubleClickDisplayFor(hand) {
+  const stage = doubleClickStageFor(hand);
+  return stage ? { stage, assignment: hotkeyDoubleClickState[hand].activeAssignment } : null;
+}
+
+// `hold` is this hand's rightHotkeyHold/leftHotkeyHold (declared further
+// below) — a double-click resets it so a second tap that happens to
+// linger doesn't *also* cross the plain grip/trigger hold threshold
+// moments later: clearing activeSlot/candidateSlot alone restarts that
+// debounce from scratch, same as a genuine fresh press would, but
+// activeAssignment/activeSince/firedForThisHold also need clearing here —
+// processHandHotkey (which normally keeps them in sync) stops running
+// entirely the instant pendingFinalText goes empty (its own early return),
+// which a double-click send always does, so without this reset those three
+// fields would keep reading whatever they were at the moment of that last
+// real hold, and the render loop (which reads them for the progress bar/
+// ending-preview text) would show that stale hold indefinitely instead of
+// nothing.
+function processDoubleClick(hand, button, pressed, handAssignments, hold) {
+  const handState = hotkeyDoubleClickState[hand];
+  const state = handState[button];
+  const now = Date.now();
+  // A trigger press that's actually clicking a VR keyboard key isn't a
+  // hotkey gesture at all — without this, typing on the keyboard (each key
+  // press is its own trigger press/release) would randomly land inside an
+  // earlier double-click's window and fire it. Grip has no keyboard role,
+  // so this only ever applies to button === "trigger".
+  if (button === "trigger" && vrKeyboardVisible && vrKeyboardHands[hand].highlightedIndex !== null) {
+    state.wasPressed = pressed;
+    return;
+  }
+  // Same idea for grip: a grip press that grabbed the keyboard (fixed
+  // position mode, see processKeyboardGrab — which runs before this each
+  // tick, so a grab started this very tick is already reflected) is a drag,
+  // not a hotkey gesture; without this, re-gripping to adjust the panel
+  // twice in quick succession would fire gripDouble. The release tick needs
+  // no special case: processKeyboardGrab clears vrKeyboardGrabHand first,
+  // and a release is never a press edge anyway.
+  if (button === "grip" && vrKeyboardGrabHand === hand) {
+    state.wasPressed = pressed;
+    return;
+  }
+  if (pressed && !state.wasPressed) {
+    if (state.pendingSince && now - state.pendingSince < HOTKEY_DOUBLE_CLICK_MS) {
+      state.pendingSince = 0;
+      handState.firedAt = now;
+      handState.activeAssignment = handAssignments[`${button}Double`] || "";
+      fireHotkeyAssignment(handAssignments[`${button}Double`]);
+      hold.activeSlot = null;
+      hold.candidateSlot = null;
+      hold.activeAssignment = "";
+      hold.activeSince = now;
+      hold.firedForThisHold = false;
+    } else {
+      state.pendingSince = now;
+      handState.activeAssignment = handAssignments[`${button}Double`] || "";
+    }
+  } else if (state.pendingSince && now - state.pendingSince >= HOTKEY_DOUBLE_CLICK_MS) {
+    state.pendingSince = 0;
+  }
+  state.wasPressed = pressed;
+}
+
+// Grip-grab for the VR keyboard in "fixed" position mode (see
+// loadVrKeyboardPositionMode). null, or the hand ("right"/"left") currently
+// dragging the panel — a single value rather than per-hand state because
+// only one hand may drag at a time: a second hand's grip is simply ignored
+// until the first lets go (two hands fighting over one rigid panel has no
+// sensible meaning, and "both released at once" can't then leave it half-way).
+let vrKeyboardGrabHand = null;
+// Own grip edge tracking, separate from hotkeyDoubleClickState's: that one's
+// wasPressed gets overwritten by processDoubleClick, which runs after this.
+let vrKeyboardGripWasPressed = { right: false, left: false };
+
+// A grab starts only on a *fresh* grip press (same press-edge rule as
+// processDoubleClick — holding grip and then sweeping onto the panel doesn't
+// pick it up) while the keyboard is showing in fixed mode, and only if that
+// hand's aim ray is on the panel at that instant — begin_keyboard_grab does
+// that hit-test itself against the live pose, rather than trusting this
+// hand's last reported highlightedIndex, since grabbing is allowed anywhere
+// on the panel, not just over a key. Grip pointed elsewhere stays an
+// ordinary hotkey grip. Called for "right" before "left" each tick, so on a
+// same-tick press by both hands, right wins.
+//
+// All the geometry (and keeping the drag rigid) lives in lib.rs — see
+// begin_keyboard_grab/end_keyboard_grab. Nothing needs sending per tick while
+// held: the panel is parented to the controller on SteamVR's side for the
+// duration, so it follows the hand at the headset's own frame rate rather
+// than this loop's HOTKEY_POLL_MS.
+async function processKeyboardGrab(hand, handState) {
+  const wasPressed = vrKeyboardGripWasPressed[hand];
+  vrKeyboardGripWasPressed[hand] = handState.grip;
+
+  if (vrKeyboardGrabHand === hand) {
+    // Closing the keyboard mid-drag also ends it — it's re-anchored on the
+    // next open anyway, but lib.rs shouldn't be left thinking it's grabbed.
+    if (!handState.grip || !vrKeyboardVisible) {
+      vrKeyboardGrabHand = null;
+      await window.__TAURI__.core.invoke("end_keyboard_grab").catch((err) => log(`[overlay] ${err}`));
+    }
+    return;
+  }
+  if (vrKeyboardGrabHand !== null) return;
+  if (!handState.grip || wasPressed) return;
+  if (!vrKeyboardVisible || vrKeyboardPositionModeCache !== "fixed") return;
+  // .catch: rejects only if the overlay itself failed to initialize (see
+  // lib.rs's Hud) — log it like the render loop does, rather than letting it
+  // abort the rest of this poll tick (trigger handling etc.).
+  const grabbed = await window.__TAURI__.core.invoke("begin_keyboard_grab", { hand }).catch((err) => {
+    log(`[overlay] ${err}`);
+    return false;
+  });
+  if (grabbed) vrKeyboardGrabHand = hand;
+}
+
+// The hold-based hotkeys (processHandHotkey) see a grabbing hand's grip as
+// released — otherwise, with hotkeyActiveDuringKeyboardCache on, simply
+// holding the panel longer than the hold threshold would fire whatever
+// that hand's grip slot is assigned to (e.g. send an ending).
+function withoutGrabbingGrip(hand, handState) {
+  return vrKeyboardGrabHand === hand ? { ...handState, grip: false } : handState;
+}
+
 // --- VR keyboard layout + flick input (TASK.md #23) ---
 // Must match overlay.rs's KEYBOARD_CANVAS_WIDTH/HEIGHT — the layout itself
 // lives entirely here (not duplicated in Rust, see overlay.rs's own top
 // comment on this) and gets sent to update_keyboard_overlay every frame.
-const VR_KB_CANVAS_WIDTH = 900;
+//
+// The 5-column grid (gridLeft/gridCols/gapX/cellW, computed in
+// computeVrKeyboardLayout from VR_KB_GRID_WIDTH below) keeps the exact
+// pixel geometry — and, since lib.rs's KEYBOARD_TRANSFORM carries a
+// matching compensating shift (see its own comment), the exact world
+// position too — it's always had. VR_KB_CANVAS_WIDTH is wider than that
+// grid alone: a 2x2 block of cells the same size as the grid's own
+// (cellW x cellH each), for the cursor controls (see
+// computeVrKeyboardLayout's cursorActions), plus VR_KB_GAP_X clearance on
+// each side of that block's own *padded* footprint (matching the standard
+// gap everywhere else, and VR_KB_GRID_LEFT past its outer edge, matching
+// the grid's own margin) — they used to be a single ~50px-tall strip below
+// the whole grid, too small a target to reliably land a VR pointer press
+// on, so they moved into their own block to the right instead, drawn as a
+// visually separate box (see lib.rs's RectArg / overlay.rs's CURSOR_BOX_* —
+// Rust draws the box, but its bounds are computed here and sent over, same
+// "layout lives in JS only" reasoning as the rest of this section).
+// VR_KB_CURSOR_BOX_PADDING must match overlay.rs's CURSOR_BOX_PADDING —
+// left out of that padding, the block's *button* positions would be
+// correctly clear of column 5, but its padded background box would still
+// visually overlap BS/etc. (this happened once already — the padding was
+// only accounted for on the Rust side, not reserved for here).
+const VR_KB_GRID_LEFT = 20;
+const VR_KB_GRID_COLS = 5;
+const VR_KB_GAP_X = 10;
+const VR_KB_GRID_WIDTH = 900;
+const VR_KB_CELL_W = (VR_KB_GRID_WIDTH - VR_KB_GRID_LEFT * 2 - (VR_KB_GRID_COLS - 1) * VR_KB_GAP_X) / VR_KB_GRID_COLS; // 164
+const VR_KB_CURSOR_BOX_PADDING = 14;
+// The computed VR_KB_GAP_X clearance from BS still read as touching/
+// overlapping in-headset once the padded box was actually rendered — a
+// few rounds of in-headset feedback settled on this much extra breathing
+// room on top of the standard gap.
+const VR_KB_CURSOR_BOX_EXTRA_GAP = 13;
+// VR_KB_GRID_WIDTH already counts its own trailing VR_KB_GRID_LEFT-width
+// margin (see this constant's own value/derivation) — that's also exactly
+// the margin left *past* the padded cursor block below, so it isn't added
+// again here.
+const VR_KB_CANVAS_WIDTH =
+  VR_KB_GRID_WIDTH + VR_KB_GAP_X + VR_KB_CURSOR_BOX_EXTRA_GAP + VR_KB_CURSOR_BOX_PADDING * 2 + (VR_KB_CELL_W * 2 + VR_KB_GAP_X); // 1289
 // 823, not 640 — the panel was asked to shrink ~30% in world *width* but
 // only ~10% in world *height*. Width alone is a plain KEYBOARD_WORLD_WIDTH
 // cut in lib.rs (uniform, nothing here needs to change for that). Height
@@ -3020,6 +3433,34 @@ const VR_KB_CANVAS_WIDTH = 900;
 // uniform 30% width cut is entirely lib.rs's KEYBOARD_WORLD_WIDTH's job.
 const VR_KB_CANVAS_HEIGHT = 823;
 const VR_KB_VERTICAL_SCALE = VR_KB_CANVAS_HEIGHT / 640;
+
+const VR_KB_GRID_TOP = Math.round(90 * VR_KB_VERTICAL_SCALE);
+const VR_KB_GAP_Y = Math.round(10 * VR_KB_VERTICAL_SCALE);
+const VR_KB_CELL_H = Math.round(85 * VR_KB_VERTICAL_SCALE);
+
+// The cursor-control block's own background box (see overlay.rs's
+// CURSOR_BOX_* and lib.rs's RectArg) — a constant, not computed inside
+// computeVrKeyboardLayout, since it doesn't depend on anything that
+// changes at runtime (mode, endings, hover state, ...). 2 columns x 4 rows
+// of full-size cells (matches cursorActions' own geometry there exactly) —
+// rows 0-1 are cursor jump/step, rows 2-3 are the Auto/profile/Chatbox/TTS
+// controls (desktop-only until now, see computeVrKeyboardLayout's own
+// comment on them) — top edge level with row 0 (BS). `x` starts VR_KB_GAP_X
+// past column 5's
+// own right edge *plus* VR_KB_CURSOR_BOX_PADDING, so that once Rust pads
+// the drawn background out by that same amount (see overlay.rs's
+// CURSOR_BOX_PADDING) on every side, its left edge still lands exactly
+// VR_KB_GAP_X clear of BS rather than overlapping it — the padding was
+// only accounted for in Rust the first time this was built, which visually
+// overlapped the two boxes despite the buttons themselves never
+// overlapping anything. VR_KB_CANVAS_WIDTH leaves the same *padded*
+// clearance (VR_KB_GRID_LEFT-width) past this box's own outer edge too.
+const VR_KB_CURSOR_BOX = {
+  x: VR_KB_GRID_LEFT + VR_KB_GRID_COLS * (VR_KB_CELL_W + VR_KB_GAP_X) + VR_KB_CURSOR_BOX_PADDING + VR_KB_CURSOR_BOX_EXTRA_GAP,
+  y: VR_KB_GRID_TOP,
+  w: VR_KB_CELL_W * 2 + VR_KB_GAP_X,
+  h: VR_KB_CELL_H * 4 + VR_KB_GAP_Y * 3,
+};
 
 // Standard Japanese flick-input layout (iOS/Android kana keyboards alike):
 // tap = あ, flick LEFT = い, UP = う, right = え, down = お. Rows are stored
@@ -3044,6 +3485,25 @@ const VR_KB_FLICK_ROWS = {
   や: ["や", "（", "ゆ", "）", "よ"],
   わ: ["わ", "を", "ん", "ー", "〜"],
 };
+// Up-only entries for the number/symbol mode (see VR_KB_NUMSYM_ROWS) —
+// left/right/down all just repeat `base`, which resolveFlickChar's own
+// "no flick that way" skip (in the render loop below) reads as "nothing
+// there", same as や/わ's own unused directions above.
+const vrKbUpOnly = (base, up) => [base, base, up, base, base];
+Object.assign(VR_KB_FLICK_ROWS, {
+  "!": vrKbUpOnly("!", "`"),
+  "@": vrKbUpOnly("@", "~"),
+  ",": vrKbUpOnly(",", "<"),
+  ".": vrKbUpOnly(".", ">"),
+  "/": vrKbUpOnly("/", "?"),
+  ";": vrKbUpOnly(";", ":"),
+  "'": vrKbUpOnly("'", '"'),
+  "[": vrKbUpOnly("[", "{"),
+  "]": vrKbUpOnly("]", "}"),
+  "-": vrKbUpOnly("-", "_"),
+  "=": vrKbUpOnly("=", "+"),
+  "\\": vrKbUpOnly("\\", "|"),
+});
 // 「、。？！」key — same direction-order convention, no down.
 const VR_KB_PUNCTUATION_ROW = ["、", "。", "？", "！", ""];
 
@@ -3057,26 +3517,32 @@ const VR_KB_KANA_INNER = [
   [{ base: "ま" }, { base: "や" }, { base: "ら" }],
   [{ variant: true }, { base: "わ" }, { base: "punct" }],
 ];
-// Phone dialpad order, so digit positions are where muscle memory expects.
-const VR_KB_NUMBER_INNER = [
-  ["1", "2", "3"],
-  ["4", "5", "6"],
-  ["7", "8", "9"],
-  [null, "0", null],
-];
-// General symbols not already reachable elsewhere (、。？！ live on the
-// punct kana key). No particular ordering convention to match — just
-// grouped by kind (brackets, then slashes/at/hash, then misc).
-const VR_KB_SYMBOL_INNER = [
-  ["(", ")", "["],
-  ["]", "{", "}"],
-  ["/", "\\", "@"],
-  ["#", "&", "*"],
+// Combined number+symbol mode ("numsym" — used to be two separate modes,
+// "number" and "symbol", cycled with a shared button; one full-width 3x10
+// layout instead, same footprint as English/QWERTY below, since the old
+// 3x4 inner grid didn't have room for a real symbol row without spreading
+// it across two mode switches). Row 1 is plain digits, no flick. Row 2's
+// flick only covers its first two keys (see VR_KB_FLICK_ROWS' own
+// vrKbUpOnly entries) — nothing else in that row needed a second symbol
+// badly enough to reach for a flick. Row 3's flick is the full standard
+// US-keyboard shift-row mapping, so it matches what a physical keyboard
+// user already has memorized.
+const VR_KB_NUMSYM_ROWS = [
+  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+  ["!", "@", "#", "$", "%", "^", "&", "*", "(", ")"],
+  [",", ".", "/", ";", "'", "[", "]", "-", "=", "\\"],
 ];
 // Full-width (replaces all 5 columns). QWERTY's own 26 letters leave 1
-// empty slot in row 2 and 3 in row 3 (30 cells total, no dead ones) — ! in
+// empty slot in row 2 and 3 in row 3 (30 cells total, no dead ones) — ' in
 // row 2, ,.? in row 3, per the user's explicit ordering.
-const VR_KB_QWERTY_ROWS = ["qwertyuiop", "asdfghjkl!", "zxcvbnm,.?"];
+const VR_KB_QWERTY_ROWS = ["qwertyuiop", "asdfghjkl'", "zxcvbnm,.?"];
+// Every letter's up-flick gives its own uppercase — replaces the old
+// dedicated A/a caps-toggle button (case is momentary per keystroke now,
+// like a real flick-keyboard shift, instead of a sticky mode you had to
+// remember was on).
+for (const ch of "abcdefghijklmnopqrstuvwxyz") {
+  VR_KB_FLICK_ROWS[ch] = vrKbUpOnly(ch, ch.toUpperCase());
+}
 
 // 小゛゜ key: each string is one cycle, pressed repeatedly on the character
 // before the cursor (は→ば→ぱ→は…). Kept as cycles rather than a hand-written
@@ -3100,7 +3566,6 @@ for (const cycle of VR_KB_VARIANT_CYCLES) {
 // "kana" | "number" | "english" | "template". Deliberately not reset when
 // the keyboard closes — reopening in the mode last used matches phone IMEs.
 let vrKeyboardMode = "kana";
-let vrKeyboardEnglishCaps = false;
 
 // Resolves a (base kana row, flick direction) pair to the actual character
 // — falls back to the row's own center/tap character if that direction
@@ -3210,19 +3675,20 @@ function computeVrKeyboardLayout() {
   const buttons = [];
 
   // Vertical budget (canvas VR_KB_CANVAS_HEIGHT, see its own comment for
-  // why that's not a plain 640 anymore): candidates, grid (4 rows), cursor
-  // row, 2 ending rows, in that order top to bottom — every vertical
-  // measurement below is VR_KB_VERTICAL_SCALE'd from the original 640-tall
-  // design so the proportions stay the same at the new canvas height.
-  // Horizontal ones (gridLeft/gapX/cellW) are untouched — see
-  // VR_KB_CANVAS_HEIGHT's own comment on why only vertical scales.
-  const gridTop = Math.round(90 * VR_KB_VERTICAL_SCALE);
-  const gridLeft = 20;
-  const gridCols = 5;
-  const gapX = 10;
-  const gapY = Math.round(10 * VR_KB_VERTICAL_SCALE);
-  const cellW = (VR_KB_CANVAS_WIDTH - gridLeft * 2 - (gridCols - 1) * gapX) / gridCols; // 164
-  const cellH = Math.round(85 * VR_KB_VERTICAL_SCALE);
+  // why that's not a plain 640 anymore): candidates, grid (4 rows, with the
+  // cursor block beside it, not below — see cursorActions), 2 ending rows,
+  // in that order top to bottom — every vertical measurement below is
+  // VR_KB_VERTICAL_SCALE'd from the original 640-tall design so the
+  // proportions stay the same at the new canvas height. Horizontal ones
+  // (gridLeft/gapX/cellW) are untouched — see VR_KB_CANVAS_HEIGHT's own
+  // comment on why only vertical scales.
+  const gridTop = VR_KB_GRID_TOP;
+  const gridLeft = VR_KB_GRID_LEFT;
+  const gridCols = VR_KB_GRID_COLS;
+  const gapX = VR_KB_GAP_X;
+  const gapY = VR_KB_GAP_Y;
+  const cellW = VR_KB_CELL_W;
+  const cellH = VR_KB_CELL_H;
   const cellX = (c) => gridLeft + c * (cellW + gapX);
   const cellY = (r) => gridTop + r * (cellH + gapY);
 
@@ -3240,7 +3706,10 @@ function computeVrKeyboardLayout() {
     const candTop = gapY;
     const candH = gridTop - gapY * 2;
     const maxShown = Math.min(focused.candidates.length, 8);
-    const candW = (VR_KB_CANVAS_WIDTH - gridLeft * 2 - (maxShown - 1) * gapX) / maxShown;
+    // Sized off VR_KB_GRID_WIDTH, not VR_KB_CANVAS_WIDTH — stays above the
+    // grid's own panel, not stretched out over the (now transparent, see
+    // overlay.rs's KEYBOARD_GRID_WIDTH) gap before the cursor block.
+    const candW = (VR_KB_GRID_WIDTH - gridLeft * 2 - (maxShown - 1) * gapX) / maxShown;
     for (let i = 0; i < maxShown; i++) {
       buttons.push({
         x: gridLeft + i * (candW + gapX),
@@ -3257,61 +3726,89 @@ function computeVrKeyboardLayout() {
   const cell = (r, c, label, action, extra = {}) =>
     buttons.push({ x: cellX(c), y: cellY(r), w: cellW, h: cellH, label, action, ...extra });
 
+  // English and numsym share one control-row shape — kana / the other one
+  // of this pair / newline / space / BS — so switching between "typing
+  // Latin text" and "typing symbols" is always one press each way, with no
+  // detour through kana mode. Neither carries a Send button any more (kana
+  // mode's own still does): with the double-click-to-send hotkey covering
+  // the common case, the extra column went to the direct mode-switch
+  // instead of a second way to do what the hotkey already does.
   if (vrKeyboardMode === "english") {
     // Needs all 10 columns, so this replaces the whole 5-column grid
     // (mode column included) — its bottom row carries its own way back.
-    const letterW = (VR_KB_CANVAS_WIDTH - gridLeft * 2 - 9 * gapX) / 10;
+    // Sized off VR_KB_GRID_WIDTH, not the wider VR_KB_CANVAS_WIDTH — QWERTY
+    // stays within the original grid's own footprint, leaving the cursor
+    // column (added to the right of it, see cursorActions below) clear
+    // rather than stretching keys out underneath it. Letters go through the
+    // flick machinery (type: "key", same as kana/numsym) so an up-flick
+    // gives the uppercase form (see VR_KB_FLICK_ROWS' per-letter entries) —
+    // flickHint surfaces that same uppercase letter as a small corner label.
+    const letterW = (VR_KB_GRID_WIDTH - gridLeft * 2 - 9 * gapX) / 10;
     VR_KB_QWERTY_ROWS.forEach((row, r) => {
       [...row].forEach((ch, c) => {
-        const text = vrKeyboardEnglishCaps ? ch.toUpperCase() : ch;
-        buttons.push({ x: gridLeft + c * (letterW + gapX), y: cellY(r), w: letterW, h: cellH, label: text, action: { type: "insert", text } });
+        const x = gridLeft + c * (letterW + gapX);
+        const y = cellY(r);
+        const flickCells = vrKeyboardFlickCells(x, y, letterW, cellH, letterW + gapX, cellH + gapY);
+        const upChar = resolveFlickChar(ch, "up");
+        buttons.push({ x, y, w: letterW, h: cellH, label: ch, action: { type: "key", base: ch }, flickCells, flickHint: upChar !== ch ? upChar : undefined });
       });
     });
     // Space isn't in the QWERTY block (its 30 cells are exactly full), and
-    // English without spaces is unusable — it gets the control row's
-    // middle slot. 送信 stays in column 5 as in the other modes.
+    // English without spaces is unusable — it gets its own control-row slot.
     cell(3, 0, t("vrKbModeKana"), { type: "mode", mode: "kana" });
-    cell(3, 1, vrKeyboardEnglishCaps ? "ABC" : "abc", { type: "caps" }, { selected: vrKeyboardEnglishCaps });
-    cell(3, 2, t("vrKbSpaceButton"), { type: "insert", text: " " });
-    cell(3, 3, "BS", { type: "delete" });
-    cell(3, 4, t("vrKbSendButton"), { type: "send" });
+    cell(3, 1, t("vrKbModeNumber"), { type: "mode", mode: "numsym" });
+    cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
+    cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
+    cell(3, 4, "BS", { type: "delete" });
+  } else if (vrKeyboardMode === "numsym") {
+    // Full-width like English above — see VR_KB_NUMSYM_ROWS' own comment
+    // for why this replaced two separate "number"/"symbol" modes. Same
+    // flick machinery as English's letters, for the same reason.
+    const symW = (VR_KB_GRID_WIDTH - gridLeft * 2 - 9 * gapX) / 10;
+    VR_KB_NUMSYM_ROWS.forEach((row, r) => {
+      row.forEach((ch, c) => {
+        const x = gridLeft + c * (symW + gapX);
+        const y = cellY(r);
+        const flickCells = vrKeyboardFlickCells(x, y, symW, cellH, symW + gapX, cellH + gapY);
+        const upChar = resolveFlickChar(ch, "up");
+        buttons.push({
+          x,
+          y,
+          w: symW,
+          h: cellH,
+          label: ch,
+          action: { type: "key", base: ch },
+          flickCells,
+          flickHint: upChar !== ch ? upChar : undefined,
+        });
+      });
+    });
+    cell(3, 0, t("vrKbModeKana"), { type: "mode", mode: "kana" });
+    cell(3, 1, t("vrKbModeEnglish"), { type: "mode", mode: "english" });
+    cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
+    cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
+    cell(3, 4, "BS", { type: "delete" });
   } else {
     // Column 1: an active mode's own button relabels to かな and toggles
-    // back; the other two stay live so template↔english (or ↔number/symbol,
-    // see numberSymbolButton) is always one press, never a detour through
-    // kana mode first. 変換 (henkan) lives here too now, not column 5 — that
-    // column is full with Del/BS/Space/Send (see below).
-    const modeButton = (mode, labelKey) => [
-      t(vrKeyboardMode === mode ? "vrKbModeKana" : labelKey),
-      { type: "mode", mode },
-      { selected: vrKeyboardMode === mode },
-    ];
-    // Number and symbol share one physical button (there wasn't room for a
-    // 5th column-1 slot once 変換 moved in) — press steps kana -> number ->
-    // symbol -> kana, each press's label showing what *that* press leads to
-    // (same "shows the next state" convention modeButton uses, just chained
-    // over 2 modes instead of 1 — see applyVrKeyboardAction's "modeCycle").
-    const numberSymbolButton = () => {
-      const modes = ["number", "symbol"];
-      const idx = modes.indexOf(vrKeyboardMode);
-      const nextMode = idx === -1 ? modes[0] : idx + 1 < modes.length ? modes[idx + 1] : "kana";
-      const labelKey = nextMode === "kana" ? "vrKbModeKana" : nextMode === "number" ? "vrKbModeNumber" : "vrKbModeSymbol";
-      return [t(labelKey), { type: "modeCycle", modes }, { selected: idx !== -1 }];
-    };
+    // back; the other two stay live so template↔english↔number/symbol is
+    // always one press, never a detour through kana mode first. 変換
+    // (henkan) lives here too now, not column 5 — that column is full with
+    // Del/BS/Newline/Confirm (see below). No `selected` highlight on the
+    // active one — tried that, but a highlighted button reading "かな" while
+    // you're actually in, say, template mode read as "you're in kana mode"
+    // rather than the intended "press here to get back to kana".
+    const modeButton = (mode, labelKey) => [t(vrKeyboardMode === mode ? "vrKbModeKana" : labelKey), { type: "mode", mode }];
     cell(0, 0, ...modeButton("template", "vrKbModeTemplate"));
-    cell(1, 0, "変換", { type: "henkan" });
-    cell(2, 0, ...numberSymbolButton());
+    // Only pressable while there's something not yet confirmed to act on
+    // (see vrKeyboardConfirmedLength) — either fresh unconfirmed text 変換
+    // hasn't touched yet, or a candidate review already in progress (where
+    // pressing again cycles the focused segment, see handleHenkanPress).
+    const canConvert = vrKeyboardConversionSegments !== null || vrKeyboardConfirmedLength < pendingFinalText.length;
+    cell(1, 0, "変換", canConvert ? { type: "henkan" } : undefined);
+    cell(2, 0, ...modeButton("numsym", "vrKbModeNumber"));
     cell(3, 0, ...modeButton("english", "vrKbModeEnglish"));
 
-    if (vrKeyboardMode === "number") {
-      VR_KB_NUMBER_INNER.forEach((row, r) =>
-        row.forEach((digit, c) => {
-          if (digit !== null) cell(r, c + 1, digit, { type: "insert", text: digit });
-        }),
-      );
-    } else if (vrKeyboardMode === "symbol") {
-      VR_KB_SYMBOL_INNER.forEach((row, r) => row.forEach((sym, c) => cell(r, c + 1, sym, { type: "insert", text: sym })));
-    } else if (vrKeyboardMode === "template") {
+    if (vrKeyboardMode === "template") {
       loadVrKeyboardTemplates().forEach((text, i) => {
         // Unset slots still render (as inert, action-less keys) so every
         // slot keeps a fixed position whether or not its neighbors are set.
@@ -3338,40 +3835,72 @@ function computeVrKeyboardLayout() {
     // rasterize_cached in overlay.rs) — plain "BS" text instead. 変換 moved
     // to column 1 above, freeing this column for the 4 controls below.
     // No forward-delete button (there used to be one, "Del") — BS plus the
-    // cursor row's left/right covers the same ground without needing a
-    // fifth slot.
+    // cursor column's ◀/▶ (see cursorActions below) covers the same ground
+    // without needing a fifth slot.
     cell(0, 4, "BS", { type: "delete" });
     cell(1, 4, t("vrKbSpaceButton"), { type: "insert", text: " " });
-    // 変換 (henkan) cycles a candidate; this explicitly ends the conversion
-    // (same reset applyVrKeyboardAction already does before any other
-    // action type — see its own top line) without also typing, moving the
-    // cursor, or sending, so the user can lock in a pick and stop there.
-    cell(2, 4, t("vrKbConfirmButton"), { type: "confirm" });
-    cell(3, 4, t("vrKbSendButton"), { type: "send" });
+    cell(2, 4, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
+    // 確定 accepts whatever's currently unconfirmed (blue) as final text —
+    // without converting it if it was never sent through 変換 at all, or
+    // ending a candidate review early and locking in whatever's currently
+    // applied if it was (see confirmVrKeyboardConversion). Always pressable,
+    // unlike 変換 below — a no-op when there's nothing pending, same as a
+    // real IME's confirm key.
+    cell(3, 4, t("vrKbConfirmButton"), { type: "confirm" });
   }
 
-  const ctrlTop = cellY(4);
-  const ctrlH = Math.round(50 * VR_KB_VERTICAL_SCALE);
+  // Cursor + quick-settings controls: a 2x4 block of full-size cells (same
+  // cellW x cellH as any other key), positioned exactly at VR_KB_CURSOR_BOX
+  // (to the right of column 5, vertically lined up with the whole grid) —
+  // rows 0-1 replaced a single ~50px-tall strip that used to run below the
+  // whole grid, too small a target to reliably land a VR pointer press on.
+  // ≪/≫ (multi-char jump — replaced an earlier Home/End pair, which needed
+  // the whole string's length to read and didn't help with a mid-string
+  // edit the way a plain multi-char skip does) on top, ◀/▶ (single-char)
+  // below that, then Auto/profile/Chatbox/TTS in rows 2-3. Drawn as its own
+  // visually separate box (VR_KB_CURSOR_BOX, sent to Rust alongside
+  // `buttons` — see CURSOR_BOX_* in overlay.rs) so it reads as a distinct
+  // control, not a 6th grid column — an earlier version that extended the
+  // grid's own canvas rightward for this shifted the whole existing
+  // keyboard's *world position* left by half the added width (an OpenVR
+  // overlay is centered on its own texture, and the original grid no
+  // longer sat at that center once the canvas grew asymmetrically); a
+  // separate box with its own explicit bounds sidesteps that class of bug
+  // entirely rather than requiring a compensating shift to stay correct
+  // (lib.rs's KEYBOARD_RECENTER_X still carries one, for the canvas-
+  // widening-vs-transform-centering issue itself, but nothing about *this*
+  // block's own position depends on getting that right).
+  const ctrlColX = VR_KB_CURSOR_BOX.x;
   const cursorActions = [
-    // ≪/≫ jump several characters at once — replaced an earlier Home/End
-    // pair (jump-to-start/end), which needed the whole string's length to
-    // read and didn't help with a mid-string edit the way a plain multi-
-    // char skip does.
-    { label: "≪", action: { type: "cursor", delta: -VR_KB_CURSOR_JUMP } },
-    { label: "◀", action: { type: "cursor", delta: -1 } },
-    { label: "▶", action: { type: "cursor", delta: 1 } },
-    { label: "≫", action: { type: "cursor", delta: VR_KB_CURSOR_JUMP } },
+    { x: ctrlColX, y: cellY(0), label: "≪", action: { type: "cursor", delta: -VR_KB_CURSOR_JUMP } },
+    { x: ctrlColX + cellW + gapX, y: cellY(0), label: "≫", action: { type: "cursor", delta: VR_KB_CURSOR_JUMP } },
+    { x: ctrlColX, y: cellY(1), label: "◀", action: { type: "cursor", delta: -1 } },
+    { x: ctrlColX + cellW + gapX, y: cellY(1), label: "▶", action: { type: "cursor", delta: 1 } },
+    // Desktop-only until now (see #mode-toggle-btn/#hotkey-profile-btn/
+    // #chatbox-toggle-btn/#tts-toggle-btn) — same underlying state either
+    // way (setSendMode/setChatboxEnabled/setTtsEnabled/setHotkeyProfileIndex
+    // keep both UIs in sync), just reachable from the headset now too.
+    // Auto/Chatbox/TTS get the quieter `toggledOn` look while on (not
+    // `selected` — that's SELECTED_COLOR in overlay.rs, meant for a one-off
+    // active choice like a mode button, far too insistent for a toggle
+    // that's "on" most of the time); the profile button doesn't highlight at
+    // all (matches the desktop "P1/P2/P3" button, which just shows the number).
+    { x: ctrlColX, y: cellY(2), label: t("autoLabel"), action: { type: "toggleAuto" }, toggledOn: sendMode === "auto" },
+    { x: ctrlColX + cellW + gapX, y: cellY(2), label: `P${loadHotkeyProfileIndex() + 1}`, action: { type: "cycleProfile" } },
+    { x: ctrlColX, y: cellY(3), label: "Chatbox", action: { type: "toggleChatbox" }, toggledOn: chatboxEnabled },
+    { x: ctrlColX + cellW + gapX, y: cellY(3), label: "TTS", action: { type: "toggleTts" }, toggledOn: ttsEnabled },
   ];
-  const ctrlW = (VR_KB_CANVAS_WIDTH - gridLeft * 2 - (cursorActions.length - 1) * gapX) / cursorActions.length;
-  cursorActions.forEach((btn, i) => {
-    buttons.push({ x: gridLeft + i * (ctrlW + gapX), y: ctrlTop, w: ctrlW, h: ctrlH, label: btn.label, action: btn.action });
+  cursorActions.forEach((btn) => {
+    buttons.push({ x: btn.x, y: btn.y, w: cellW, h: cellH, label: btn.label, action: btn.action, toggledOn: !!btn.toggledOn });
   });
 
   // Always shown now (used to be an opt-out toggle in settings — removed,
   // there's no reason not to have quick-send phrases available while the
   // keyboard's up). 2 rows of 5 rather than 1 of 10 — at 1/10 width, most
-  // ending texts overflowed their own key.
-  const endTop = ctrlTop + ctrlH + gapY;
+  // ending texts overflowed their own key. Still only as wide as the
+  // original 5-column grid (the new cursor column sits above this, not
+  // beside it) — unchanged from before.
+  const endTop = cellY(4) + gapY;
   const endRows = Math.ceil(endings.length / gridCols);
   const endH = (VR_KB_CANVAS_HEIGHT - endTop - gapY - (endRows - 1) * gapY) / endRows;
   endings.forEach((ending, i) => {
@@ -3404,6 +3933,14 @@ function newVrKeyboardHandState() {
   return {
     // Set from update_keyboard_overlay's per-hand result every render tick.
     highlightedIndex: null,
+    // Whether this hand's aim landed within the keyboard panel's own bounds
+    // on the last update_keyboard_overlay call (result.<hand>.hitX/Y non-null
+    // — see hand_hit in lib.rs, which already returns None past the panel's
+    // edges) — drives that hand's own laser visibility (see the render
+    // loop's update_pointer_overlays call), so the beam only shows while
+    // it's actually pointing somewhere on the keyboard, not just whenever
+    // the keyboard happens to be open.
+    aimingAtPanel: false,
     // The action (see computeVrKeyboardLayout) of whichever button this
     // hand's trigger was DOWN on when it was pressed (not just currently
     // hovering — see the poll loop) — applied on release, using
@@ -3444,10 +3981,6 @@ let vrKeyboardWasVisible = false;
 let vrKeyboardRightTriggerWasPressed = false;
 let vrKeyboardLeftTriggerWasPressed = false;
 
-// Hiragana-only run immediately before the cursor — what 変換 (henkan)
-// converts. Doesn't reach across kanji/punctuation/latin already in the
-// text, only the most recent unconverted hiragana the user just flicked in.
-const HIRAGANA_RE = /^[぀-ゟ]+$/;
 // Google's transliterate endpoint auto-segments a plain hiragana run into
 // bunsetsu (phrase) chunks on its own — no comma needed, see
 // convert_kana_to_kanji's own comment — and each chunk gets cycled/
@@ -3473,14 +4006,29 @@ async function handleHenkanPress() {
     return;
   }
 
-  let start = vrKeyboardCursorPos;
-  while (start > 0 && HIRAGANA_RE.test(pendingFinalText[start - 1])) start--;
-  if (start === vrKeyboardCursorPos) return; // nothing hiragana right before the cursor to convert
-
-  const segmentText = pendingFinalText.slice(start, vrKeyboardCursorPos);
+  // Converts the whole not-yet-confirmed tail (see vrKeyboardConfirmedLength's
+  // own comment) rather than scanning backward from the cursor for a
+  // hiragana run — the confirmed/unconfirmed boundary *is* now the thing
+  // that decides what 変換 acts on, matching what's shown with the blue
+  // background in the box. Mirrors the 変換 button's own enabled condition
+  // in computeVrKeyboardLayout, so a press here can only ever be reachable
+  // when there's actually something to convert.
+  if (vrKeyboardConfirmedLength >= pendingFinalText.length) return;
+  const start = vrKeyboardConfirmedLength;
+  const segmentText = pendingFinalText.slice(start);
   try {
     const segments = await window.__TAURI__.core.invoke("convert_kana_to_kanji", { text: segmentText });
     if (!segments || segments.length === 0) return;
+    // The network round-trip above can take long enough that the user types
+    // more, deletes, sends, or otherwise moves on before it resolves —
+    // `start`/`segmentText` were captured before any of that, so applying
+    // them unconditionally could splice this stale conversion into
+    // whatever's now at that position instead of what was actually
+    // converted (reported as already-confirmed text reappearing, or extra
+    // characters landing wrong, whenever this raced with typing). Bail out
+    // instead of applying if the text there isn't still exactly what was
+    // sent for conversion.
+    if (pendingFinalText.slice(start, start + segmentText.length) !== segmentText) return;
     vrKeyboardConversionBase = start;
     vrKeyboardConversionTotalLength = segmentText.length;
     vrKeyboardConversionSegments = segments.map((s) => ({
@@ -3504,32 +4052,34 @@ function applyVrKeyboardConversionSegments() {
   renderMergedText();
 }
 
-// The currently-focused segment's own [start, end) range within
-// pendingFinalText — derived from the *current* (possibly already-cycled)
-// lengths of every segment before it, since each segment's applied
-// candidate can be a different length than its original reading. Used for
-// both the highlight band (see the render loop) and the candidate-list
-// display (see computeVrKeyboardLayout). Returns null when not converting.
-function vrKeyboardFocusedSegmentRange() {
-  if (vrKeyboardConversionSegments === null) return null;
-  let offset = vrKeyboardConversionBase;
-  for (let i = 0; i < vrKeyboardConversionFocus; i++) {
-    const s = vrKeyboardConversionSegments[i];
-    offset += s.candidates[s.index].length;
-  }
-  const focused = vrKeyboardConversionSegments[vrKeyboardConversionFocus];
-  return [offset, offset + focused.candidates[focused.index].length];
-}
-
 // Any action other than pressing 変換 again, moving segment focus, or
 // picking a candidate directly ends the current conversion cycle — matches
 // how a real IME commits whatever's showing the moment you do anything
-// else (type more, send, ...).
+// else (type more, send, ...). Doesn't touch vrKeyboardConfirmedLength —
+// ending a cycle this way leaves whatever candidates were currently applied
+// in place but still *unconfirmed* (still blue): only confirmVrKeyboardConversion
+// (picking the last segment, or pressing 確定) actually commits it.
 function resetVrKeyboardConversion() {
   vrKeyboardConversionSegments = null;
   vrKeyboardConversionBase = null;
   vrKeyboardConversionTotalLength = 0;
   vrKeyboardConversionFocus = 0;
+}
+
+// Marks everything up to the current end of pendingFinalText as confirmed
+// (see vrKeyboardConfirmedLength's own comment) — the only thing that ever
+// advances that boundary. Ends any candidate review in progress the same
+// way resetVrKeyboardConversion does (accepting whatever's currently
+// applied, mid-review or not), but unlike that function this is the one
+// that actually turns the blue "not yet confirmed" text plain. Called both
+// by 確定 (skips conversion entirely — just accepts the raw text as-is) and
+// by picking the last segment's candidate in a review (see "selectCandidate"
+// in applyVrKeyboardAction) — same action either way: stop treating this
+// span as pending and accept what's currently there.
+function confirmVrKeyboardConversion() {
+  vrKeyboardConfirmedLength = pendingFinalText.length;
+  resetVrKeyboardConversion();
+  renderMergedText();
 }
 
 // One hand's trigger edge handling for the VR keyboard — see the poll loop
@@ -3609,18 +4159,6 @@ function applyVrKeyboardAction(action, direction) {
     case "mode":
       vrKeyboardMode = vrKeyboardMode === action.mode ? "kana" : action.mode;
       break;
-    case "modeCycle": {
-      // Shared physical button for >1 mode (currently number+symbol) —
-      // steps to the next mode in action.modes each press, wrapping back
-      // to kana after the last one. See vrKeyboardNumberSymbolButton for
-      // the matching "next mode" label logic.
-      const idx = action.modes.indexOf(vrKeyboardMode);
-      vrKeyboardMode = idx === -1 ? action.modes[0] : idx + 1 < action.modes.length ? action.modes[idx + 1] : "kana";
-      break;
-    }
-    case "caps":
-      vrKeyboardEnglishCaps = !vrKeyboardEnglishCaps;
-      break;
     case "henkan":
       handleHenkanPress();
       break;
@@ -3630,6 +4168,16 @@ function applyVrKeyboardAction(action, direction) {
         if (seg.candidates[action.index] !== undefined) {
           seg.index = action.index;
           applyVrKeyboardConversionSegments();
+          // Picking a candidate locks that segment in and moves on to the
+          // next one, same as a real IME's henkan flow — picking the last
+          // segment's candidate confirms the whole conversion (the text is
+          // already applied above; this just stops showing candidates/the
+          // focus highlight for it and marks it confirmed/plain).
+          if (vrKeyboardConversionFocus + 1 < vrKeyboardConversionSegments.length) {
+            vrKeyboardConversionFocus += 1;
+          } else {
+            confirmVrKeyboardConversion();
+          }
         }
       }
       break;
@@ -3654,18 +4202,28 @@ function applyVrKeyboardAction(action, direction) {
       deleteBeforeVrKeyboardCursor();
       break;
     case "confirm":
-      // resetVrKeyboardConversion() already ran above (applyVrKeyboardAction's
-      // own top line, for any type other than henkan/selectCandidate/cursor)
-      // — this button exists purely so there's a dedicated key for "stop
-      // editing this conversion" that doesn't also type, move the cursor,
-      // or send.
-      break;
-    case "send":
-      sendVrKeyboardTextAndClose();
+      // Accepts whatever's currently unconfirmed as final text WITHOUT
+      // converting it — resetVrKeyboardConversion() already ran above
+      // (applyVrKeyboardAction's own top line, for any type other than
+      // henkan/selectCandidate/cursor) if a review was in progress, so this
+      // only needs to advance the confirmed boundary itself.
+      confirmVrKeyboardConversion();
       break;
     case "ending":
       if (endings[action.index]) applyEnding(endings[action.index]);
-      vrKeyboardVisible = false;
+      if (loadVrKeyboardAutoCloseOnSend()) vrKeyboardVisible = false;
+      break;
+    case "toggleAuto":
+      setSendMode(sendMode === "auto" ? "manual" : "auto");
+      break;
+    case "cycleProfile":
+      setHotkeyProfileIndex((loadHotkeyProfileIndex() + 1) % HOTKEY_PROFILE_COUNT);
+      break;
+    case "toggleChatbox":
+      setChatboxEnabled(!chatboxEnabled);
+      break;
+    case "toggleTts":
+      setTtsEnabled(!ttsEnabled);
       break;
   }
 }
@@ -3676,6 +4234,8 @@ function applyVrKeyboardAction(action, direction) {
 // it — module-level so the value assigned there is visible to itself.
 let hotkeyHoldMsCache = DEFAULT_HOTKEY_HOLD_MS;
 let hotkeyPriorityHandCache = "right";
+let hotkeyActiveDuringKeyboardCache = false;
+let vrKeyboardPositionModeCache = "centered";
 
 function setupHotkeys() {
   const statusEl = document.querySelector("#hotkey-status");
@@ -3710,6 +4270,30 @@ function setupHotkeys() {
       if (!radio.checked) return;
       hotkeyPriorityHandCache = radio.value;
       saveHotkeyPriorityHand(hotkeyPriorityHandCache);
+    });
+  }
+
+  const activeDuringKeyboardToggle = document.querySelector("#hotkey-active-during-keyboard-toggle");
+  hotkeyActiveDuringKeyboardCache = loadHotkeyActiveDuringKeyboard();
+  activeDuringKeyboardToggle.checked = hotkeyActiveDuringKeyboardCache;
+  activeDuringKeyboardToggle.addEventListener("change", () => {
+    hotkeyActiveDuringKeyboardCache = activeDuringKeyboardToggle.checked;
+    saveHotkeyActiveDuringKeyboard(hotkeyActiveDuringKeyboardCache);
+  });
+
+  const autoCloseOnSendToggle = document.querySelector("#vr-keyboard-auto-close-on-send-toggle");
+  autoCloseOnSendToggle.checked = loadVrKeyboardAutoCloseOnSend();
+  autoCloseOnSendToggle.addEventListener("change", () => {
+    saveVrKeyboardAutoCloseOnSend(autoCloseOnSendToggle.checked);
+  });
+
+  vrKeyboardPositionModeCache = loadVrKeyboardPositionMode();
+  for (const radio of document.querySelectorAll('input[name="vr-keyboard-position-mode"]')) {
+    radio.checked = radio.value === vrKeyboardPositionModeCache;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      vrKeyboardPositionModeCache = radio.value;
+      saveVrKeyboardPositionMode(vrKeyboardPositionModeCache);
     });
   }
 
@@ -3787,19 +4371,30 @@ function setupHotkeys() {
       }
       leftAWasPressed = hotkeyState.left.a;
 
-      // Stick short/long press for both hands — independently assignable
-      // to any hotkey action (see processStickPress/fireHotkeyAssignment),
-      // e.g. the default short=toggle-keyboard, long=cancel/clear-all.
-      // Works in either UI mode — the app's own desktop/VR setting is about
-      // which on-screen controls this app shows, not whether SteamVR
-      // itself is connected (and this whole tick already only runs when
-      // hotkeyState.available is true, i.e. SteamVR is actually reachable
-      // — see the early return above). Reads assignments fresh each tick,
-      // same as the hold-based hotkeys further down, so a settings change
-      // takes effect immediately.
+      // Stick short/long press, and grip/trigger double-click, for both
+      // hands — independently assignable to any hotkey action (see
+      // processStickPress/processDoubleClick/fireHotkeyAssignment), e.g.
+      // the default right stick short-press=cancel/clear-all, right
+      // trigger double-click=toggle-keyboard. Works in either UI mode —
+      // the app's own desktop/VR setting is about which on-screen controls
+      // this app shows, not whether SteamVR itself is connected (and this
+      // whole tick already only runs when hotkeyState.available is true,
+      // i.e. SteamVR is actually reachable — see the early return above).
+      // Reads assignments fresh each tick, same as the hold-based hotkeys
+      // further down, so a settings change takes effect immediately.
       const stickAssignments = loadHotkeyAssignments();
       processStickPress("right", hotkeyState.right, stickAssignments.right);
       processStickPress("left", hotkeyState.left, stickAssignments.left);
+      // Before processDoubleClick, so a grip press that grabs the keyboard
+      // is already marked as a grab by the time the double-click logic sees
+      // it (see its own grip exemption). Sequential awaits, not parallel:
+      // right-before-left is what makes "right wins a same-tick tie" hold.
+      await processKeyboardGrab("right", hotkeyState.right);
+      await processKeyboardGrab("left", hotkeyState.left);
+      processDoubleClick("right", "grip", hotkeyState.right.grip, stickAssignments.right, rightHotkeyHold);
+      processDoubleClick("right", "trigger", hotkeyState.right.trigger, stickAssignments.right, rightHotkeyHold);
+      processDoubleClick("left", "grip", hotkeyState.left.grip, stickAssignments.left, leftHotkeyHold);
+      processDoubleClick("left", "trigger", hotkeyState.left.trigger, stickAssignments.left, leftHotkeyHold);
 
       // VR keyboard: each hand's trigger press engages whatever key *that
       // hand's own* pointer was last reported over (see the render loop's
@@ -3816,21 +4411,23 @@ function setupHotkeys() {
       processVrKeyboardTrigger("left", hotkeyState.left, vrKeyboardLeftTriggerWasPressed);
       vrKeyboardLeftTriggerWasPressed = hotkeyState.left.trigger;
 
-      // While the VR keyboard is up, its own send button/stick-press owns
-      // confirming text (see toggleVrKeyboard) — the grip/trigger-hold
-      // ending flow below is suppressed entirely rather than racing it.
-      if (!pendingFinalText || vrKeyboardVisible) {
+      // While the VR keyboard is up, its own send button/stick-press/
+      // double-click own confirming text (see toggleVrKeyboard) — the
+      // grip/trigger-hold ending flow below is suppressed entirely rather
+      // than racing it, unless the user opted into both being active at
+      // once (see hotkeyActiveDuringKeyboardCache's own comment).
+      if (!pendingFinalText || (vrKeyboardVisible && !hotkeyActiveDuringKeyboardCache)) {
         resetHotkeyHold();
         return;
       }
 
       const assignments = loadHotkeyAssignments();
       const now = Date.now();
-      processHandHotkey(rightHotkeyHold, hotkeyState.right, assignments.right, now);
+      processHandHotkey(rightHotkeyHold, withoutGrabbingGrip("right", hotkeyState.right), assignments.right, now);
       // The right hand's processing above may have just fired (sent an
       // ending or discarded), clearing pendingFinalText — don't let the
       // left hand act on now-stale text in the same tick.
-      if (pendingFinalText) processHandHotkey(leftHotkeyHold, hotkeyState.left, assignments.left, now);
+      if (pendingFinalText) processHandHotkey(leftHotkeyHold, withoutGrabbingGrip("left", hotkeyState.left), assignments.left, now);
     } finally {
       tickInFlight = false;
     }
@@ -3880,17 +4477,45 @@ function setupHotkeys() {
       // does if only one does. Green = this hold will send an ending (with
       // a preview of that ending shown below the main text), red = it'll
       // discard, no bar at all if neither hand's current gesture is
-      // assigned to anything.
+      // assigned to anything — and not while *that same hand's*
+      // doubleClickStageFor already reads 1 or 2 (see its own comment for
+      // why that only happens *after* release, never while a button is
+      // still down): the bar always gets first say the instant a press
+      // starts (nothing yet distinguishes a hold from the first half of a
+      // double-click), and only hands off to the two-circle indicator once
+      // that press is released without having crossed the hold threshold.
+      const otherHandName = hotkeyPriorityHandCache === "left" ? "right" : "left";
       const priorityHold = hotkeyPriorityHandCache === "left" ? leftHotkeyHold : rightHotkeyHold;
       const otherHold = hotkeyPriorityHandCache === "left" ? rightHotkeyHold : leftHotkeyHold;
-      const display = priorityHold.activeAssignment ? priorityHold : otherHold.activeAssignment ? otherHold : null;
+      const holdCandidates = [
+        { hold: priorityHold, hand: hotkeyPriorityHandCache },
+        { hold: otherHold, hand: otherHandName },
+      ];
+      const holdDisplay = holdCandidates.find(({ hold, hand }) => hold.activeAssignment && !doubleClickStageFor(hand))?.hold ?? null;
       let progress = null;
       let endingPreview = null;
-      if (display && display.activeAssignment === HOTKEY_CANCEL_ACTION) {
-        progress = { isSend: false, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
-      } else if (display) {
-        progress = { isSend: true, fraction: (now - display.activeSince) / hotkeyHoldMsCache };
-        endingPreview = endingForAssignment(display.activeAssignment)?.text ?? null;
+      if (holdDisplay && holdDisplay.activeAssignment === HOTKEY_CANCEL_ACTION) {
+        progress = { isSend: false, fraction: (now - holdDisplay.activeSince) / hotkeyHoldMsCache };
+      } else if (holdDisplay) {
+        progress = { isSend: true, fraction: (now - holdDisplay.activeSince) / hotkeyHoldMsCache };
+        endingPreview = endingForAssignment(holdDisplay.activeAssignment)?.text ?? null;
+      }
+      // Same priority-hand pattern as holdDisplay above, for the two-circle
+      // double-click indicator (see doubleClickStageFor: 0 none, 1 first
+      // click registered, 2 just fired) — and, when nothing from the hold
+      // side already claimed endingPreview, showing what a completed
+      // double-click would send too, so a double-click reads the same as a
+      // hold: the preview line above whichever indicator (bar or dots) is
+      // currently live, matching the report that double-clicking "blind"
+      // (with no indication of which 語尾 it'd send) felt uneasy.
+      const priorityDoubleClick = doubleClickDisplayFor(hotkeyPriorityHandCache);
+      const otherDoubleClick = doubleClickDisplayFor(otherHandName);
+      const doubleClickDisplay = priorityDoubleClick ?? otherDoubleClick;
+      const doubleClick = doubleClickDisplay
+        ? { stage: doubleClickDisplay.stage, isSend: doubleClickDisplay.assignment !== HOTKEY_CANCEL_ACTION }
+        : null;
+      if (!endingPreview && doubleClickDisplay && doubleClickDisplay.assignment !== HOTKEY_CANCEL_ACTION) {
+        endingPreview = endingForAssignment(doubleClickDisplay.assignment)?.text ?? null;
       }
       // cursor is only meaningful while the VR keyboard is actually editing
       // this text (see toggleVrKeyboard/insertAtVrKeyboardCursor etc.) —
@@ -3907,17 +4532,17 @@ function setupHotkeys() {
       const cursorRecentlyMoved = now - vrKeyboardCursorActivityAt < CURSOR_BLINK_PAUSE_MS;
       const cursorBlinkOn = cursorRecentlyMoved || Math.floor(now / CURSOR_BLINK_MS) % 2 === 0;
       const cursor = vrKeyboardVisible && cursorBlinkOn ? vrKeyboardCursorPos : null;
-      // Marks the *focused* bunsetsu segment 変換 (henkan) would next act
-      // on, so it's visible what a press of it (or picking a candidate)
-      // will change — see vrKeyboardFocusedSegmentRange's own comment.
-      const focusedRange = vrKeyboardFocusedSegmentRange();
-      const highlightStart = focusedRange ? focusedRange[0] : null;
-      const highlightEnd = focusedRange ? focusedRange[1] : null;
+      // Marks everything not yet confirmed (see vrKeyboardConfirmedLength's
+      // own comment) — whatever 変換/確定 would next act on.
+      const hasUnconfirmed = pendingFinalText.length > vrKeyboardConfirmedLength;
+      const highlightStart = hasUnconfirmed ? vrKeyboardConfirmedLength : null;
+      const highlightEnd = hasUnconfirmed ? pendingFinalText.length : null;
       const content = {
         finalText: pendingFinalText,
         interimText: currentInterimText,
         endingPreview,
         progress,
+        doubleClick,
         cursor,
         editing: vrKeyboardVisible,
         highlightStart,
@@ -3941,6 +4566,7 @@ function setupHotkeys() {
           interimText: "",
           endingPreview: null,
           progress: null,
+          doubleClick: null,
           cursor: null,
           editing: false,
           highlightStart: null,
@@ -3983,7 +4609,7 @@ function setupHotkeys() {
       const layout = computeVrKeyboardLayout();
       vrKeyboardLastLayout = layout;
       const buttons = layout.map((b, i) => {
-        const btn = { x: b.x, y: b.y, w: b.w, h: b.h, label: b.label, selected: !!b.selected };
+        const btn = { x: b.x, y: b.y, w: b.w, h: b.h, label: b.label, selected: !!b.selected, toggledOn: !!b.toggledOn, flickHint: b.flickHint };
         // Only a held kana/punctuation key gets the flick cross (see
         // vrKeyboardFlickCells) — check both hands, since each engages
         // independently now (see vrKeyboardHands' own comment); if both
@@ -3998,24 +4624,54 @@ function setupHotkeys() {
           for (const dir of ["center", "up", "left", "right", "down"]) {
             const char = resolveFlickChar(base, dir);
             if (dir !== "center" && char === centerChar) continue; // no flick that way (e.g. 、 key's down)
-            btn.flick[dir] = { ...b.flickCells[dir], label: char, selected: dir === engagedDirection };
+            // "center" always renders at the key's own full x/y/w/h, not
+            // b.flickCells.center — an edge column's flickCells.center is
+            // narrowed (see vrKeyboardFlickCells' own comment) to make room
+            // for a same-side left/right flick cell that has no neighboring
+            // key to draw over, but that narrowing is a hit-test-only
+            // concern; rendering the base key any smaller than usual just
+            // because it's flicked reads as a visual glitch.
+            const cellBox = dir === "center" ? { x: b.x, y: b.y, w: b.w, h: b.h } : b.flickCells[dir];
+            btn.flick[dir] = { ...cellBox, label: char, selected: dir === engagedDirection };
           }
         }
         return btn;
       });
       keyboardFrozenButtons = buttons;
       const fadeAlpha = Math.min(1, (now - keyboardShownAt) / KEYBOARD_FADE_IN_MS);
-      keyboardPromise = window.__TAURI__.core.invoke("update_keyboard_overlay", { visible: true, buttons, fadeAlpha }).then((result) => {
-        vrKeyboardHands.right.highlightedIndex = result.right.highlightedIndex;
-        vrKeyboardHands.left.highlightedIndex = result.left.highlightedIndex;
-        // Here rather than in the poll loop: this is where fresh aim data
-        // arrives, at the render rate. Both hands, independently.
-        updateVrKeyboardFlickDirection("right", result.right.hitX, result.right.hitY);
-        updateVrKeyboardFlickDirection("left", result.left.hitX, result.left.hitY);
+      keyboardPromise = window.__TAURI__.core
+        .invoke("update_keyboard_overlay", {
+          visible: true,
+          buttons,
+          fadeAlpha,
+          cursorBox: VR_KB_CURSOR_BOX,
+          fixedPosition: vrKeyboardPositionModeCache === "fixed",
+          // This tick is a fresh open (including a reopen mid-fade-out,
+          // which Rust can't see on its own — see update_keyboard_overlay's
+          // own `reanchor` comment): fixed mode re-anchors in front of the
+          // head on every open rather than reusing the last spot.
+          reanchor: !vrKeyboardWasVisible,
+        })
+        .then((result) => {
+          vrKeyboardHands.right.highlightedIndex = result.right.highlightedIndex;
+          vrKeyboardHands.left.highlightedIndex = result.left.highlightedIndex;
+          vrKeyboardHands.right.aimingAtPanel = result.right.hitX !== null;
+          vrKeyboardHands.left.aimingAtPanel = result.left.hitX !== null;
+          // Here rather than in the poll loop: this is where fresh aim data
+          // arrives, at the render rate. Both hands, independently.
+          updateVrKeyboardFlickDirection("right", result.right.hitX, result.right.hitY);
+          updateVrKeyboardFlickDirection("left", result.left.hitX, result.left.hitY);
+        });
+      // Per-hand — a hand's own laser only shows once its aim actually lands
+      // within the panel's bounds (see aimingAtPanel's own comment), not
+      // just because the keyboard is open. One tick of lag: this reads
+      // whatever the *previous* update_keyboard_overlay call found, since
+      // this tick's own result isn't back yet (same lag the highlight/flick
+      // direction already accept elsewhere).
+      pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", {
+        rightVisible: vrKeyboardHands.right.aimingAtPanel,
+        leftVisible: vrKeyboardHands.left.aimingAtPanel,
       });
-      // Both hands' lasers always — seeing where either hand points before
-      // pulling its trigger is the point.
-      pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", { visible: true });
     } else if (vrKeyboardWasVisible || keyboardFadingOutSince) {
       // Keeps showing the last frame's buttons, frozen, at a ramping alpha —
       // same "don't cut straight to hidden" treatment as the confirm/
@@ -4026,6 +4682,8 @@ function setupHotkeys() {
       const elapsed = now - keyboardFadingOutSince;
       vrKeyboardHands.right.highlightedIndex = null;
       vrKeyboardHands.left.highlightedIndex = null;
+      vrKeyboardHands.right.aimingAtPanel = false;
+      vrKeyboardHands.left.aimingAtPanel = false;
       if (elapsed >= KEYBOARD_FADE_OUT_MS) {
         keyboardFadingOutSince = 0;
         keyboardFrozenButtons = null;
@@ -4033,6 +4691,9 @@ function setupHotkeys() {
           visible: false,
           buttons: [],
           fadeAlpha: 0,
+          cursorBox: VR_KB_CURSOR_BOX,
+          fixedPosition: vrKeyboardPositionModeCache === "fixed",
+          reanchor: false,
         });
       } else {
         const fadeAlpha = 1 - elapsed / KEYBOARD_FADE_OUT_MS;
@@ -4040,9 +4701,14 @@ function setupHotkeys() {
           visible: true,
           buttons: keyboardFrozenButtons ?? [],
           fadeAlpha,
+          cursorBox: VR_KB_CURSOR_BOX,
+          // Fades out wherever it currently is — the mode is still applied
+          // (a switch mid-fade-out takes effect too), just never re-anchored.
+          fixedPosition: vrKeyboardPositionModeCache === "fixed",
+          reanchor: false,
         });
       }
-      pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", { visible: false });
+      pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", { rightVisible: false, leftVisible: false });
     }
     vrKeyboardWasVisible = vrKeyboardVisible;
 
@@ -4504,37 +5170,19 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   voicevoxBtn.addEventListener("click", () => speak());
 
-  const modeToggleBtn = document.querySelector("#mode-toggle-btn");
-  sendMode = loadSendMode();
-  modeToggleBtn.classList.toggle("active", sendMode === "auto");
-  modeToggleBtn.setAttribute("aria-pressed", String(sendMode === "auto"));
-  modeToggleBtn.addEventListener("click", () => {
-    sendMode = sendMode === "auto" ? "manual" : "auto";
-    modeToggleBtn.classList.toggle("active", sendMode === "auto");
-    modeToggleBtn.setAttribute("aria-pressed", String(sendMode === "auto"));
-    saveSendMode(sendMode);
+  setSendMode(loadSendMode());
+  document.querySelector("#mode-toggle-btn").addEventListener("click", () => {
+    setSendMode(sendMode === "auto" ? "manual" : "auto");
   });
 
-  const chatboxToggleBtn = document.querySelector("#chatbox-toggle-btn");
-  chatboxEnabled = loadChatboxEnabled();
-  chatboxToggleBtn.classList.toggle("active", chatboxEnabled);
-  chatboxToggleBtn.setAttribute("aria-pressed", String(chatboxEnabled));
-  chatboxToggleBtn.addEventListener("click", () => {
-    chatboxEnabled = !chatboxEnabled;
-    chatboxToggleBtn.classList.toggle("active", chatboxEnabled);
-    chatboxToggleBtn.setAttribute("aria-pressed", String(chatboxEnabled));
-    saveChatboxEnabled(chatboxEnabled);
+  setChatboxEnabled(loadChatboxEnabled());
+  document.querySelector("#chatbox-toggle-btn").addEventListener("click", () => {
+    setChatboxEnabled(!chatboxEnabled);
   });
 
-  const ttsToggleBtn = document.querySelector("#tts-toggle-btn");
-  ttsEnabled = loadTtsEnabled();
-  ttsToggleBtn.classList.toggle("active", ttsEnabled);
-  ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
-  ttsToggleBtn.addEventListener("click", () => {
-    ttsEnabled = !ttsEnabled;
-    ttsToggleBtn.classList.toggle("active", ttsEnabled);
-    ttsToggleBtn.setAttribute("aria-pressed", String(ttsEnabled));
-    saveTtsEnabled(ttsEnabled);
+  setTtsEnabled(loadTtsEnabled());
+  document.querySelector("#tts-toggle-btn").addEventListener("click", () => {
+    setTtsEnabled(!ttsEnabled);
   });
 
   const uiLangSelect = document.querySelector("#ui-lang-select");
