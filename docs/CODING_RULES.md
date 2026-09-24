@@ -28,7 +28,8 @@ Mutelink/
       voicevox_core/               # gitignore対象。VOICEVOXのONNXモデル一式(README参照)
       sense_voice/                 # gitignore対象。ダウンロードしたSTTモデル(開発時はここ、
                                    # 配布ビルドではexe相対、詳細はsense_voice.rsのコメント)
-  python/                          # 使われていない過去の実験コード(FunASR検討時の名残、参考のみ)
+      vad/                          # コミット対象(約630KBと小さいため)。Silero VADモデル
+                                   # (発話区切り判定、vad.rsのコメント参照)
   docs/
   TASK.md
   CLAUDE.md
