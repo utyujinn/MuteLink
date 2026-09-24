@@ -53,6 +53,7 @@
           <button class="settings-nav-btn" data-panel="general" data-i18n="navGeneral">General</button>
           <button class="settings-nav-btn" data-panel="character" data-i18n="navCharacter">キャラクター</button>
           <button class="settings-nav-btn" data-panel="endings" data-i18n="navEndings">語尾</button>
+          <button class="settings-nav-btn" data-panel="templates" data-i18n="navTemplates">テンプレート</button>
           <button class="settings-nav-btn" data-panel="device" data-i18n="navDevice">Device</button>
           <button class="settings-nav-btn" data-panel="appearance" data-i18n="navAppearance">Appearance</button>
           <button class="settings-nav-btn" data-panel="hotkey" data-i18n="navHotkey">Hotkey</button>
@@ -208,6 +209,14 @@
             <div id="ending-settings-list" class="ending-settings-list"></div>
           </section>
 
+          <section class="settings-panel" data-panel="templates">
+            <h2 data-i18n="navTemplates">テンプレート</h2>
+            <p class="hint" data-i18n="vrKeyboardTemplatesHint">
+              VRキーボードの「テンプレ」モードでワンタップ入力できるフレーズを登録できます。空欄のスロットはキーボード上でも空欄(入力なし)として表示されます。
+            </p>
+            <div id="vr-keyboard-templates-list" class="ending-settings-list"></div>
+          </section>
+
           <section class="settings-panel" data-panel="device">
             <h2 data-i18n="navDevice">Device</h2>
 
@@ -321,6 +330,11 @@
               <button id="hotkey-reconnect-btn" type="button" data-i18n="reconnectButton">再接続</button>
             </div>
 
+            <h3 data-i18n="vrKeyboardHeading">VRキーボード(開発中)</h3>
+            <p class="hint" data-i18n="vrKeyboardHint">
+              右スティック押し込みでVR内キーボードの表示/非表示を切り替え、編集後にもう一度押すと送信します(表示中はグリップ/トリガーでの送信は無効になります)。開発中の機能です。
+            </p>
+
             <h3 data-i18n="handRight">右手</h3>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotBoth">グリップ+トリガー</span>
@@ -341,6 +355,10 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotStick">スティック押し込み</span>
               <select id="hotkey-right-stick"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotStickLong">スティック押し込み(長押し)</span>
+              <select id="hotkey-right-stickLong"></select>
             </div>
 
             <h3 data-i18n="handLeft">左手</h3>
@@ -363,6 +381,10 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotStick">スティック押し込み</span>
               <select id="hotkey-left-stick"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotStickLong">スティック押し込み(長押し)</span>
+              <select id="hotkey-left-stickLong"></select>
             </div>
 
             <h3 data-i18n="presetHeading">プリセット</h3>

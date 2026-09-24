@@ -59,8 +59,7 @@
   - VOICEVOX CORE をアプリに直接組み込み(外部プロセスやHTTPサーバーを使わない)、テキストからWAVを合成する`synthesize`コマンドを提供
   - `sense_voice.rs`: ローカル音声認識モデル(SenseVoice軽量/標準、Whisper turbo、Parakeet)のダウンロード・ロード・推論
   - `vad.rs`: ローカル音声認識の発話区切り判定(Silero VAD、`sherpa-onnx`経由)。単純な音量しきい値ではなく学習済みモデルで発話を検出するため、呼吸音・環境ノイズによる誤検出に強い
-
-`python/` はFunASRベースのローカル音声認識を検討していた頃の実験コードで、現在は未使用(参考として残置)。
+  - `overlay.rs`/`overlay_gpu.rs`: SteamVR上に表示する確認/破棄HUD・VRキーボード・レーザーポインターをフォント手動ラスタライズ+`SetOverlayTexture`で描画。`lib.rs`にVR内フリック入力キーボード(コントローラーのポインターでキーを狙い、トリガーを引いたままスティック/ポインター位置で母音方向をフリック)とかな漢字変換(`ime.rs`、Googleの非公式transliterateエンドポイント経由)を実装
 
 ### ビルドに必要なもの (Windows専用)
 

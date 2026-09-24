@@ -161,6 +161,24 @@ impl GpuOverlay {
             // shows up as the previous label briefly flashing before the
             // new one appears. Flush forces the copy onto the GPU timeline
             // now instead of whenever the driver next feels like it.
+            //
+            // Flush only *submits* the copy, it doesn't wait for it — the
+            // compositor can still snapshot a still-pending (stale) copy.
+            // A GPU fence (D3D11_QUERY_EVENT, block until GetData confirms
+            // the copy landed before calling SetOverlayTexture) was tried
+            // here to close that race properly, paired with only calling
+            // update() when content actually changed (lib.rs's Hud::last_box/
+            // last_keyboard) instead of every tick regardless. That combination
+            // made freshly typed/flicked input consistently lag one input
+            // behind on screen — worse than the flash this comment already
+            // describes, and confirmed in-headset, not just reasoned about.
+            // Reverted both: this function goes back to fire-and-forget
+            // Flush() only, and lib.rs's update_overlay/update_keyboard_overlay
+            // call update() unconditionally every render tick again. The
+            // resulting redundancy (every ~8ms) is what actually keeps the
+            // compositor's snapshot fresh — any one stale sample gets
+            // overwritten well within a frame or two — rather than trying to
+            // guarantee a single upload is already correct before sending it.
             self.context.Flush();
 
             let mut texture = sys::Texture_t {
