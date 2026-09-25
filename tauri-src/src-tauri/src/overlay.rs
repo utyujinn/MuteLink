@@ -22,7 +22,7 @@ const CORNER_RADIUS: f32 = 24.0;
 // A fresh Hud starts at this — settable live from Appearance > VRキーボード
 // (see set_vr_overlay_appearance in lib.rs), same as the keyboard's own
 // KEYBOARD_BG_ALPHA_DEFAULT.
-pub const BOX_ALPHA_DEFAULT: f32 = 210.0 / 255.0;
+pub const BOX_ALPHA_DEFAULT: f32 = 0.5;
 // Send keeps its original thickness; only discard (this bar/the double-
 // click dots drawn red, see DISCARD_COLOR) is thickened — it's easy to lose
 // track of amid everything else in the box, and a thicker bar reads as more
@@ -47,7 +47,6 @@ const DISCARD_COLOR: [u8; 3] = [220, 60, 60];
 // interim trailing after it in white — see draw_text_block/draw_line_mixed.
 const TEXT_TOP: f32 = 18.0;
 const TEXT_REGION_HEIGHT: f32 = 190.0;
-const MAX_TEXT_LINES: usize = 4;
 const BASE_FONT_SIZE: f32 = 34.0;
 const MIN_FONT_SIZE: f32 = 16.0;
 const LINE_HEIGHT_FACTOR: f32 = 1.25;
@@ -375,9 +374,9 @@ fn draw_text_block(
     let layout = layout_text_block(font, final_text, interim_text);
     let size = layout.size;
     let line_count = layout.lines.len();
-    for (i, TextLine { text: line, start, baseline_y, had_newline }) in layout.lines.iter().enumerate() {
+    for (i, TextLine { text: line, visible_chars, start, baseline_y, had_newline }) in layout.lines.iter().enumerate() {
         let (global_index, baseline_y) = (*start, *baseline_y);
-        let line_len = line.chars().count();
+        let line_len = *visible_chars;
         // Drawn *before* the text itself (a background band the glyphs sit
         // on top of) — currently used to mark the hiragana run 変換 (henkan)
         // is about to act on / just converted, since otherwise there's no
@@ -418,6 +417,11 @@ fn draw_text_block(
 struct TextLine {
     // Never contains `\n` — see wrap_lines.
     text: String,
+    // Number of real source characters represented by this line. This is
+    // normally text.chars().count(), but a truncated final line also contains
+    // the synthetic `…`; hit-testing/highlighting/cursor placement must stop
+    // before that marker.
+    visible_chars: usize,
     // Char index of this line's first character into the *combined*
     // final+separator+interim string — counts a consumed `\n` like any other
     // character (see wrap_lines's own comment on why), so it lines up with
@@ -440,14 +444,45 @@ struct TextLayout {
     final_char_count: usize,
 }
 
+/// Number of full text rows that fit in the fixed vertical region at `size`.
+/// This is intentionally derived from the current font size instead of being
+/// a fixed line cap: shrinking the font frees room for another wrapped line.
+fn max_text_lines_for_size(size: f32) -> usize {
+    ((TEXT_REGION_HEIGHT / (size * LINE_HEIGHT_FACTOR)).floor() as usize).max(1)
+}
+
+fn append_ellipsis(font: &Font, line: &mut String, size: f32, max_width: f32) -> usize {
+    const ELLIPSIS: char = '…';
+    let original_len = line.chars().count();
+    let ellipsis_width = font.metrics(ELLIPSIS, size).advance_width;
+    let mut width = layout_width(font, line, size);
+    if width + ellipsis_width <= max_width {
+        line.push(ELLIPSIS);
+        return original_len;
+    }
+
+    let mut chars: Vec<char> = line.chars().collect();
+    while !chars.is_empty() {
+        let removed = chars.pop().expect("non-empty while loop");
+        width -= font.metrics(removed, size).advance_width;
+        if width + ellipsis_width <= max_width {
+            break;
+        }
+    }
+    let visible_len = chars.len();
+    *line = chars.into_iter().collect();
+    line.push(ELLIPSIS);
+    visible_len
+}
+
 /// The wrap/shrink/truncate/vertical-centering half of draw_text_block, split
 /// out so text_index_at (click-to-place-cursor) resolves a hit point against
 /// the very same layout that was drawn, rather than a parallel copy of these
 /// constants that could silently drift from it. Wraps `final_text` +
 /// `interim_text` (joined with a space when both are non-empty, matching how
-/// consecutive Final results are joined in main.js) into up to
-/// MAX_TEXT_LINES lines, shrinking the font first and truncating with "…"
-/// only as a last resort if it still doesn't fit at MIN_FONT_SIZE.
+/// consecutive Final results are joined in main.js), shrinking the font just
+/// enough to use the available vertical rows and truncating with "…" only if
+/// the text still cannot fit at MIN_FONT_SIZE.
 fn layout_text_block(font: &Font, final_text: &str, interim_text: &str) -> TextLayout {
     let separator = if !final_text.is_empty() && !interim_text.is_empty() { " " } else { "" };
     let combined = format!("{final_text}{separator}{interim_text}");
@@ -456,30 +491,48 @@ fn layout_text_block(font: &Font, final_text: &str, interim_text: &str) -> TextL
     let max_width = CANVAS_WIDTH as f32 - 48.0;
     let mut size = BASE_FONT_SIZE;
     let mut lines = wrap_lines(font, &combined, size, max_width);
-    while size > MIN_FONT_SIZE
-        && (lines.len() > MAX_TEXT_LINES || lines.len() as f32 * size * LINE_HEIGHT_FACTOR > TEXT_REGION_HEIGHT)
-    {
+    loop {
+        let max_lines = max_text_lines_for_size(size);
+        let fits = lines.len() <= max_lines && lines.len() as f32 * size * LINE_HEIGHT_FACTOR <= TEXT_REGION_HEIGHT;
+        if fits || size <= MIN_FONT_SIZE {
+            break;
+        }
         size -= 1.0;
         lines = wrap_lines(font, &combined, size, max_width);
     }
-    if lines.len() > MAX_TEXT_LINES {
-        lines.truncate(MAX_TEXT_LINES);
+
+    let max_lines = max_text_lines_for_size(size);
+    let mut ellipsis_visible_chars = None;
+    if lines.len() > max_lines {
+        lines.truncate(max_lines);
         if let Some((last, _)) = lines.last_mut() {
-            last.push('…');
+            ellipsis_visible_chars = Some(append_ellipsis(font, last, size, max_width));
         }
     }
 
     let line_height = size * LINE_HEIGHT_FACTOR;
     let total_height = lines.len() as f32 * line_height;
     let start_y = TEXT_TOP + ((TEXT_REGION_HEIGHT - total_height) / 2.0).max(0.0);
+    let visible_line_count = lines.len();
 
     let mut start = 0usize;
     let lines = lines
         .into_iter()
         .enumerate()
         .map(|(i, (text, had_newline))| {
-            let line = TextLine { start, baseline_y: start_y + (i as f32 + 0.8) * line_height, had_newline, text };
-            start += line.text.chars().count() + if had_newline { 1 } else { 0 };
+            let visible_chars = if i + 1 == visible_line_count {
+                ellipsis_visible_chars.unwrap_or_else(|| text.chars().count())
+            } else {
+                text.chars().count()
+            };
+            let line = TextLine {
+                start,
+                visible_chars,
+                baseline_y: start_y + (i as f32 + 0.8) * line_height,
+                had_newline,
+                text,
+            };
+            start += line.visible_chars + if had_newline { 1 } else { 0 };
             line
         })
         .collect();
@@ -506,14 +559,18 @@ fn layout_text_block(font: &Font, final_text: &str, interim_text: &str) -> TextL
 pub fn text_index_at(final_text: &str, interim_text: &str, px: f32, py: f32) -> Option<usize> {
     let font = font()?;
     let layout = layout_text_block(font, final_text, interim_text);
-    let row = ((py - layout.start_y) / layout.line_height).floor().clamp(0.0, (layout.lines.len() - 1) as f32) as usize;
+    let last_row = layout.lines.len().checked_sub(1)?;
+    let row = ((py - layout.start_y) / layout.line_height).floor().clamp(0.0, last_row as f32) as usize;
     let line = &layout.lines[row];
     // Walks the same advance-width accumulation line_char_x does, stopping at
     // the first char whose midpoint is right of the click — i.e. the caret
     // goes before a char clicked on its left half, after it on its right.
     let mut pen_x = line_start_x(font, &line.text, layout.size);
     let mut local = 0usize;
-    for ch in line.text.chars() {
+    for (i, ch) in line.text.chars().enumerate() {
+        if i >= line.visible_chars {
+            break;
+        }
         let advance = font.metrics(ch, layout.size).advance_width;
         if px < pen_x + advance / 2.0 {
             break;
@@ -521,7 +578,7 @@ pub fn text_index_at(final_text: &str, interim_text: &str, px: f32, py: f32) -> 
         pen_x += advance;
         local += 1;
     }
-    Some((line.start + local).min(final_text.chars().count()))
+    Some((line.start + local.min(line.visible_chars)).min(final_text.chars().count()))
 }
 
 /// Pen-x (within a *centered* line, same layout draw_line_centered/
@@ -748,8 +805,8 @@ pub fn render_lang_tag(label: &str, elapsed_secs: f32) -> Vec<u8> {
 //
 // KEYBOARD_CANVAS_WIDTH: 1289, not 900 — main.js's own VR_KB_CANVAS_WIDTH
 // comment has the derivation (the original 900px-wide 5-column grid, a
-// gap plus a few extra px, a 2x2 cursor-control block the same cell size
-// as the grid's own keys, and CURSOR_BOX_PADDING clearance on every side
+// gap plus a few extra px, a 2x5 cursor/history/quick-settings control block
+// the same cell size as the grid's own keys, and CURSOR_BOX_PADDING clearance on every side
 // of that block — see cursorActions in computeVrKeyboardLayout, and
 // CURSOR_BOX_* below for how it's drawn as its own visually distinct box).
 // lib.rs's KEYBOARD_WORLD_WIDTH is scaled up by the same 1289/900 ratio,
@@ -780,8 +837,8 @@ pub const KEYBOARD_GRID_WIDTH: f32 = 900.0;
 // themselves — all now live settings (Appearance > VRキーボード, see
 // KeyboardStyle below and set_vr_overlay_appearance in lib.rs), these are
 // just what a fresh Hud starts at, matching what used to be hardcoded here.
-pub const KEYBOARD_BG_ALPHA_DEFAULT: f32 = 0.88;
-pub const KEY_OPACITY_DEFAULT: f32 = 0.95;
+pub const KEYBOARD_BG_ALPHA_DEFAULT: f32 = 0.5;
+pub const KEY_OPACITY_DEFAULT: f32 = 0.5;
 // "_BASE": the neutral color a 0%-accent keyboard would use — see
 // KeyboardStyle::derive, which blends the user's picked accent color into
 // each of these by a fixed amount, so "the keyboard follows the accent

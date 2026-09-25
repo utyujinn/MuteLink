@@ -676,6 +676,147 @@ body.ui-mode-desktop .desktop-controls-row {
   display: none;
 }
 
+/* Background gallery: the first row starts with Default/Random, then each
+   uploaded image fills the next grid cell. Three columns keeps the full
+   2 + 10 gallery to four rows at its maximum. */
+.vr-background-image-row {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.6em;
+}
+
+.vr-background-editor {
+  width: 100%;
+  min-width: 0;
+}
+
+.vr-background-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: 0.5em;
+  width: 100%;
+}
+
+.vr-background-tile {
+  position: relative;
+  min-width: 0;
+  min-height: 5.4em;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-alt);
+  box-shadow: none;
+}
+
+.vr-background-tile.selected {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 35%, transparent);
+}
+
+.vr-background-special {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 0.4em;
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.vr-background-special:hover {
+  border-color: var(--color-accent);
+}
+
+.vr-background-empty {
+  border-style: dashed;
+  color: var(--color-text);
+  font-size: 1.5em;
+  font-weight: 400;
+  opacity: 0.65;
+}
+
+.vr-background-empty:hover {
+  opacity: 1;
+}
+
+.vr-background-image-tile {
+  display: flex;
+}
+
+.vr-background-tile-select {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-text);
+  background: transparent;
+  box-shadow: none;
+}
+
+.vr-background-tile-select:hover {
+  border: 0;
+}
+
+.vr-background-thumb {
+  display: block;
+  width: 100%;
+  height: 4.2em;
+  object-fit: cover;
+  background: var(--color-surface-alt);
+}
+
+.vr-background-image-label {
+  display: block;
+  padding: 0.25em 0.35em;
+  overflow: hidden;
+  font-size: 0.78em;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--color-surface);
+}
+
+.vr-background-tile-remove {
+  position: absolute;
+  top: 0.25em;
+  right: 0.25em;
+  width: 1.55em;
+  height: 1.55em;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-surface) 82%, transparent);
+  font-size: 0.85em;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.vr-background-tile-remove:hover {
+  border-color: #e81123;
+  color: #e81123;
+}
+
+.vr-background-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-top: 0.55em;
+}
+
+.vr-background-actions > .hint {
+  margin-right: auto;
+}
+
+.vr-background-gallery-hint {
+  margin-top: 0.45em !important;
+  margin-bottom: 0 !important;
+}
+
 .settings-list-label {
   text-align: left;
   font-weight: 500;
@@ -988,14 +1129,15 @@ input[type="checkbox"]:checked::after {
 /* Profile menu rows (see renderProfileMenuList in main.js) — its own
    classes rather than reusing .ending-settings-summary's width:100% (built
    for a row with exactly one interactive element spanning the full width),
-   since a profile row's header packs a radio, a details toggle, *and* two
+   since a profile row's header packs a radio, a details toggle, *and* four
    buttons side by side — reusing that class forced the details button to
-   claim the full row width and pushed copy/paste onto wrapped lines below
+   claim the full row width and pushed the row buttons onto wrapped lines below
    it. .ending-settings-row/-detail/-chevron are still reused as-is (the
    border, hidden-toggle, and chevron-rotate rules apply unchanged). */
 .profile-row-header {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6em;
   padding: 0.5em 0.2em;
 }
@@ -1030,8 +1172,10 @@ input[type="checkbox"]:checked::after {
   color: var(--color-accent);
 }
 
+.profile-row-header .profile-export-btn,
 .profile-row-header .profile-copy-btn,
-.profile-row-header .profile-paste-btn {
+.profile-row-header .profile-paste-btn,
+.profile-row-header .profile-reset-btn {
   flex: 0 0 auto;
 }
 
@@ -1113,7 +1257,7 @@ input[type="checkbox"]:checked::after {
   outline: none;
 }
 
-.preset-json-area {
+.profile-json-area {
   box-sizing: border-box;
   width: 100%;
   margin: 0.4em 0;
@@ -1128,8 +1272,8 @@ input[type="checkbox"]:checked::after {
   resize: vertical;
 }
 
-.preset-json-area:hover,
-.preset-json-area:focus-visible {
+.profile-json-area:hover,
+.profile-json-area:focus-visible {
   border-color: var(--color-accent);
   outline: none;
 }

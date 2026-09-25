@@ -35,12 +35,12 @@ const I18N = {
   },
 
   resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
-  resetButton: { ja: "設定を全てリセット", en: "Reset all settings", zh: "重置所有设置", ko: "모든 설정 초기화" },
+  resetButton: { ja: "設定をリセット", en: "Reset settings", zh: "重置设置", ko: "설정 초기화" },
   resetConfirm: {
-    ja: "設定を全てリセットします。よろしいですか？",
-    en: "This will reset all settings. Continue?",
-    zh: "将重置所有设置，确定吗？",
-    ko: "모든 설정을 초기화합니다. 계속하시겠습니까?",
+    ja: "語尾・テンプレート・プロファイル内のコントローラバインド・UI言語・デバイスは保持したままその他の設定を初期値に戻します。よろしいですか？",
+    en: "Endings, templates, per-profile controller bindings, UI language, and device settings will be kept while the other settings return to their defaults. Continue?",
+    zh: "将保留语尾、模板、配置文件内的控制器绑定、界面语言和设备设置，其他设置恢复为默认值。继续吗？",
+    ko: "어미, 템플릿, 프로필별 컨트롤러 할당, UI 언어, 장치 설정은 유지하고 나머지 설정을 기본값으로 되돌립니다. 계속하시겠습니까?",
   },
 
   characterHeading: {
@@ -105,8 +105,6 @@ const I18N = {
   themeLight: { ja: "ライト", en: "Light", zh: "浅色", ko: "라이트" },
   themeDark: { ja: "ダーク", en: "Dark", zh: "深色", ko: "다크" },
   accentColorLabel: { ja: "アクセントカラー", en: "Accent color", zh: "强调色", ko: "강조 색상" },
-  uiScaleLabel: { ja: "UIサイズ", en: "UI size", zh: "界面大小", ko: "UI 크기" },
-  fontScaleLabel: { ja: "フォントサイズ", en: "Font size", zh: "字体大小", ko: "글꼴 크기" },
   fontFamilyLabel: { ja: "フォント", en: "Font", zh: "字体", ko: "글꼴" },
   fontDefault: { ja: "既定", en: "Default", zh: "默认", ko: "기본값" },
 
@@ -119,10 +117,10 @@ const I18N = {
     ko: "VR 오버레이 배경 이미지",
   },
   vrOverlayBackgroundHint: {
-    ja: "VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。選んだ画像はそれぞれの縦横比に合わせて切り取ってから設定します。",
-    en: "Set a separate background image and opacity for the VR keyboard (including its cursor-control block) and the confirm/discard preview window. Each image is cropped to that surface's own aspect ratio before it's applied.",
-    zh: "可以为VR键盘(含光标操作区)和确认/放弃预览窗口分别设置不同的背景图片和不透明度。所选图片会先按各自的宽高比裁剪，然后再应用。",
-    ko: "VR 키보드(커서 조작 블록 포함)와 확인/취소 미리보기 창에 각각 별도의 배경 이미지와 불투명도를 설정할 수 있습니다. 선택한 이미지는 각 화면의 가로세로 비율에 맞게 잘린 후 적용됩니다.",
+    ja: "VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。各画面で10枚まで保存し、デフォルト・ランダム・手動選択を選べます。",
+    en: "Set separate background images and opacity for the VR keyboard (including its cursor-control block) and the confirm/discard preview window. Save up to 10 images per surface and choose Default, Random, or a specific image.",
+    zh: "可以为VR键盘(含光标操作区)和确认/放弃预览窗口分别设置背景图片和不透明度。每个画面最多保存10张，并可选择默认、随机或指定图片。",
+    ko: "VR 키보드(커서 조작 블록 포함)와 확인/취소 미리보기 창에 각각 배경 이미지와 불투명도를 설정할 수 있습니다. 화면별로 최대 10장까지 저장하고 기본값, 무작위 또는 지정 이미지를 선택할 수 있습니다.",
   },
   vrKeyboardBgOpacityLabel: {
     ja: "キーボード背景の不透明度",
@@ -131,6 +129,21 @@ const I18N = {
     ko: "키보드 배경 불투명도",
   },
   vrKeyboardBgImageLabel: { ja: "キーボード背景", en: "Keyboard background", zh: "键盘背景", ko: "키보드 배경" },
+  vrBackgroundGalleryLabel: { ja: "背景画像", en: "Background images", zh: "背景图片", ko: "배경 이미지" },
+  vrBackgroundDefaultLabel: { ja: "デフォルト", en: "Default", zh: "默认", ko: "기본값" },
+  vrBackgroundRandomLabel: { ja: "ランダム", en: "Random", zh: "随机", ko: "무작위" },
+  vrBackgroundAddImageButton: { ja: "画像を追加", en: "Add image", zh: "添加图片", ko: "이미지 추가" },
+  vrBackgroundRemoveSelectedButton: { ja: "選択画像を削除", en: "Delete selected", zh: "删除所选图片", ko: "선택 이미지 삭제" },
+  vrBackgroundDefaultStatus: { ja: "デフォルト", en: "Default", zh: "默认", ko: "기본값" },
+  vrBackgroundRandomStatus: { ja: "ランダム", en: "Random", zh: "随机", ko: "무작위" },
+  vrBackgroundManualStatus: { ja: "手動選択", en: "Manual selection", zh: "手动选择", ko: "수동 선택" },
+  vrBackgroundImageLabel: { ja: "画像", en: "Image", zh: "图片", ko: "이미지" },
+  vrBackgroundGalleryHint: {
+    ja: "デフォルト・ランダム・画像を選択できます。ランダムは次回起動時に保存画像から1枚選びます。起動後やSteamVR再接続では再抽選されません。画像は各10枚まで保存できます。",
+    en: "Choose Default, Random, or an uploaded image. Random picks a saved image at the next launch and keeps that choice until the app is restarted. Up to 10 images can be saved for each surface.",
+    zh: "可选择默认、随机或已上传图片。随机模式会在下次启动时从已保存图片中选择1张，并在本次运行期间保持该选择。每个画面最多保存10张图片。",
+    ko: "기본값, 무작위 또는 업로드한 이미지를 선택할 수 있습니다. 무작위는 다음 실행 시 저장된 이미지 중 1장을 선택하고 이번 실행 동안 그 선택을 유지합니다. 화면별로 최대 10장까지 저장할 수 있습니다.",
+  },
   vrBoxBgOpacityLabel: {
     ja: "プレビュー部の不透明度",
     en: "Preview background opacity",
@@ -177,6 +190,13 @@ const I18N = {
   profileDetailsButton: { ja: "詳細", en: "Details", zh: "详情", ko: "상세" },
   profileCopyButton: { ja: "コピー", en: "Copy", zh: "复制", ko: "복사" },
   profilePasteButton: { ja: "貼り付け", en: "Paste", zh: "粘贴", ko: "붙여넣기" },
+  profileResetButton: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
+  profileResetConfirm: {
+    ja: "P{profile}プロファイルをこのプロファイルの初期値に戻します。よろしいですか？",
+    en: "Reset profile P{profile} to its default values?",
+    zh: "将配置文件 P{profile} 恢复为该配置文件的默认值。继续吗？",
+    ko: "P{profile} 프로파일을 이 프로파일의 기본값으로 되돌립니다. 계속하시겠습니까?",
+  },
   hotkeyProfileSwitchLabel: {
     ja: "ホットキープロファイル切替",
     en: "Switch hotkey profile",
@@ -210,10 +230,10 @@ const I18N = {
   handRight: { ja: "右手", en: "Right hand", zh: "右手", ko: "오른손" },
   handLeft: { ja: "左手", en: "Left hand", zh: "左手", ko: "왼손" },
   hotkeyHint: {
-    ja: "SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→한국어→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。",
-    en: "Reads both controllers' grip/trigger/stick-press state via SteamVR. Each hand can be assigned its own ending (or cancel-send). In manual mode, once a Final is confirmed, holding the assigned combo for the hold duration immediately sends that ending, or cancels (stick fires the instant it's pressed). If both hands are held at once, the priority hand's state is shown in the overlay. Pressing the lower button on the left controller cycles the recognition language: Japanese → English → Chinese → Korean → OFF → Japanese... (OFF stops recognition).",
-    zh: "通过SteamVR读取双手手柄的握把/扳机/摇杆按下状态。可以为左右手分别指定不同的语尾(或取消发送)。在手动模式下，Final确定后，按住指定的组合达到按住时长即可立即发送该语尾，或执行取消发送(摇杆按下的瞬间触发)。双手同时按住时，优先手的状态会显示在悬浮窗中。按左手下方按钮可依次切换识别语言：日语→英语→中文→韩语→关闭→日语……(关闭会停止语音识别)。",
-    ko: "SteamVR을 통해 양손 컨트롤러의 그립/트리거/스틱 누름 상태를 읽습니다. 좌우 손에 각각 다른 어미(또는 전송 취소)를 할당할 수 있습니다. 수동 모드에서 Final이 확정된 상태로, 할당한 조합을 유지 시간만큼 누르고 있으면 그 어미로 즉시 전송되거나 전송이 취소됩니다(스틱은 누르는 순간 발동). 양손을 동시에 누르고 있으면 우선 손의 상태가 오버레이에 표시됩니다. 왼손 아래쪽 버튼을 누를 때마다 인식 언어가 일본어→English→中文→한국어→OFF→일본어…순으로 전환됩니다(OFF는 음성 인식 정지).",
+    ja: "SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、設定で選択した言語(OFFも含む)を順番に切り替えます。",
+    en: "Reads both controllers' grip/trigger/stick-press state via SteamVR. Each hand can be assigned its own ending (or cancel-send). In manual mode, once a Final is confirmed, holding the assigned combo for the hold duration immediately sends that ending, or cancels (stick fires the instant it's pressed). If both hands are held at once, the priority hand's state is shown in the overlay. Pressing the lower button on the left controller cycles through the languages selected in settings, including OFF.",
+    zh: "通过SteamVR读取双手手柄的握把/扳机/摇杆按下状态。可以为左右手分别指定不同的语尾(或取消发送)。在手动模式下，Final确定后，按住指定的组合达到按住时长即可立即发送该语尾，或执行取消发送(摇杆按下的瞬间触发)。双手同时按住时，优先手的状态会显示在悬浮窗中。按左手下方按钮会按设置中选择的语言顺序切换(始终包含关闭)。",
+    ko: "SteamVR을 통해 양손 컨트롤러의 그립/트리거/스틱 누름 상태를 읽습니다. 좌우 손에 각각 다른 어미(또는 전송 취소)를 할당할 수 있습니다. 수동 모드에서 Final이 확정된 상태로, 할당한 조합을 유지 시간만큼 누르고 있으면 그 어미로 즉시 전송되거나 전송이 취소됩니다(스틱은 누르는 순간 발동). 양손을 동시에 누르고 있으면 우선 손의 상태가 오버레이에 표시됩니다. 왼손 아래쪽 버튼을 누를 때마다 설정에서 선택한 언어(OFF 포함)를 순서대로 전환합니다.",
   },
   vrStatusDisconnected: { ja: "VR: 未接続", en: "VR: Disconnected", zh: "VR：未连接", ko: "VR: 연결 안 됨" },
   vrStatusConnected: { ja: "VR: 接続済み", en: "VR: Connected", zh: "VR：已连接", ko: "VR: 연결됨" },
@@ -227,10 +247,10 @@ const I18N = {
     ko: "VR 키보드(개발 중)",
   },
   vrKeyboardHint: {
-    ja: "右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中は既定でグリップ/トリガーの長押しによる送信は無効になりますが、下の「キーボード表示中もホットキーを有効にする」をオンにすると有効化できます)。開発中の機能です。",
-    en: "A right-trigger double-click (default) toggles the in-VR keyboard; send from its own on-screen Send button after editing. A short right-stick press (default) clears whatever's pending. Every grip/trigger gesture (hold, double-click) is reassignable below (grip/trigger-hold sending is disabled by default while the keyboard is shown — enable \"Keep hotkeys active while the keyboard is open\" below to allow it too). Still in development.",
-    zh: "双击右扳机(默认)可切换VR内键盘的显示/隐藏，编辑后用屏幕上的发送按钮发送。短按右摇杆(默认)会清空当前输入内容。握把/扳机的按住、双击均可在下方重新分配(显示键盘时默认禁用握把/扳机长按发送，可在下方开启「键盘显示时也启用热键」来允许)。此功能仍在开发中。",
-    ko: "오른쪽 트리거 더블클릭(기본값)으로 VR 키보드 표시/숨김을 전환하고, 편집 후에는 화면의 전송 버튼으로 전송합니다. 오른쪽 스틱 짧게 누름(기본값)으로 입력 중인 내용을 모두 지웁니다. 그립/트리거의 길게 누름·더블클릭은 모두 아래에서 재할당할 수 있습니다(키보드 표시 중에는 기본적으로 그립/트리거 길게 누름 전송이 비활성화되지만, 아래 「키보드가 열려 있어도 단축키 유지」를 켜면 활성화할 수 있습니다). 아직 개발 중인 기능입니다.",
+    ja: "右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中も既定でグリップ/トリガーの長押しによる送信が有効です)。開発中の機能です。",
+    en: "A right-trigger double-click (default) toggles the in-VR keyboard; send from its own on-screen Send button after editing. A short right-stick press (default) clears whatever's pending. Every grip/trigger gesture (hold, double-click) is reassignable below, and holding a grip/trigger continues to send by default while the keyboard is shown. Still in development.",
+    zh: "双击右扳机(默认)可切换VR内键盘的显示/隐藏，编辑后用屏幕上的发送按钮发送。短按右摇杆(默认)会清空当前输入内容。握把/扳机的按住、双击均可在下方重新分配，键盘显示时默认仍可用长按握把/扳机发送。此功能仍在开发中。",
+    ko: "오른쪽 트리거 더블클릭(기본값)으로 VR 키보드 표시/숨김을 전환하고, 편집 후에는 화면의 전송 버튼으로 전송합니다. 오른쪽 스틱 짧게 누름(기본값)으로 입력 중인 내용을 모두 지웁니다. 그립/트리거의 길게 누름·더블클릭은 아래에서 재할당할 수 있으며, 키보드가 표시된 동안에도 기본적으로 길게 눌러 전송할 수 있습니다. 아직 개발 중인 기능입니다.",
   },
   // The VR keyboard's own on-screen send button — rendered inside the
   // SteamVR overlay texture by Rust (see overlay.rs's render_keyboard), not
@@ -267,23 +287,24 @@ const I18N = {
     ko: "VR 키보드의 「템플릿」 모드에서 한 번에 입력할 수 있는 문구를 등록합니다. 비워둔 슬롯은 키보드에서도 빈칸(동작 없음)으로 표시됩니다.",
   },
 
-  presetHeading: { ja: "プリセット", en: "Preset", zh: "预设", ko: "프리셋" },
-  presetHint: {
-    ja: "現在の語尾とホットキー割り当てをJSONとしてコピーできます。他の人から受け取ったJSONを下の欄に貼り付けて「JSONを読み込む」を押すと、その内容で上書きされます。",
-    en: 'Copy the current endings and hotkey assignments as JSON. Paste JSON you received from someone else into the box below and press "Load JSON" to overwrite your current settings with it.',
-    zh: "可以将当前的语尾和快捷键分配复制为JSON。将他人分享的JSON粘贴到下方文本框并点击「读取JSON」，即可用其内容覆盖当前设置。",
-    ko: "현재 어미와 단축키 할당을 JSON으로 복사할 수 있습니다. 다른 사람에게 받은 JSON을 아래 칸에 붙여넣고 「JSON 불러오기」를 누르면 그 내용으로 덮어씁니다.",
+  profileJsonHeading: { ja: "プロファイルのJSON", en: "Profile JSON", zh: "配置文件JSON", ko: "프로필 JSON" },
+  profileJsonHint: {
+    ja: "현재選択中のプロファイル（キャラクター・語尾・テンプレート・ホットキー）をJSONとしてコピーできます。各プロファイル行の「JSON」ボタンでも個別にコピーできます。貼り付けたJSONを読み込むと、選択中のプロファイルへ上書きします。",
+    en: "Copy the currently selected profile (character, endings, templates, and hotkeys) as JSON. You can also copy an individual profile with each row's JSON button. Loading pasted JSON overwrites the selected profile.",
+    zh: "可以将当前选中的配置文件（角色、语尾、模板和快捷键）复制为JSON。也可以用各行中的JSON按钮单独复制。读取粘贴的JSON会覆盖当前选中的配置文件。",
+    ko: "현재 선택한 프로필(캐릭터, 어미, 템플릿, 단축키)을 JSON으로 복사할 수 있습니다. 각 프로필 행의 JSON 버튼으로 개별 복사도 할 수 있습니다. 붙여넣은 JSON을 불러오면 선택한 프로필에 덮어씁니다.",
   },
-  presetCopyButton: { ja: "JSONをコピー", en: "Copy JSON", zh: "复制JSON", ko: "JSON 복사" },
-  presetLoadButton: { ja: "JSONを読み込む", en: "Load JSON", zh: "读取JSON", ko: "JSON 불러오기" },
-  presetCopiedStatus: { ja: "コピーしました", en: "Copied", zh: "已复制", ko: "복사했습니다" },
-  presetLoadedStatus: { ja: "読み込みました", en: "Loaded", zh: "已加载", ko: "불러왔습니다" },
-  presetInvalidStatus: { ja: "JSONが不正です", en: "Invalid JSON", zh: "JSON格式无效", ko: "JSON이 올바르지 않습니다" },
-  presetLoadConfirm: {
-    ja: "現在の語尾とホットキー設定を、貼り付けたJSONの内容で上書きします。よろしいですか？",
-    en: "This will overwrite your current endings and hotkey settings with the pasted JSON. Continue?",
-    zh: "将用粘贴的JSON内容覆盖当前的语尾和快捷键设置，确定吗？",
-    ko: "현재 어미와 단축키 설정을 붙여넣은 JSON 내용으로 덮어씁니다. 계속하시겠습니까?",
+  profileJsonCopyButton: { ja: "現在のプロファイルをJSONでコピー", en: "Copy selected profile as JSON", zh: "复制所选配置文件JSON", ko: "선택 프로필 JSON 복사" },
+  profileJsonLoadButton: { ja: "JSONを読み込む", en: "Load JSON", zh: "读取JSON", ko: "JSON 불러오기" },
+  profileJsonExportButton: { ja: "JSON", en: "JSON", zh: "JSON", ko: "JSON" },
+  profileJsonCopiedStatus: { ja: "コピーしました", en: "Copied", zh: "已复制", ko: "복사했습니다" },
+  profileJsonLoadedStatus: { ja: "読み込みました", en: "Loaded", zh: "已加载", ko: "불러왔습니다" },
+  profileJsonInvalidStatus: { ja: "JSONが不正です", en: "Invalid JSON", zh: "JSON格式无效", ko: "JSON이 올바르지 않습니다" },
+  profileJsonLoadConfirm: {
+    ja: "選択中のプロファイルを、貼り付けたJSONの内容で上書きします。よろしいですか？",
+    en: "This will overwrite the selected profile with the pasted JSON. Continue?",
+    zh: "将用粘贴的JSON内容覆盖当前选中的配置文件，确定吗？",
+    ko: "선택한 프로필을 붙여넣은 JSON 내용으로 덮어씁니다. 계속하시겠습니까?",
   },
 
   slotBoth: { ja: "グリップ+トリガー", en: "Grip + Trigger", zh: "握把+扳机", ko: "그립+트리거" },
@@ -292,10 +313,10 @@ const I18N = {
   slotTrigger: { ja: "トリガーのみ", en: "Trigger only", zh: "仅扳机", ko: "트리거만" },
   slotTriggerDouble: { ja: "トリガー ダブルクリック", en: "Trigger double-click", zh: "扳机双击", ko: "트리거 더블클릭" },
   slotADouble: {
-    ja: "言語切替ボタン ダブルクリック",
-    en: "Language-switch button double-click",
-    zh: "语言切换按钮 双击",
-    ko: "언어 전환 버튼 더블클릭",
+    ja: "親指下側ボタン ダブルクリック",
+    en: "Lower thumb button double-click",
+    zh: "拇指下方按钮 双击",
+    ko: "엄지 아래쪽 버튼 더블클릭",
   },
   slotNone: { ja: "どちらも押していない", en: "Neither pressed", zh: "都未按下", ko: "아무것도 안 누름" },
   slotStick: { ja: "スティック押し込み", en: "Stick press", zh: "摇杆按下", ko: "스틱 누름" },
@@ -573,10 +594,10 @@ const I18N = {
     ko: "키보드가 열려 있어도 단축키 유지",
   },
   hotkeyActiveDuringKeyboardHint: {
-    ja: "オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオフ — キーボード自身の送信ボタン/スティック/ダブルクリックと競合しないように)。",
-    en: "When on, holding grip/trigger still sends an ending or cancels even while the VR keyboard is open (off by default, so it doesn't race the keyboard's own Send button/stick/double-click).",
-    zh: "开启后，即使VR键盘处于打开状态，长按握把/扳机发送语尾或取消发送依然有效(默认关闭，避免与键盘自身的发送按钮/摇杆/双击冲突)。",
-    ko: "켜면 VR 키보드가 열려 있는 동안에도 그립/트리거를 길게 눌러 어미 전송·전송 취소를 할 수 있습니다(기본값은 꺼짐 — 키보드 자체의 전송 버튼/스틱/더블클릭과 겹치지 않도록).",
+    ja: "オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオン)。",
+    en: "When on, holding grip/trigger still sends an ending or cancels even while the VR keyboard is open (on by default).",
+    zh: "开启后，即使VR键盘处于打开状态，长按握把/扳机发送语尾或取消发送依然有效(默认开启)。",
+    ko: "켜면 VR 키보드가 열려 있는 동안에도 그립/트리거를 길게 눌러 어미 전송·전송 취소를 할 수 있습니다(기본값은 켜짐).",
   },
   vrKeyboardAutoCloseOnSendLabel: {
     ja: "送信でキーボードを自動的に閉じる",
@@ -585,10 +606,10 @@ const I18N = {
     ko: "전송 시 키보드 자동으로 닫기",
   },
   vrKeyboardAutoCloseOnSendHint: {
-    ja: "オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(続けて入力したいときに)。",
-    en: "When off, pressing the Send button or one of the ending buttons at the bottom of the VR keyboard sends the text but leaves the keyboard open instead of closing it — useful when you want to keep typing right after.",
-    zh: "关闭后，在VR键盘显示时按下发送按钮或下方的语尾按钮会发送文本，但不会关闭键盘(便于继续输入)。",
-    ko: "끄면 VR 키보드가 열려 있을 때 전송 버튼이나 아래쪽 어미 버튼을 눌러도 텍스트는 전송되지만 키보드는 닫히지 않고 열린 채로 유지됩니다(계속 입력하고 싶을 때 유용).",
+    ja: "オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(既定はオフ)。",
+    en: "When off, pressing the Send button or one of the ending buttons at the bottom of the VR keyboard sends the text but leaves the keyboard open instead of closing it (off by default).",
+    zh: "关闭后，在VR键盘显示时按下发送按钮或下方的语尾按钮会发送文本，但不会关闭键盘(默认关闭)。",
+    ko: "끄면 VR 키보드가 열려 있을 때 전송 버튼이나 아래쪽 어미 버튼을 눌러도 텍스트는 전송되지만 키보드는 닫히지 않고 열린 채로 유지됩니다(기본값은 꺼짐).",
   },
   vrKeyboardPositionModeLabel: {
     ja: "キーボードの位置",
@@ -685,6 +706,10 @@ function refreshDynamicI18nText() {
   renderHotkeyAssignmentOptions();
   setupCharacterPanel();
   renderProfileMenuList(); // its own labels/buttons (キャラクター/コピー/貼り付け) are translated text too
+  for (const surface of ["keyboard", "box"]) {
+    const grid = document.querySelector(`#vr-${surface}-background-grid`);
+    if (grid) renderBackgroundPanel(surface);
+  }
   renderMergedText(); // re-translates the pending-text placeholder when it's showing (see its own comment)
 }
 
@@ -712,7 +737,7 @@ const VAD_SEGMENT_SAMPLE_RATE = 16000;
 const SENSE_VOICE_INTERIM_INTERVAL_MS = 600;
 
 const VOICE_RMS_THRESHOLD_KEY = "mutelink.voiceRmsThreshold";
-const DEFAULT_VOICE_RMS_THRESHOLD = 0.1;
+const DEFAULT_VOICE_RMS_THRESHOLD = 0.05;
 
 function loadVoiceRmsThreshold() {
   // Distinguish "never saved" (missing key, use the default) from a
@@ -782,6 +807,19 @@ let pendingTextFinalPartEl;
 let pendingTextInterimPartEl;
 let pendingFinalText = "";
 let currentInterimText = ""; // live, not-yet-Final recognition result; read by both the desktop merged block and the VR overlay render loop
+
+// Sent-message recall is deliberately global rather than profile-scoped: it
+// is a transcript of what the app actually sent, not a profile preference.
+// Store it oldest-first so the navigation index can move in the same direction
+// as the arrows (up = older, down = newer) without reversing arrays on every
+// recall. The 200-message cap keeps localStorage finite while covering a
+// longer revision context; storage failures are handled by the save helper.
+const SENT_MESSAGE_HISTORY_KEY = "mutelink.sentMessageHistory";
+const SENT_MESSAGE_HISTORY_LIMIT = 200;
+let sentMessageHistory = loadSentMessageHistory();
+let sentMessageHistoryIndex = null;
+let sentMessageHistoryDraft = null;
+
 let logEl;
 
 // The STT language is a radio group (image.png), not a <select> — its 4th
@@ -831,6 +869,101 @@ function renderMergedText() {
   // (which already updated pendingFinalText and calls this right back)
   // doesn't reset the cursor to the end on every keystroke.
   if (pendingTextEditorEl.value !== pendingFinalText) pendingTextEditorEl.value = pendingFinalText;
+}
+
+function loadSentMessageHistory() {
+  try {
+    const raw = localStorage.getItem(SENT_MESSAGE_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((text) => typeof text === "string" && text.trim().length > 0).slice(-SENT_MESSAGE_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
+}
+
+function saveSentMessageHistory() {
+  try {
+    localStorage.setItem(SENT_MESSAGE_HISTORY_KEY, JSON.stringify(sentMessageHistory));
+  } catch {
+    // History is a convenience, not a send path. A full/disabled WebView
+    // storage must not prevent the current message from being delivered.
+  }
+}
+
+function resetSentMessageHistoryNavigation() {
+  sentMessageHistoryIndex = null;
+  sentMessageHistoryDraft = null;
+}
+
+// Replaces the editable preview with a complete, already-sent message. The
+// explicit confirmed/cursor values let the down arrow restore the user's
+// in-progress draft after browsing older entries, instead of silently
+// replacing that draft forever.
+function setPendingPreviewFromHistory(text, confirmedLength = text.length, cursorPos = text.length) {
+  resetVrKeyboardConversion();
+  currentInterimText = "";
+  pendingFinalText = String(text ?? "");
+  sendIndicatorsFrozenUntil = 0;
+  resetVrKeyboardVerticalGoal();
+  vrKeyboardCursorPos = Math.max(0, Math.min(pendingFinalText.length, Number(cursorPos) || 0));
+  vrKeyboardConfirmedLength = Math.max(0, Math.min(pendingFinalText.length, Number(confirmedLength) || 0));
+  vrKeyboardInputRange = null;
+  resetHotkeyHold();
+  markVrKeyboardCursorActivity();
+  renderMergedText();
+}
+
+function rememberSentMessage(text) {
+  const message = String(text ?? "");
+  if (!message.trim()) return;
+  sentMessageHistory.push(message);
+  if (sentMessageHistory.length > SENT_MESSAGE_HISTORY_LIMIT) {
+    sentMessageHistory.splice(0, sentMessageHistory.length - SENT_MESSAGE_HISTORY_LIMIT);
+  }
+  saveSentMessageHistory();
+  resetSentMessageHistoryNavigation();
+}
+
+// The Up/Down buttons first behave like ordinary vertical caret movement.
+// Only a caret already on the first/last line falls through to history
+// recall, so multiline text remains editable without losing the history UX.
+function historyRecallCursor(text, direction) {
+  if (direction !== "older") return text.length;
+  const firstBreak = text.indexOf("\n");
+  return firstBreak === -1 ? text.length : firstBreak;
+}
+
+function recallSentMessage(direction) {
+  if (!sentMessageHistory.length) return;
+
+  if (sentMessageHistoryIndex === null) {
+    // The first Up press at the first line saves the current draft so a
+    // later Down at the last line can return to it.
+    if (direction !== "older") return;
+    sentMessageHistoryDraft = {
+      text: pendingFinalText,
+      confirmedLength: vrKeyboardConfirmedLength,
+      cursorPos: vrKeyboardCursorPos,
+    };
+    sentMessageHistoryIndex = sentMessageHistory.length - 1;
+  } else {
+    const delta = direction === "older" ? -1 : 1;
+    const nextIndex = sentMessageHistoryIndex + delta;
+    if (nextIndex >= sentMessageHistory.length) {
+      const draft = sentMessageHistoryDraft;
+      resetSentMessageHistoryNavigation();
+      if (draft) setPendingPreviewFromHistory(draft.text, draft.confirmedLength, draft.cursorPos);
+      return;
+    }
+    sentMessageHistoryIndex = Math.max(0, nextIndex);
+  }
+
+  const message = sentMessageHistory[sentMessageHistoryIndex];
+  if (message !== undefined) {
+    setPendingPreviewFromHistory(message, message.length, historyRecallCursor(message, direction));
+  }
 }
 
 // A recognition session can end without ever producing a final result (a
@@ -1014,7 +1147,13 @@ function saveSttModel(modelId) {
 // `spokenText` is what VOICEVOX actually reads (the plain Final sentence,
 // even when an ending was attached to the output). `params` carries a
 // specific ending's VOICEVOX scales; omitted when there's no ending.
-function dispatchText(outputText, spokenText, params) {
+// `historyText` defaults to the delivered text, while applyEnding passes its
+// base text so recall never stores the separately appended 語尾.
+function dispatchText(outputText, spokenText, params, historyText = outputText) {
+  // Record the text before the fire-and-forget chatbox/TTS calls: recall
+  // should remain available even when an output device is unavailable, and
+  // the user can decide whether to retry the send.
+  rememberSentMessage(historyText);
   if (chatboxEnabled) sendChatbox(outputText);
   if (!ttsEnabled) return;
   // Everything gets sent to VOICEVOX regardless of recognition language —
@@ -1428,7 +1567,24 @@ async function stopVoiceMonitor() {
 // hotkey-hold handling only lives in one place regardless of which engine
 // produced the text.
 function handleFinalRecognizedText(text) {
+  // A new Final changes the text/cursor context; never let an older IME
+  // review or its late network response act on the new sentence. If the
+  // user was browsing history, put back the draft they had before opening
+  // the history view before appending the new speech; otherwise a fresh
+  // utterance would be appended to the recalled historical message itself.
+  const wasBrowsingHistory = sentMessageHistoryIndex !== null;
+  const historyDraft = wasBrowsingHistory ? sentMessageHistoryDraft : null;
+  resetSentMessageHistoryNavigation();
+  resetVrKeyboardConversion();
+  vrKeyboardInputRange = null;
   currentInterimText = "";
+  resetVrKeyboardVerticalGoal();
+  if (wasBrowsingHistory) {
+    sendIndicatorsFrozenUntil = 0;
+    pendingFinalText = sendMode === "manual" ? historyDraft?.text ?? "" : "";
+    vrKeyboardCursorPos = sendMode === "manual" ? historyDraft?.cursorPos ?? 0 : 0;
+    vrKeyboardConfirmedLength = sendMode === "manual" ? historyDraft?.confirmedLength ?? 0 : 0;
+  }
 
   if (sendMode === "manual") {
     // A new Final can arrive before the pending one is sent — append rather
@@ -1904,7 +2060,6 @@ function setupSettingsDialog() {
   setupEndingsPanel();
   setupTemplatesPanel();
   setupProfilePanel();
-  setupPresetPanel();
   setupAppearancePanel();
   setupDevicePanel();
   setupPronunciationDict();
@@ -2023,34 +2178,39 @@ const DEFAULT_ACCENT_COLOR = COLOR_ACCENT_PRESETS[0].hex;
 // Must match overlay.rs's own *_ALPHA_DEFAULT/KEY_OPACITY_DEFAULT constants
 // — what a fresh Hud (no set_vr_overlay_appearance push yet) starts at, so
 // these sliders' initial position always matches what's actually on screen.
-const VR_KEY_OPACITY_DEFAULT = 0.95;
+const VR_KEY_OPACITY_DEFAULT = 0.5;
 // Shared by the keyboard grid and its cursor-control block — they're one
 // combined background surface now, not two independent ones (see
 // vrBackgroundSurfaces' own comment).
-const VR_KEYBOARD_BG_OPACITY_DEFAULT = 0.88;
-const VR_BOX_BG_OPACITY_DEFAULT = 210 / 255;
+const VR_KEYBOARD_BG_OPACITY_DEFAULT = 0.5;
+const VR_BOX_BG_OPACITY_DEFAULT = 0.5;
 
 function defaultAppearance() {
   return {
-    uiScale: 1,
-    fontScale: 1,
     fontFamily: "",
     theme: "system",
     accentColor: DEFAULT_ACCENT_COLOR,
     keyOpacity: VR_KEY_OPACITY_DEFAULT,
     keyboardBgOpacity: VR_KEYBOARD_BG_OPACITY_DEFAULT,
     boxBgOpacity: VR_BOX_BG_OPACITY_DEFAULT,
-    // 1 (100%) keeps existing installs sounding exactly as before this
-    // setting existed — see playKeySound's own comment for where this is
-    // actually read.
-    keySoundVolume: 1,
+    // 30% is the reset/default click level requested for the overlay.
+    keySoundVolume: 0.3,
   };
 }
 
 function loadAppearance() {
   try {
     const raw = JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "null");
-    if (raw && typeof raw === "object") return { ...defaultAppearance(), ...raw };
+    if (raw && typeof raw === "object") {
+      const saved = { ...raw };
+      // UI/font scaling was removed from Settings because it can break the
+      // layout. Ignore values written by older versions as well, so an
+      // existing install is repaired on the next launch instead of retaining
+      // a broken scale with no visible control to undo it.
+      delete saved.uiScale;
+      delete saved.fontScale;
+      return { ...defaultAppearance(), ...saved };
+    }
   } catch {
     // fall through to defaults
   }
@@ -2087,8 +2247,11 @@ async function pushVrOverlayAppearance(appearance) {
 }
 
 function applyAppearance(appearance) {
-  document.documentElement.style.zoom = appearance.uiScale;
-  document.documentElement.style.fontSize = `${16 * appearance.fontScale}px`;
+  // UI/font scaling is intentionally fixed. These two properties are kept at
+  // the neutral values for compatibility with older saved appearance JSON,
+  // but there is no user-facing control for them anymore.
+  document.documentElement.style.zoom = 1;
+  document.documentElement.style.fontSize = "16px";
   document.documentElement.style.fontFamily = appearance.fontFamily || "";
   if (appearance.theme === "system") {
     document.documentElement.removeAttribute("data-theme");
@@ -2144,30 +2307,10 @@ function setupAppearancePanel() {
   const appearance = loadAppearance();
   applyAppearance(appearance);
 
-  const uiScaleInput = document.querySelector("#ui-scale-input");
-  const fontScaleInput = document.querySelector("#font-scale-input");
   const fontFamilySelect = document.querySelector("#font-family-select");
-
-  buildSliderTicks(uiScaleInput, document.querySelector("#ui-scale-ticks"));
-  buildSliderTicks(fontScaleInput, document.querySelector("#font-scale-ticks"));
-
-  uiScaleInput.value = appearance.uiScale;
-  fontScaleInput.value = appearance.fontScale;
   fontFamilySelect.value = appearance.fontFamily;
   const themeRadio = document.querySelector(`input[name="theme"][value="${appearance.theme}"]`);
   if (themeRadio) themeRadio.checked = true;
-
-  uiScaleInput.addEventListener("input", () => {
-    appearance.uiScale = Number(uiScaleInput.value);
-    applyAppearance(appearance);
-    saveAppearance(appearance);
-  });
-
-  fontScaleInput.addEventListener("input", () => {
-    appearance.fontScale = Number(fontScaleInput.value);
-    applyAppearance(appearance);
-    saveAppearance(appearance);
-  });
 
   fontFamilySelect.addEventListener("change", () => {
     appearance.fontFamily = fontFamilySelect.value;
@@ -2205,8 +2348,7 @@ function setupAppearancePanel() {
   }
 
   // Key opacity + the 2 surfaces' own background tint opacity (see
-  // overlay::KeyboardVisuals/BoxCache) — same slider-wrap/tick pattern as
-  // uiScaleInput/fontScaleInput above, just 0-1 in 5% steps since these are
+  // overlay::KeyboardVisuals/BoxCache) — 0-1 in 5% steps since these are
   // plain alpha values, not a scale factor.
   const opacityFields = [
     ["keyOpacity", "vr-key-opacity-input", "vr-key-opacity-ticks"],
@@ -2281,12 +2423,29 @@ function vrBackgroundSurfaces() {
 }
 // This dialog's own element-id prefixes per surface (…-file/-choose-btn/
 // -remove-btn/-status, see index.html) — the one place a surface key maps
-// to concrete DOM ids, so setupBackgroundImagePanel/refreshBackgroundStatus
+// to concrete DOM ids, so setupBackgroundImagePanel/refreshBackgroundPanel
 // stay generic over both instead of two near-identical copies.
 const VR_BACKGROUND_SURFACE_ID_PREFIX = {
   keyboard: "vr-keyboard-background",
   box: "vr-box-background",
 };
+const VR_BACKGROUND_MAX_IMAGES = 10;
+const VR_BACKGROUND_GRID_COLUMNS = 3;
+const vrBackgroundPanelStates = {
+  keyboard: { slots: [], selection: { mode: "default", index: 0 }, renderToken: 0, dataToken: 0, mutationPending: false, imageLoadPending: false, thumbnailQueue: Promise.resolve() },
+  box: { slots: [], selection: { mode: "default", index: 0 }, renderToken: 0, dataToken: 0, mutationPending: false, imageLoadPending: false, thumbnailQueue: Promise.resolve() },
+};
+// Both surfaces share one selection JSON file. Serialize their mutations in
+// this window as well as per-surface, so a keyboard change cannot race a box
+// change and overwrite the other surface's entry in that shared manifest.
+let vrBackgroundMutationPending = false;
+
+function renderAllBackgroundPanels() {
+  for (const surface of Object.keys(VR_BACKGROUND_SURFACE_ID_PREFIX)) {
+    const grid = document.querySelector(`#${VR_BACKGROUND_SURFACE_ID_PREFIX[surface]}-grid`);
+    if (grid) renderBackgroundPanel(surface);
+  }
+}
 
 // A plain <canvas> pan/zoom-within-a-fixed-aspect-frame tool rather than
 // free-form crop handles — the target is always exactly one aspect ratio
@@ -2387,6 +2546,8 @@ function drawCropPreview() {
 }
 
 function openImageCropDialog(image, surface) {
+  const dialog = document.querySelector("#image-crop-dialog");
+  if (dialog.open) return false;
   cropImage = image;
   cropSurface = surface;
   const target = vrBackgroundSurfaces()[surface];
@@ -2417,13 +2578,20 @@ function openImageCropDialog(image, surface) {
   document.querySelector("#image-crop-zoom").value = "1";
 
   drawCropPreview();
-  document.querySelector("#image-crop-dialog").showModal();
+  dialog.showModal();
+  return true;
 }
 
 function setupImageCropDialog() {
   const canvas = document.querySelector("#image-crop-canvas");
   const zoomInput = document.querySelector("#image-crop-zoom");
   const dialog = document.querySelector("#image-crop-dialog");
+  dialog.addEventListener("close", () => {
+    const surface = cropSurface;
+    cropImage = null;
+    cropSurface = null;
+    if (surface) renderBackgroundPanel(surface);
+  });
 
   zoomInput.addEventListener("input", () => {
     cropScale = cropCoverScale * Number(zoomInput.value);
@@ -2459,12 +2627,13 @@ function setupImageCropDialog() {
   canvas.addEventListener("pointercancel", endDrag);
 
   document.querySelector("#image-crop-cancel-btn").addEventListener("click", () => {
+    // The close listener owns cropImage/cropSurface cleanup and re-enables the
+    // gallery controls; doing it here as well can race the dialog's close event.
     dialog.close();
-    cropImage = null;
-    cropSurface = null;
   });
 
   document.querySelector("#image-crop-apply-btn").addEventListener("click", async () => {
+    if (vrBackgroundMutationPending || !cropSurface) return;
     // Renders the *exact same* composition onto a full-resolution offscreen
     // canvas — every drawImage argument just scales up from preview-canvas
     // pixels to full pixels by the same uniform ratio, since both canvases
@@ -2484,39 +2653,221 @@ function setupImageCropDialog() {
     const rgba = fullCtx.getImageData(0, 0, full.width, full.height).data;
 
     const applyBtn = document.querySelector("#image-crop-apply-btn");
+    const surface = cropSurface;
+    if (vrBackgroundMutationPending || !surface) return;
+    const state = vrBackgroundPanelStates[surface];
+    vrBackgroundMutationPending = true;
+    state.dataToken++;
+    state.mutationPending = true;
+    renderAllBackgroundPanels();
     applyBtn.disabled = true;
     try {
-      await window.__TAURI__.core.invoke("set_background_image", {
-        surface: cropSurface,
+      await window.__TAURI__.core.invoke("add_background_image", {
+        surface,
         width: target.width,
         height: target.height,
         rgba: Array.from(rgba),
       });
       dialog.close();
-      const surface = cropSurface;
-      cropImage = null;
-      cropSurface = null;
-      await refreshBackgroundStatus(surface);
+      await refreshBackgroundPanel(surface);
     } catch (err) {
-      log(`[appearance] failed to set the ${cropSurface} background: ${err}`);
+      log(`[appearance] failed to save the ${surface} background: ${err}`);
     } finally {
+      state.mutationPending = false;
+      vrBackgroundMutationPending = false;
       applyBtn.disabled = false;
+      renderAllBackgroundPanels();
     }
   });
 }
 
-async function refreshBackgroundStatus(surface) {
+function backgroundImageDataUrl(data) {
+  const source = document.createElement("canvas");
+  source.width = data.width;
+  source.height = data.height;
+  const sourceCtx = source.getContext("2d");
+  const imageData = sourceCtx.createImageData(data.width, data.height);
+  imageData.data.set(data.rgba);
+  sourceCtx.putImageData(imageData, 0, 0);
+
+  // The gallery only needs a thumbnail. Keeping the source canvas at the
+  // cropped VR resolution and scaling it here avoids putting a full-size
+  // data URL into every one of the (up to ten) settings tiles.
+  const maxWidth = 320;
+  const maxHeight = 120;
+  const scale = Math.min(1, maxWidth / source.width, maxHeight / source.height);
+  const thumbnail = document.createElement("canvas");
+  thumbnail.width = Math.max(1, Math.round(source.width * scale));
+  thumbnail.height = Math.max(1, Math.round(source.height * scale));
+  thumbnail.getContext("2d").drawImage(source, 0, 0, thumbnail.width, thumbnail.height);
+  return thumbnail.toDataURL("image/png");
+}
+
+async function loadBackgroundThumbnail(surface, slot, imageEl, renderToken) {
+  try {
+    const data = await window.__TAURI__.core.invoke("get_background_thumbnail", {
+      surface,
+      slot,
+      maxWidth: 320,
+      maxHeight: 120,
+    });
+    const state = vrBackgroundPanelStates[surface];
+    if (renderToken !== state.renderToken || !imageEl.isConnected) return;
+    imageEl.src = backgroundImageDataUrl(data);
+  } catch (err) {
+    log(`[appearance] failed to load ${surface} background slot ${slot}: ${err}`);
+  }
+}
+
+function renderBackgroundPanel(surface) {
   const prefix = VR_BACKGROUND_SURFACE_ID_PREFIX[surface];
+  const grid = document.querySelector(`#${prefix}-grid`);
   const statusEl = document.querySelector(`#${prefix}-status`);
   const removeBtn = document.querySelector(`#${prefix}-remove-btn`);
-  let hasBackground = false;
-  try {
-    hasBackground = await window.__TAURI__.core.invoke("has_background_image", { surface });
-  } catch (err) {
-    log(`[appearance] ${err}`);
+  const chooseBtn = document.querySelector(`#${prefix}-choose-btn`);
+  const state = vrBackgroundPanelStates[surface];
+  const token = ++state.renderToken;
+  const cropDialogOpen = document.querySelector("#image-crop-dialog")?.open ?? false;
+  const busy = vrBackgroundMutationPending || state.mutationPending || state.imageLoadPending || cropDialogOpen;
+  const selection = state.selection || { mode: "default", index: 0 };
+  grid.replaceChildren();
+
+  const addSpecialTile = (mode, labelKey) => {
+    const tile = document.createElement("button");
+    tile.type = "button";
+    tile.className = `vr-background-tile vr-background-special ${selection.mode === mode ? "selected" : ""}`;
+    tile.disabled = busy;
+    tile.textContent = t(labelKey);
+    tile.setAttribute("aria-pressed", String(selection.mode === mode));
+    tile.addEventListener("click", () => selectBackgroundImage(surface, mode));
+    grid.appendChild(tile);
+  };
+  addSpecialTile("default", "vrBackgroundDefaultLabel");
+  addSpecialTile("random", "vrBackgroundRandomLabel");
+
+  state.slots.forEach((slot) => {
+    const tile = document.createElement("div");
+    tile.className = `vr-background-tile vr-background-image-t ${selection.mode === "manual" && selection.index === slot ? "selected" : ""}`;
+    const select = document.createElement("button");
+    select.type = "button";
+    select.className = "vr-background-tile-select";
+    select.disabled = busy;
+    select.setAttribute("aria-pressed", String(selection.mode === "manual" && selection.index === slot));
+    select.setAttribute("aria-label", `${t("vrBackgroundImageLabel")} ${slot + 1}`);
+
+    const image = document.createElement("img");
+    image.className = "vr-background-thumb";
+    image.alt = "";
+    const label = document.createElement("span");
+    label.className = "vr-background-image-label";
+    label.textContent = `${t("vrBackgroundImageLabel")} ${slot + 1}`;
+    select.append(image, label);
+    select.addEventListener("click", () => selectBackgroundImage(surface, "manual", slot));
+    tile.appendChild(select);
+    state.thumbnailQueue = state.thumbnailQueue.then(() => loadBackgroundThumbnail(surface, slot, image, token));
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "vr-background-tile-remove";
+    remove.disabled = busy;
+    remove.textContent = "×";
+    remove.title = t("vrBackgroundRemoveSelectedButton");
+    remove.setAttribute("aria-label", `${t("vrBackgroundRemoveSelectedButton")} ${slot + 1}`);
+    remove.addEventListener("click", (event) => {
+      event.stopPropagation();
+      void deleteBackgroundImage(surface, slot, remove);
+    });
+    tile.appendChild(remove);
+    grid.appendChild(tile);
+  });
+
+  // Keep the gallery shape fixed at the requested 3 x 4 cells. Empty cells
+  // are upload affordances rather than selectable backgrounds, so adding an
+  // image fills the first available cell from left to right.
+  const occupiedSlots = new Set(state.slots);
+  for (let slot = 0; slot < VR_BACKGROUND_MAX_IMAGES; slot++) {
+    if (occupiedSlots.has(slot)) continue;
+    const empty = document.createElement("button");
+    empty.type = "button";
+    empty.className = "vr-background-tile vr-background-special vr-background-empty";
+    empty.disabled = busy;
+    empty.textContent = "+";
+    empty.title = t("vrBackgroundAddImageButton");
+    empty.setAttribute("aria-label", `${t("vrBackgroundAddImageButton")} ${slot + 1}`);
+    empty.addEventListener("click", () => chooseBtn.click());
+    grid.appendChild(empty);
   }
-  statusEl.textContent = t(hasBackground ? "vrKeyboardBackgroundSetStatus" : "vrKeyboardBackgroundUnsetStatus");
-  removeBtn.hidden = !hasBackground;
+
+  const count = `${state.slots.length}/${VR_BACKGROUND_MAX_IMAGES}`;
+  if (selection.mode === "default") {
+    statusEl.textContent = `${t("vrBackgroundDefaultStatus")} (${count})`;
+  } else if (selection.mode === "random") {
+    statusEl.textContent = `${t("vrBackgroundRandomStatus")} (${count})`;
+  } else {
+    statusEl.textContent = `${t("vrBackgroundManualStatus")} (${t("vrBackgroundImageLabel")} ${selection.index + 1} / ${count})`;
+  }
+  removeBtn.hidden = selection.mode !== "manual";
+  removeBtn.disabled = busy;
+  chooseBtn.disabled = busy || state.slots.length >= VR_BACKGROUND_MAX_IMAGES;
+}
+
+async function refreshBackgroundPanel(surface) {
+  const state = vrBackgroundPanelStates[surface];
+  const dataToken = ++state.dataToken;
+  try {
+    const slots = await window.__TAURI__.core.invoke("list_background_images", { surface });
+    const selection = await window.__TAURI__.core.invoke("get_background_selection", { surface });
+    if (dataToken !== state.dataToken) return;
+    state.slots = Array.isArray(slots) ? slots : [];
+    state.selection = selection || { mode: "default", index: 0 };
+    renderBackgroundPanel(surface);
+  } catch (err) {
+    log(`[appearance] failed to refresh ${surface} backgrounds: ${err}`);
+  }
+}
+
+async function selectBackgroundImage(surface, mode, index = null) {
+  const state = vrBackgroundPanelStates[surface];
+  if (vrBackgroundMutationPending || state.mutationPending) return;
+  vrBackgroundMutationPending = true;
+  state.dataToken++;
+  state.mutationPending = true;
+  renderAllBackgroundPanels();
+  try {
+    const selection = await window.__TAURI__.core.invoke("set_background_selection", {
+      surface,
+      mode,
+      index,
+    });
+    state.selection = selection;
+  } catch (err) {
+    log(`[appearance] failed to select ${surface} background: ${err}`);
+  } finally {
+    state.mutationPending = false;
+    vrBackgroundMutationPending = false;
+    renderAllBackgroundPanels();
+  }
+}
+
+async function deleteBackgroundImage(surface, slot, button = null) {
+  const state = vrBackgroundPanelStates[surface];
+  if (vrBackgroundMutationPending || state.mutationPending) return;
+  vrBackgroundMutationPending = true;
+  state.dataToken++;
+  state.mutationPending = true;
+  if (button) button.disabled = true;
+  renderAllBackgroundPanels();
+  try {
+    await window.__TAURI__.core.invoke("delete_background_image", { surface, slot });
+    await refreshBackgroundPanel(surface);
+  } catch (err) {
+    log(`[appearance] failed to delete ${surface} background slot ${slot}: ${err}`);
+  } finally {
+    state.mutationPending = false;
+    vrBackgroundMutationPending = false;
+    if (button) button.disabled = false;
+    renderAllBackgroundPanels();
+  }
 }
 
 function setupBackgroundImagePanel(surface) {
@@ -2524,38 +2875,50 @@ function setupBackgroundImagePanel(surface) {
   const fileInput = document.querySelector(`#${prefix}-file`);
   const chooseBtn = document.querySelector(`#${prefix}-choose-btn`);
   const removeBtn = document.querySelector(`#${prefix}-remove-btn`);
+  const state = vrBackgroundPanelStates[surface];
 
-  chooseBtn.addEventListener("click", () => fileInput.click());
+  chooseBtn.addEventListener("click", () => {
+    if (vrBackgroundMutationPending || state.mutationPending || state.imageLoadPending || state.slots.length >= VR_BACKGROUND_MAX_IMAGES) return;
+    fileInput.click();
+  });
   fileInput.addEventListener("change", () => {
     const file = fileInput.files?.[0];
     fileInput.value = ""; // so picking the exact same file again still fires "change"
-    if (!file) return;
+    if (!file || vrBackgroundMutationPending || state.mutationPending || state.imageLoadPending || document.querySelector("#image-crop-dialog").open || state.slots.length >= VR_BACKGROUND_MAX_IMAGES) return;
+    state.imageLoadPending = true;
+    renderBackgroundPanel(surface);
     const url = URL.createObjectURL(file);
     const image = new Image();
     image.addEventListener("load", () => {
       URL.revokeObjectURL(url);
+      state.imageLoadPending = false;
+      if (image.naturalWidth * image.naturalHeight > 16_000_000) {
+        log(`[appearance] ${surface} image is too large to crop safely`);
+        renderBackgroundPanel(surface);
+        return;
+      }
+      if (document.querySelector("#image-crop-dialog").open) {
+        log(`[appearance] ignored a second ${surface} image while the crop dialog is open`);
+        renderBackgroundPanel(surface);
+        return;
+      }
       openImageCropDialog(image, surface);
+      renderBackgroundPanel(surface);
     });
     image.addEventListener("error", () => {
       URL.revokeObjectURL(url);
-      log("[appearance] failed to load the selected image");
+      state.imageLoadPending = false;
+      log(`[appearance] failed to load the selected ${surface} image`);
+      renderBackgroundPanel(surface);
     });
     image.src = url;
   });
 
-  removeBtn.addEventListener("click", async () => {
-    removeBtn.disabled = true;
-    try {
-      await window.__TAURI__.core.invoke("clear_background_image", { surface });
-      await refreshBackgroundStatus(surface);
-    } catch (err) {
-      log(`[appearance] ${err}`);
-    } finally {
-      removeBtn.disabled = false;
-    }
+  removeBtn.addEventListener("click", () => {
+    if (state.selection?.mode === "manual") void deleteBackgroundImage(surface, state.selection.index, removeBtn);
   });
 
-  refreshBackgroundStatus(surface);
+  void refreshBackgroundPanel(surface);
 }
 
 function setupVrOverlayBackgroundPanels() {
@@ -2625,6 +2988,54 @@ function saveEndings(endings) {
 // Profile-scoped the same way endings are — reads/writes the active
 // profile's own templates list.
 const VR_KEYBOARD_TEMPLATE_SLOT_COUNT = 12;
+
+// Default quick-phrase samples for the first three profiles. These are
+// templates (the 12-slot VR keyboard template picker), not endings: the
+// ending text/parameters and controller assignments remain shared defaults.
+const DEFAULT_PROFILE_TEMPLATE_SETS = [
+  [
+    "おはようございます",
+    "こんにちは",
+    "こんばんは",
+    "おやすみなさい",
+    "ありがとう",
+    "やっほー",
+    "またね",
+    "おー",
+    "わー",
+    "わくわく",
+    "ふむふむ",
+    "てへへ",
+  ],
+  [
+    "はわわわ",
+    "うぇへへへ",
+    "にへへ",
+    "むふー",
+    "ふえぇ",
+    "あわあわ",
+    "ぴえん",
+    "ぷんぷん",
+    "しょんぼり",
+    "ひゃあぁ",
+    "はうぅ",
+    "うにゅぅ",
+  ],
+  [
+    "ごろにゃー",
+    "うにゃー",
+    "にゃんにゃん",
+    "ふにゃあぁ",
+    "ねむねむにゃんこ",
+    "にゃむにゃむ",
+    "ほわぁ",
+    "うとうと",
+    "すやすや",
+    "むにゃむにゃ",
+    "ちゅるちゅる",
+    "はむはむ",
+  ],
+];
 
 function loadVrKeyboardTemplates() {
   return getActiveProfile().templates;
@@ -2706,18 +3117,27 @@ function freezeSendIndicators() {
 // (see 語尾 settings panel) can opt that specific ending into being spoken
 // too, using a separate reading text instead of its literal chatbox text.
 function applyEnding(ending) {
+  resetVrKeyboardConversion();
   const original = pendingFinalText;
   const base = original.replace(/[。.？?]$/, "");
   const outputText = base ? `${base}${ending.text}` : ending.text;
   const endingReading = ending.reading || ending.text;
   const spokenText = ending.speakEnding ? (base ? `${base}${endingReading}` : endingReading) : original;
-  dispatchText(outputText, spokenText, {
-    speedScale: ending.speedScale,
-    pitchScale: ending.pitchScale,
-    intonationScale: ending.intonationScale,
-    volumeScale: ending.volumeScale,
-  });
+  // Keep the ending in the delivered text, but pass only the base text to
+  // history recall so revisiting a message never re-appends its 語尾.
+  dispatchText(
+    outputText,
+    spokenText,
+    {
+      speedScale: ending.speedScale,
+      pitchScale: ending.pitchScale,
+      intonationScale: ending.intonationScale,
+      volumeScale: ending.volumeScale,
+    },
+    base,
+  );
   pendingFinalText = "";
+  resetVrKeyboardVerticalGoal();
   freezeSendIndicators();
   // The VR keyboard can still be open after this (auto-close-on-ending is
   // itself an option — see loadVrKeyboardAutoCloseOnSend) — without this,
@@ -2728,6 +3148,7 @@ function applyEnding(ending) {
   // cursor index is actually within the line it's drawing).
   vrKeyboardCursorPos = 0;
   vrKeyboardConfirmedLength = 0;
+  vrKeyboardInputRange = null;
   renderMergedText();
 }
 
@@ -2766,6 +3187,9 @@ function setupUiMode() {
   apply(loadUiMode());
 
   pendingTextEditorEl.addEventListener("input", () => {
+    resetSentMessageHistoryNavigation();
+    resetVrKeyboardVerticalGoal();
+    resetVrKeyboardConversion();
     pendingFinalText = pendingTextEditorEl.value;
     // Editing here can shorten the text out from under an open VR
     // keyboard's own cursor (same class of bug as applyEnding/the cancel
@@ -2773,6 +3197,7 @@ function setupUiMode() {
     // since unlike a send/clear this doesn't imply "start over".
     vrKeyboardCursorPos = Math.min(vrKeyboardCursorPos, pendingFinalText.length);
     vrKeyboardConfirmedLength = Math.min(vrKeyboardConfirmedLength, pendingFinalText.length);
+    vrKeyboardInputRange = null;
     renderMergedText();
   });
 
@@ -3094,93 +3519,133 @@ function setupPronunciationDict() {
   renderPronunciationDictList();
 }
 
-const PRESET_TYPE = "mutelink-preset";
-const PRESET_VERSION = 1;
+const PROFILE_JSON_TYPE = "mutelink-profile";
+const PROFILE_JSON_VERSION = 1;
+const LEGACY_PRESET_TYPE = "mutelink-preset";
 
-// Bundles endings + hotkey assignments (plus the couple of settings that
-// shape how they're used — hold duration, priority hand) into one shareable
-// object. Hotkeys reference endings by slot number (see ENDINGS_SLOT_COUNT),
-// so the two only make sense shared together, not separately.
-function buildPresetObject() {
+function cloneProfile(profile) {
+  return JSON.parse(JSON.stringify(profile));
+}
+
+// A profile export is a self-contained copy of every setting that the
+// Profile system owns: character, endings, templates, and hotkey assignments.
+// General/device/appearance settings and the hold-duration/priority controls
+// remain global and are deliberately not included.
+function buildProfileObject(profileIndex = loadActiveProfileIndex()) {
+  const profile = loadProfiles()[profileIndex];
+  if (!profile) throw new Error("profile does not exist");
   return {
-    type: PRESET_TYPE,
-    version: PRESET_VERSION,
-    endings,
-    hotkeyAssignments: loadHotkeyAssignments(),
-    hotkeyHoldMs: loadHotkeyHoldMs(),
-    hotkeyPriorityHand: loadHotkeyPriorityHand(),
+    type: PROFILE_JSON_TYPE,
+    version: PROFILE_JSON_VERSION,
+    profileNumber: profileIndex + 1,
+    profile: cloneProfile(profile),
   };
 }
 
-// Pure parse + validate — throws on anything that isn't a recognizable
-// preset, without touching any stored state. Kept separate from actually
-// committing it so the caller can confirm with the user first.
-function parsePresetJson(text) {
-  const preset = JSON.parse(text);
-  if (!preset || preset.type !== PRESET_TYPE || !Array.isArray(preset.endings)) {
-    throw new Error("not a Mutelink preset");
-  }
-  if (!preset.endings.every((e) => typeof e?.text === "string")) {
-    throw new Error("invalid endings in preset");
-  }
-  return preset;
-}
+// Pure parse + normalize. Missing fields are merged with the active profile so
+// a hand-edited/older partial JSON does not unexpectedly erase settings that
+// were not part of the file. Throws before touching storage; the caller asks
+// for confirmation only after this succeeds.
+function parseProfileJson(text) {
+  const raw = JSON.parse(text);
+  const currentProfile = getActiveProfile();
 
-// Writes a validated preset to storage — same slot-count normalization as
-// loadEndings(), and hotkeyAssignments/hold/priority are only applied if
-// present and well-formed (loadHotkeyAssignments() already merges partial
-// data with defaults, so a partial preset degrades gracefully rather than
-// erroring). Caller is expected to reload the page afterward so every
-// already-rendered view (main screen, endings list, hotkey dropdowns) picks
-// the new state up consistently, the same way "reset all settings" does.
-function commitPreset(preset) {
-  const normalized = preset.endings.slice(0, ENDINGS_SLOT_COUNT);
-  while (normalized.length < ENDINGS_SLOT_COUNT) {
-    normalized.push({ text: `語尾${normalized.length + 1}`, ...DEFAULT_ENDING_PARAMS });
-  }
-  saveEndings(normalized);
-
-  if (preset.hotkeyAssignments && typeof preset.hotkeyAssignments === "object") {
-    saveHotkeyAssignments(preset.hotkeyAssignments);
-  }
-  if (Number.isFinite(preset.hotkeyHoldMs) && preset.hotkeyHoldMs > 0) {
-    saveHotkeyHoldMs(preset.hotkeyHoldMs);
-  }
-  if (preset.hotkeyPriorityHand === "left" || preset.hotkeyPriorityHand === "right") {
-    saveHotkeyPriorityHand(preset.hotkeyPriorityHand);
-  }
-}
-
-function setupPresetPanel() {
-  const textarea = document.querySelector("#preset-json-area");
-  const statusEl = document.querySelector("#preset-status");
-
-  document.querySelector("#preset-copy-btn").addEventListener("click", async () => {
-    const json = JSON.stringify(buildPresetObject(), null, 2);
-    textarea.value = json;
-    try {
-      await navigator.clipboard.writeText(json);
-    } catch {
-      // Clipboard permission can be denied in some contexts — the JSON is
-      // still right there in the textarea to copy by hand either way.
+  if (raw?.type === PROFILE_JSON_TYPE) {
+    const candidate = raw.profile;
+    const invalidEndings = candidate?.endings !== undefined && (!Array.isArray(candidate.endings) || !candidate.endings.every((e) => typeof e?.text === "string"));
+    const invalidTemplates = candidate?.templates !== undefined && (!Array.isArray(candidate.templates) || candidate.templates.some((value) => typeof value !== "string"));
+    const invalidHotkey = candidate?.hotkey !== undefined && (!candidate.hotkey || typeof candidate.hotkey !== "object" || Array.isArray(candidate.hotkey));
+    if (raw.version !== PROFILE_JSON_VERSION || !candidate || typeof candidate !== "object" || Array.isArray(candidate) || invalidEndings || invalidTemplates || invalidHotkey) {
+      throw new Error("invalid Mutelink profile export");
     }
-    statusEl.textContent = t("presetCopiedStatus");
-  });
+    return { profile: mergeProfile(currentProfile, candidate), legacyGlobal: null };
+  }
 
-  document.querySelector("#preset-load-btn").addEventListener("click", async () => {
-    let preset;
+  // Backward compatibility for JSON copied by the old Hotkey > Preset UI.
+  // It only contained endings and hotkey assignments, so merge those into the
+  // current profile and keep its character/templates unchanged.
+  if (raw?.type === LEGACY_PRESET_TYPE && Array.isArray(raw.endings) && raw.endings.every((e) => typeof e?.text === "string")) {
+    return {
+      profile: mergeProfile(currentProfile, {
+        endings: raw.endings,
+        hotkey: raw.hotkeyAssignments,
+      }),
+      legacyGlobal: {
+        holdMs: Number.isFinite(raw.hotkeyHoldMs) && raw.hotkeyHoldMs > 0 ? raw.hotkeyHoldMs : null,
+        priorityHand: raw.hotkeyPriorityHand === "left" || raw.hotkeyPriorityHand === "right" ? raw.hotkeyPriorityHand : null,
+      },
+    };
+  }
+
+  throw new Error("not a Mutelink profile export");
+}
+
+function refreshHotkeyGlobalControls() {
+  const holdInput = document.querySelector("#hotkey-hold-duration-input");
+  const holdValue = document.querySelector("#hotkey-hold-duration-val");
+  if (holdInput && holdValue) {
+    holdInput.value = loadHotkeyHoldMs() / 1000;
+    holdValue.textContent = `${(loadHotkeyHoldMs() / 1000).toFixed(1)}${t("secondsSuffix")}`;
+  }
+  hotkeyHoldMsCache = loadHotkeyHoldMs();
+  hotkeyPriorityHandCache = loadHotkeyPriorityHand();
+  for (const radio of document.querySelectorAll('input[name="hotkey-priority-hand"]')) {
+    radio.checked = radio.value === hotkeyPriorityHandCache;
+  }
+}
+
+function commitProfileJson(parsed) {
+  const activeIndex = loadActiveProfileIndex();
+  const profiles = loadProfiles().slice();
+  profiles[activeIndex] = parsed.profile;
+  saveProfiles(profiles);
+
+  // Only old preset files contain these two global values. New profile files
+  // intentionally leave them untouched.
+  if (parsed.legacyGlobal?.holdMs != null) saveHotkeyHoldMs(parsed.legacyGlobal.holdMs);
+  if (parsed.legacyGlobal?.priorityHand != null) saveHotkeyPriorityHand(parsed.legacyGlobal.priorityHand);
+  refreshHotkeyGlobalControls();
+  setActiveProfileIndex(activeIndex);
+}
+
+async function copyProfileJson(profileIndex = loadActiveProfileIndex()) {
+  const textarea = document.querySelector("#profile-json-area");
+  const statusEl = document.querySelector("#profile-json-status");
+  if (!textarea || !statusEl) return;
+
+  const json = JSON.stringify(buildProfileObject(profileIndex), null, 2);
+  textarea.value = json;
+  try {
+    await navigator.clipboard.writeText(json);
+  } catch {
+    // Clipboard permission can be denied in some contexts — the JSON is still
+    // in the textarea, so it can be copied by hand in that case.
+  }
+  statusEl.textContent = t("profileJsonCopiedStatus");
+}
+
+function setupProfileJsonPanel() {
+  const copyBtn = document.querySelector("#profile-json-copy-btn");
+  const loadBtn = document.querySelector("#profile-json-load-btn");
+  const textarea = document.querySelector("#profile-json-area");
+  const statusEl = document.querySelector("#profile-json-status");
+  if (!copyBtn || !loadBtn || !textarea || !statusEl) return;
+
+  copyBtn.addEventListener("click", () => void copyProfileJson());
+  loadBtn.addEventListener("click", async () => {
+    let parsed;
     try {
-      preset = parsePresetJson(textarea.value);
+      parsed = parseProfileJson(textarea.value);
     } catch (err) {
-      statusEl.textContent = t("presetInvalidStatus");
-      log(`[preset] invalid JSON: ${err}`);
+      statusEl.textContent = t("profileJsonInvalidStatus");
+      log(`[profile-json] invalid JSON: ${err}`);
       return;
     }
-    const ok = await showConfirmDialog(t("presetLoadConfirm"));
+
+    const ok = await showConfirmDialog(t("profileJsonLoadConfirm"));
     if (!ok) return;
-    commitPreset(preset);
-    statusEl.textContent = t("presetLoadedStatus");
-    location.reload();
+    commitProfileJson(parsed);
+    statusEl.textContent = t("profileJsonLoadedStatus");
   });
 }
 
@@ -3391,6 +3856,14 @@ async function setupCharacterPanel() {
 // introduced.
 //
 // Deliberately NOT included (survive a reset):
+// - PROFILES_KEY / PROFILE_COUNT_KEY / ACTIVE_PROFILE_KEY /
+//   PROFILE_SAMPLE_VERSION_KEY / PROFILE_HOTKEY_DEFAULTS_VERSION_KEY — the
+//   current endings, templates, profile selection, sample initialization,
+//   hotkey-default migration, and per-profile controller assignments are user
+//   content, not reset preferences. The individual Hotkey-panel behavior keys
+//   below are intentionally reset to their documented defaults.
+// - SENT_MESSAGE_HISTORY_KEY — sent-message recall is user-generated
+//   transcript data, not a preference, so a settings reset must not erase it.
 // - DEVICE_SETTINGS_KEY — mic/speaker selection, tied to this specific PC's
 //   hardware, not a "preference" a reset should touch.
 // - UI_LANG_KEY — the UI's display language; resetting it would flip the
@@ -3400,11 +3873,6 @@ async function setupCharacterPanel() {
 //   a preference.
 function resetClearsKeys() {
   return [
-    PROFILES_KEY,
-    PROFILE_COUNT_KEY,
-    ACTIVE_PROFILE_KEY,
-    HOTKEY_HOLD_DURATION_KEY,
-    HOTKEY_PRIORITY_HAND_KEY,
     APPEARANCE_STORAGE_KEY,
     CHATBOX_ENABLED_KEY,
     TTS_ENABLED_KEY,
@@ -3415,6 +3883,8 @@ function resetClearsKeys() {
     TTS_LANG_ENABLED_KEY,
     STT_CYCLE_LANG_KEY,
     VOICE_RMS_THRESHOLD_KEY,
+    HOTKEY_HOLD_DURATION_KEY,
+    HOTKEY_PRIORITY_HAND_KEY,
     HOTKEY_ACTIVE_DURING_KEYBOARD_KEY,
     VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY,
     VR_KEYBOARD_POSITION_MODE_KEY,
@@ -3479,9 +3949,9 @@ const HOTKEY_CANCEL_ACTION = "__cancel__";
 // right stick regardless of this assignment table; now just another
 // selectable value like HOTKEY_CANCEL_ACTION, assignable to any slot
 // including either half of the stick's short/long split (see
-// processStickPress) — e.g. the default pairs it with HOTKEY_CANCEL_ACTION
-// on the same stick, short press opens/closes the keyboard, long press
-// clears whatever's pending.
+// processStickPress). The current defaults use the right trigger's
+// double-click (and the left lower-button double-click) for this action,
+// while the right stick's short press remains the cancel/clear action.
 const HOTKEY_KEYBOARD_TOGGLE_ACTION = "__keyboard__";
 
 // Resolves a stored assignment value (a slot-number string, the cancel
@@ -3510,16 +3980,13 @@ function saveHotkeyHoldMs(ms) {
 }
 
 // Whether the grip/trigger *hold* slots (processHandHotkey) stay active
-// while the VR keyboard is open — off by default, matching the original
-// design (the keyboard's own send button/stick-press/double-click own
-// confirming text while it's up, so the hold-based flow racing it would be
-// surprising by default). The stick and double-click slots were always
-// active regardless of this — only the hold-based combo slots (both/grip/
-// trigger/none) were ever suppressed, see the poll loop's own comment.
+// while the VR keyboard is open. The reset/default state is on, so the
+// keyboard's own controls and the controller holds can both be used.
 const HOTKEY_ACTIVE_DURING_KEYBOARD_KEY = "mutelink.hotkeyActiveDuringKeyboard";
 
 function loadHotkeyActiveDuringKeyboard() {
-  return localStorage.getItem(HOTKEY_ACTIVE_DURING_KEYBOARD_KEY) === "true";
+  const raw = localStorage.getItem(HOTKEY_ACTIVE_DURING_KEYBOARD_KEY);
+  return raw === null ? true : raw === "true";
 }
 
 function saveHotkeyActiveDuringKeyboard(value) {
@@ -3528,33 +3995,29 @@ function saveHotkeyActiveDuringKeyboard(value) {
 
 // Whether selecting a 語尾 from the VR keyboard's own on-screen row (see
 // applyVrKeyboardAction's "ending" case) closes the keyboard afterward —
-// on by default, matching the original design. Turning it off keeps
-// typing right where it left off after a quick ending-send mid-edit,
-// instead of needing to reopen the keyboard for the next line.
+// off by default so a quick ending-send leaves the keyboard ready for the
+// next phrase.
 const VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY = "mutelink.vrKeyboardAutoCloseOnSend";
 
 function loadVrKeyboardAutoCloseOnSend() {
   const raw = localStorage.getItem(VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY);
-  return raw === null ? true : raw === "true";
+  return raw === null ? false : raw === "true";
 }
 
 function saveVrKeyboardAutoCloseOnSend(value) {
   localStorage.setItem(VR_KEYBOARD_AUTO_CLOSE_ON_SEND_KEY, String(value));
 }
 
-// Where the VR keyboard panel lives: "centered" (default, the original
-// behavior — HMD-relative, always in front of wherever you look) or "fixed"
-// (placed in front of the head at the moment it opens, then stays put in the
-// room and can be grabbed/moved with grip — see processKeyboardGrab). Only
-// the setting lives here; lib.rs's KeyboardPlacement does the actual
-// transform handling, driven by this value on every update_keyboard_overlay
-// call (so a change applies immediately, even with the keyboard open).
+// Where the VR keyboard panel lives: "centered" (HMD-relative, follows the
+// view) or "fixed" (placed in front of the head when it opens, then stays
+// put in the room and can be grabbed/moved with grip). The reset/default
+// state is "fixed".
 const VR_KEYBOARD_POSITION_MODE_KEY = "mutelink.vrKeyboardPositionMode";
 const VR_KEYBOARD_POSITION_MODES = ["centered", "fixed"];
 
 function loadVrKeyboardPositionMode() {
   const raw = localStorage.getItem(VR_KEYBOARD_POSITION_MODE_KEY);
-  return VR_KEYBOARD_POSITION_MODES.includes(raw) ? raw : "centered";
+  return VR_KEYBOARD_POSITION_MODES.includes(raw) ? raw : "fixed";
 }
 
 function saveVrKeyboardPositionMode(mode) {
@@ -3580,31 +4043,22 @@ const HOTKEY_HANDS = ["right", "left"];
 // in a slot — see 語尾 settings — updates any hotkey pointing at that number
 // immediately, without needing to be re-picked here. Separate per hand so
 // each hand can be bound to a different slot, and the two hands' defaults
-// differ deliberately: right hand gives quick access to 1/2, plus its
-// trigger double-clicked toggles the VR keyboard and stick short-pressed
-// clears whatever's pending (see HOTKEY_KEYBOARD_TOGGLE_ACTION/
-// HOTKEY_CANCEL_ACTION — the keyboard toggle used to be hardcoded to
-// right-stick rather than a real assignment before double-click existed;
-// moving it to double-click freed the stick back up, so cancel moved from
-// stick's long press to its short one — a long press was reported as
-// uncomfortably slow to trigger deliberately); left hand covers 4/5/10 plus
-// a stick-press cancel (ending 3 left unset), and its lower face button
-// ("A"/"X", see leftAWasPressed) double-clicked *also* toggles the keyboard
-// — a second, off-hand way to reach it, on the same button that already
-// single-clicks to cycle the STT language (handleCyclePress). The two don't
-// fight over a fast double-click: handleCyclePress already cancels its own
-// pending single-press cycle outright if a second press follows within
-// CYCLE_DOUBLE_PRESS_MS (built for the unrelated XSOverlay double-press
-// conflict on this exact button), so a double-click here fires the keyboard
-// toggle with the language left untouched, and a genuine single click still
-// cycles it same as always.
+// differ deliberately: the right hand keeps its trigger double-click for the
+// keyboard toggle, while its single trigger and the left hand's single
+// trigger stay unset. The grip/trigger double-click slots provide quick
+// access to endings 2, 5, and 8; the left hand's lower face button
+// ("A"/"X", see leftAWasPressed) still single-clicks to cycle the STT
+// language, and its double-click remains an independently assignable action
+// rather than being described as a language switch. The left hand's stick
+// press is left unset as well, so resetting does not silently assign a
+// destructive cancel action to it.
 function defaultHotkeyAssignments() {
   return {
     right: {
       both: "1",
       grip: "",
-      gripDouble: "",
-      trigger: "2",
+      gripDouble: "2",
+      trigger: "",
       triggerDouble: HOTKEY_KEYBOARD_TOGGLE_ACTION,
       aDouble: "",
       none: "",
@@ -3614,12 +4068,12 @@ function defaultHotkeyAssignments() {
     left: {
       both: "10",
       grip: "4",
-      gripDouble: "",
-      trigger: "5",
-      triggerDouble: "",
+      gripDouble: "8",
+      trigger: "",
+      triggerDouble: "5",
       aDouble: HOTKEY_KEYBOARD_TOGGLE_ACTION,
       none: "",
-      stick: HOTKEY_CANCEL_ACTION,
+      stick: "",
       stickLong: "",
     },
   };
@@ -3640,6 +4094,10 @@ function defaultHotkeyAssignments() {
 const PROFILE_COUNT_KEY = "mutelink.profileCount";
 const ACTIVE_PROFILE_KEY = "mutelink.activeProfile";
 const PROFILES_KEY = "mutelink.profiles";
+const PROFILE_SAMPLE_VERSION_KEY = "mutelink.profileSampleVersion";
+const PROFILE_SAMPLE_VERSION = 1;
+const PROFILE_HOTKEY_DEFAULTS_VERSION_KEY = "mutelink.profileHotkeyDefaultsVersion";
+const PROFILE_HOTKEY_DEFAULTS_VERSION = 1;
 const MIN_PROFILE_COUNT = 1;
 const MAX_PROFILE_COUNT = 5;
 // Matches the old fixed HOTKEY_PROFILE_COUNT this replaced, so an upgrading
@@ -3648,14 +4106,15 @@ const MAX_PROFILE_COUNT = 5;
 // same "3 ready-to-go slots" it always was.
 const DEFAULT_PROFILE_COUNT = 3;
 
-function defaultProfile() {
+function defaultProfile(profileIndex = 0) {
+  const sampleTemplates = DEFAULT_PROFILE_TEMPLATE_SETS[profileIndex] ?? [];
   return {
     hotkey: defaultHotkeyAssignments(),
     styleId: DEFAULT_STYLE_ID,
     // .map(e => ({...e})) — fresh copies, not references into DEFAULT_ENDINGS
     // itself, since renderGeneralEndingsList mutates ending objects in place.
     endings: DEFAULT_ENDINGS.map((e) => ({ ...e })),
-    templates: Array.from({ length: VR_KEYBOARD_TEMPLATE_SLOT_COUNT }, () => ""),
+    templates: Array.from({ length: VR_KEYBOARD_TEMPLATE_SLOT_COUNT }, (_, i) => sampleTemplates[i] ?? ""),
   };
 }
 
@@ -3663,7 +4122,7 @@ function defaultProfile() {
 // used to do directly — factored out since every profile now needs it
 // independently (loadProfiles below, and the migration path).
 function normalizeEndingsList(list) {
-  const out = list.slice(0, ENDINGS_SLOT_COUNT);
+  const out = list.slice(0, ENDINGS_SLOT_COUNT).map((ending) => ({ ...DEFAULT_ENDING_PARAMS, ...ending }));
   while (out.length < ENDINGS_SLOT_COUNT) out.push({ text: `語尾${out.length + 1}`, ...DEFAULT_ENDING_PARAMS });
   return out;
 }
@@ -3717,7 +4176,7 @@ let profilesCache = null;
 function loadProfiles() {
   if (profilesCache) return profilesCache;
   const count = loadProfileCount();
-  const defaults = Array.from({ length: count }, () => defaultProfile());
+  const defaults = Array.from({ length: count }, (_, i) => defaultProfile(i));
   try {
     const raw = JSON.parse(localStorage.getItem(PROFILES_KEY) ?? "null");
     if (Array.isArray(raw)) {
@@ -3736,6 +4195,96 @@ function saveProfiles(profiles) {
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
 }
 
+// One-time default-data setup. Older profile data was created before the
+// three 12-phrase sample sets existed; seed any still-empty P1/P2/P3 template
+// slots and make the shared endings/controller bindings identical across
+// those three profiles. It is versioned so a later intentional blank slot or
+// profile-specific customization is not overwritten on every launch.
+function applyProfileSampleDefaultsIfNeeded() {
+  if (localStorage.getItem(PROFILE_SAMPLE_VERSION_KEY) === String(PROFILE_SAMPLE_VERSION)) return;
+
+  const profiles = loadProfiles();
+  if (profiles.length === 0) {
+    localStorage.setItem(PROFILE_SAMPLE_VERSION_KEY, String(PROFILE_SAMPLE_VERSION));
+    return;
+  }
+
+  const sharedProfileCount = Math.min(profiles.length, DEFAULT_PROFILE_TEMPLATE_SETS.length);
+  const sourceIndex = Math.min(loadActiveProfileIndex(), sharedProfileCount - 1);
+  const source = profiles[Math.max(0, sourceIndex)] ?? profiles[0];
+  const sharedEndings = cloneProfile(source.endings);
+  const sharedHotkey = cloneProfile(source.hotkey);
+
+  for (let i = 0; i < sharedProfileCount; i++) {
+    const profile = profiles[i];
+    const templates = normalizeTemplatesList(profile.templates);
+    const hasCustomTemplates = templates.some((value) => value.trim() !== "");
+    profiles[i] = {
+      ...profile,
+      endings: cloneProfile(sharedEndings),
+      hotkey: cloneProfile(sharedHotkey),
+      templates: hasCustomTemplates ? templates : [...DEFAULT_PROFILE_TEMPLATE_SETS[i]],
+    };
+  }
+
+  saveProfiles(profiles);
+  localStorage.setItem(PROFILE_SAMPLE_VERSION_KEY, String(PROFILE_SAMPLE_VERSION));
+}
+
+// The pre-request values for the slots changed by this default are kept only
+// for a one-time migration. Profiles that still use an old value in an
+// individual target slot follow the new assignment for that slot across every
+// saved profile (P1/P2/P3 and any extra slots). A user-customized target slot
+// is left alone, and unrelated custom assignments are never overwritten.
+function legacyHotkeyTargetAssignments() {
+  return {
+    right: {
+      gripDouble: "",
+      trigger: "2",
+    },
+    left: {
+      gripDouble: "",
+      trigger: "5",
+      triggerDouble: "",
+      stick: HOTKEY_CANCEL_ACTION,
+    },
+  };
+}
+
+function migratedHotkeyTargets(actual, defaults) {
+  const legacy = legacyHotkeyTargetAssignments();
+  const migrated = {
+    ...(actual ?? {}),
+    right: { ...(actual?.right ?? {}) },
+    left: { ...(actual?.left ?? {}) },
+  };
+  let changed = false;
+  for (const hand of HOTKEY_HANDS) {
+    for (const [slot, oldValue] of Object.entries(legacy[hand])) {
+      if ((actual?.[hand]?.[slot] ?? "") !== oldValue) continue;
+      migrated[hand][slot] = defaults[hand][slot];
+      changed = true;
+    }
+  }
+  return changed ? migrated : null;
+}
+
+function applyProfileHotkeyDefaultsIfNeeded() {
+  if (localStorage.getItem(PROFILE_HOTKEY_DEFAULTS_VERSION_KEY) === String(PROFILE_HOTKEY_DEFAULTS_VERSION)) return;
+
+  const profiles = loadProfiles();
+  const defaults = defaultHotkeyAssignments();
+  let changed = false;
+  const migrated = profiles.map((profile) => {
+    const hotkey = migratedHotkeyTargets(profile.hotkey, defaults);
+    if (!hotkey) return profile;
+    changed = true;
+    return { ...profile, hotkey };
+  });
+  if (changed) saveProfiles(migrated);
+  localStorage.setItem(PROFILE_HOTKEY_DEFAULTS_VERSION_KEY, String(PROFILE_HOTKEY_DEFAULTS_VERSION));
+}
+
 function getActiveProfile() {
   return loadProfiles()[loadActiveProfileIndex()];
 }
@@ -3751,8 +4300,8 @@ function updateActiveProfile(updater) {
 }
 
 // Reads/writes only the *active* profile's hand/slot assignments — every
-// existing caller (renderHotkeyAssignmentOptions, the poll loop,
-// buildPresetObject, etc.) keeps working unchanged.
+// existing caller (renderHotkeyAssignmentOptions, the poll loop, and the
+// profile JSON exporter) keeps working unchanged.
 function loadHotkeyAssignments() {
   return getActiveProfile().hotkey;
 }
@@ -3853,7 +4402,7 @@ function setActiveProfileIndex(index) {
 }
 
 // Grows/shrinks the saved profile list to match, padding new slots with
-// defaultProfile() and truncating extras — shrinking permanently discards
+// defaultProfile(index) and truncating extras — shrinking permanently discards
 // whatever was in the dropped slots (the caller, setupProfilePanel, confirms
 // with the user first when shrinking). Re-routes through
 // setActiveProfileIndex if the active index no longer exists post-shrink,
@@ -3861,14 +4410,39 @@ function setActiveProfileIndex(index) {
 function setProfileCount(newCount) {
   const clamped = Math.min(MAX_PROFILE_COUNT, Math.max(MIN_PROFILE_COUNT, newCount));
   const current = loadProfiles();
+  const source = current[Math.min(loadActiveProfileIndex(), current.length - 1)] ?? current[0];
+  const sharedEndings = source ? cloneProfile(source.endings) : normalizeEndingsList(DEFAULT_ENDINGS);
+  const sharedHotkey = source ? cloneProfile(source.hotkey) : defaultHotkeyAssignments();
   saveProfileCount(clamped);
   const profiles = current.slice(0, clamped);
-  while (profiles.length < clamped) profiles.push(defaultProfile());
+  while (profiles.length < clamped) {
+    const fresh = defaultProfile(profiles.length);
+    fresh.endings = cloneProfile(sharedEndings);
+    fresh.hotkey = cloneProfile(sharedHotkey);
+    profiles.push(fresh);
+  }
   saveProfiles(profiles);
 
   const activeIndex = loadActiveProfileIndex();
   if (activeIndex >= clamped) {
     setActiveProfileIndex(clamped - 1);
+  } else {
+    renderProfileMenuList();
+  }
+}
+
+async function resetProfileAt(profileIndex) {
+  const profiles = loadProfiles();
+  if (!profiles[profileIndex]) return;
+  const label = `P${profileIndex + 1}`;
+  const ok = await showConfirmDialog(t("profileResetConfirm").replace("{profile}", label));
+  if (!ok) return;
+
+  const next = profiles.slice();
+  next[profileIndex] = defaultProfile(profileIndex);
+  saveProfiles(next);
+  if (profileIndex === loadActiveProfileIndex()) {
+    setActiveProfileIndex(profileIndex);
   } else {
     renderProfileMenuList();
   }
@@ -3939,6 +4513,14 @@ async function renderProfileMenuList() {
     chevron.textContent = "▾";
     summary.append(document.createTextNode(t("profileDetailsButton")), chevron);
 
+    const exportBtn = document.createElement("button");
+    exportBtn.type = "button";
+    exportBtn.className = "profile-export-btn";
+    exportBtn.textContent = t("profileJsonExportButton");
+    exportBtn.title = `${t("profileJsonExportButton")} P${i + 1}`;
+    exportBtn.setAttribute("aria-label", `${t("profileJsonExportButton")} P${i + 1}`);
+    exportBtn.addEventListener("click", () => void copyProfileJson(i));
+
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "profile-copy-btn";
@@ -3967,7 +4549,15 @@ async function renderProfileMenuList() {
       else renderProfileMenuList();
     });
 
-    header.append(radioLabel, summary, copyBtn, pasteBtn);
+    const resetBtn = document.createElement("button");
+    resetBtn.type = "button";
+    resetBtn.className = "profile-reset-btn danger-btn";
+    resetBtn.textContent = t("profileResetButton");
+    resetBtn.title = `${t("profileResetButton")} P${i + 1}`;
+    resetBtn.setAttribute("aria-label", `${t("profileResetButton")} P${i + 1}`);
+    resetBtn.addEventListener("click", () => void resetProfileAt(i));
+
+    header.append(radioLabel, summary, exportBtn, copyBtn, pasteBtn, resetBtn);
 
     const detail = document.createElement("div");
     detail.className = "ending-settings-detail profile-detail";
@@ -4058,6 +4648,7 @@ function setupProfilePanel() {
     setProfileCount(newCount);
   });
 
+  setupProfileJsonPanel();
   renderProfileMenuList();
 }
 
@@ -4188,6 +4779,8 @@ function resetHotkeyHold() {
 
 function fireHotkeyAssignment(assignment) {
   if (assignment === HOTKEY_CANCEL_ACTION) {
+    resetSentMessageHistoryNavigation();
+    resetVrKeyboardVerticalGoal();
     pendingFinalText = "";
     freezeSendIndicators();
     // Same reasoning as applyEnding's own reset — this can fire (stick
@@ -4198,6 +4791,7 @@ function fireHotkeyAssignment(assignment) {
     // conversion would keep pointing at text that's no longer there.
     vrKeyboardCursorPos = 0;
     vrKeyboardConfirmedLength = 0;
+    vrKeyboardInputRange = null;
     resetVrKeyboardConversion();
     renderMergedText();
   } else if (assignment === HOTKEY_KEYBOARD_TOGGLE_ACTION) {
@@ -4259,20 +4853,67 @@ let vrKeyboardVisible = false;
 // textarea-style. Reset to the end of whatever's already pending each time
 // the keyboard opens (see toggleVrKeyboard below), since that's the most
 // useful starting point (append to what voice recognition already
-// produced) — the cursor move buttons (still TODO) move it from there.
+// produced) — the single-step cursor buttons move it from there.
 let vrKeyboardCursorPos = 0;
-// Index into pendingFinalText: [0, vrKeyboardConfirmedLength) is confirmed
-// (plain) text, [vrKeyboardConfirmedLength, pendingFinalText.length) is not
-// yet confirmed (drawn with the same light-blue background draw_text_block
-// already used for the henkan focus highlight — see the render loop's own
-// highlightStart/End). Only confirmVrKeyboardConversion ever advances it;
-// everything that clears pendingFinalText resets it back to 0 alongside
-// vrKeyboardCursorPos, for the same reason (a stale boundary past the end
-// of shorter/empty text). Dictated (voice-recognized) text bumps it
-// immediately in handleFinalRecognizedText — the henkan flow only applies
-// to text typed on the VR keyboard itself, so dictated text should never
-// show as pending.
+// Relative column retained across consecutive Up/Down presses so moving
+// through several short lines does not repeatedly clamp to a shorter line's
+// end. Any horizontal move, edit, or explicit cursor placement clears it.
+let vrKeyboardVerticalGoalColumn = null;
+function resetVrKeyboardVerticalGoal() {
+  vrKeyboardVerticalGoalColumn = null;
+}
+// Index into pendingFinalText: [0, vrKeyboardConfirmedLength) is the legacy
+// confirmed prefix. For ordinary append-at-the-end keyboard input, the
+// unconfirmed region is [vrKeyboardConfirmedLength, pendingFinalText.length);
+// when input is inserted at an earlier cursor position, vrKeyboardInputRange
+// below temporarily describes that exact middle-of-text region instead.
+// Only confirmVrKeyboardConversion (or an explicitly confirmed keyboard
+// action) advances the legacy boundary; insertion before it shifts the
+// boundary to preserve the old confirmed suffix. Everything that clears
+// pendingFinalText resets it back to 0 alongside vrKeyboardCursorPos, for
+// the same reason (a stale boundary past the end of shorter/empty text).
+// Dictated (voice-recognized) text bumps it immediately in
+// handleFinalRecognizedText — the henkan flow only applies to text typed on
+// the VR keyboard itself, so dictated text should never show as pending.
 let vrKeyboardConfirmedLength = 0;
+// A keyboard insertion made away from the old text tail gets its own
+// {start, end} range. vrKeyboardConfirmedLength alone can describe only one
+// suffix-shaped unconfirmed region, so without this a cursor moved into the
+// middle of existing text makes 変換 start at the old confirmed boundary (and
+// target the trailing characters) instead of the characters just typed at the
+// cursor. A noncontiguous insertion deliberately supersedes the previous
+// run (the old one is treated as committed/abandoned) so one active range
+// never points at two unrelated compositions. When this is null, the legacy
+// confirmed-length-to-end behavior is still used for ordinary append-at-the-
+// end input.
+let vrKeyboardInputRange = null;
+// Monotonic token for an in-flight convert_kana_to_kanji request. Any edit
+// or conversion reset advances it, so a late response can be ignored instead
+// of resurrecting a cancelled conversion (or racing a newer request).
+let vrKeyboardConversionRequestGeneration = 0;
+function currentVrKeyboardInputRange() {
+  if (!vrKeyboardInputRange) return null;
+  if (vrKeyboardInputRange.start < 0 || vrKeyboardInputRange.end > pendingFinalText.length || vrKeyboardInputRange.end <= vrKeyboardInputRange.start) {
+    vrKeyboardInputRange = null;
+    vrKeyboardConversionRequestGeneration++;
+    return null;
+  }
+  return vrKeyboardInputRange;
+}
+// A confirmed key/separator can be pressed immediately after a run that was
+// inserted in the middle of existing text. Confirm through the run's actual
+// end, not just the separator's final cursor index, so the earlier kana in
+// that run is not orphaned back into the old suffix range.
+function markVrKeyboardInputConfirmed() {
+  vrKeyboardConversionRequestGeneration++;
+  const range = currentVrKeyboardInputRange();
+  const confirmedEnd = range ? range.end : vrKeyboardCursorPos;
+  vrKeyboardInputRange = null;
+  vrKeyboardConfirmedLength = Math.max(
+    0,
+    Math.min(Math.max(vrKeyboardConfirmedLength, confirmedEnd), pendingFinalText.length),
+  );
+}
 // Timestamp of the last cursor move/edit — see the render loop's own
 // CURSOR_BLINK_PAUSE_MS comment for why the blink pauses (stays solid)
 // for a bit after this, instead of blinking straight through a move and
@@ -4283,24 +4924,120 @@ function markVrKeyboardCursorActivity() {
 }
 
 function insertAtVrKeyboardCursor(str) {
-  pendingFinalText = pendingFinalText.slice(0, vrKeyboardCursorPos) + str + pendingFinalText.slice(vrKeyboardCursorPos);
-  vrKeyboardCursorPos += str.length;
+  resetSentMessageHistoryNavigation();
+  resetVrKeyboardVerticalGoal();
+  resetVrKeyboardConversion();
+  const start = vrKeyboardCursorPos;
+  const oldLength = pendingFinalText.length;
+  const end = start + str.length;
+  const range = currentVrKeyboardInputRange();
+  const continuesRange = range && start <= range.end && end >= range.start;
+  const oldRangeEnd = range?.end;
+  pendingFinalText = pendingFinalText.slice(0, start) + str + pendingFinalText.slice(start);
+  vrKeyboardCursorPos = end;
+
+  // Preserve the old confirmed suffix when inserting before it. The new
+  // range below is what 変換/highlight will use until the inserted run is
+  // confirmed, so the two pieces of state can coexist without losing the
+  // text that was already plain.
+  if (start < vrKeyboardConfirmedLength) vrKeyboardConfirmedLength += str.length;
+  vrKeyboardConfirmedLength = Math.max(0, Math.min(vrKeyboardConfirmedLength, pendingFinalText.length));
+  if (continuesRange) {
+    // Typing anywhere within/against the active run extends that same run;
+    // oldRangeEnd is captured before the splice so an insertion in its
+    // middle doesn't accidentally discard the text after it.
+    range.start = Math.min(range.start, start);
+    range.end = oldRangeEnd + str.length;
+  } else if (start < oldLength) {
+    // A noncontiguous edit deliberately starts a new composition. Abandon
+    // the old range instead of silently leaving it looking active; the next
+    // 変換 is unambiguously about the characters just entered here.
+    vrKeyboardInputRange = { start, end };
+  } else if (range) {
+    // A new run at the old tail supersedes the middle run. There is no
+    // single-range representation for two independent compositions, so make
+    // that choice explicit rather than letting the stale range win later.
+    vrKeyboardInputRange = { start, end };
+  }
+
   markVrKeyboardCursorActivity();
   renderMergedText();
 }
 
 // BS — deletes the character before the cursor, moving it back.
 function deleteBeforeVrKeyboardCursor() {
+  resetSentMessageHistoryNavigation();
+  resetVrKeyboardVerticalGoal();
+  resetVrKeyboardConversion();
   if (vrKeyboardCursorPos === 0) return;
-  pendingFinalText = pendingFinalText.slice(0, vrKeyboardCursorPos - 1) + pendingFinalText.slice(vrKeyboardCursorPos);
+  const deletedStart = vrKeyboardCursorPos - 1;
+  pendingFinalText = pendingFinalText.slice(0, deletedStart) + pendingFinalText.slice(vrKeyboardCursorPos);
   vrKeyboardCursorPos -= 1;
+  if (vrKeyboardConfirmedLength > deletedStart) vrKeyboardConfirmedLength -= 1;
+  vrKeyboardConfirmedLength = Math.max(0, Math.min(vrKeyboardConfirmedLength, pendingFinalText.length));
+  const range = vrKeyboardInputRange;
+  if (range) {
+    if (deletedStart < range.start) range.start -= 1;
+    else if (deletedStart < range.end) range.end -= 1;
+    if (range.end <= range.start || range.end > pendingFinalText.length) vrKeyboardInputRange = null;
+  }
   markVrKeyboardCursorActivity();
   renderMergedText();
 }
 
 function moveVrKeyboardCursor(delta) {
+  resetVrKeyboardVerticalGoal();
   vrKeyboardCursorPos = Math.max(0, Math.min(pendingFinalText.length, vrKeyboardCursorPos + delta));
+  // A cursor-only change still invalidates an in-flight conversion: the
+  // request was made for the old edit context even when the text itself is
+  // unchanged.
+  vrKeyboardConversionRequestGeneration++;
   markVrKeyboardCursorActivity();
+}
+
+// Returns the insertion-point line containing the cursor. A cursor exactly
+// before a newline belongs to the line above it; a cursor immediately after a
+// newline belongs to the line below, matching normal text-editor behavior.
+function currentVrKeyboardLineBounds() {
+  const cursor = Math.max(0, Math.min(pendingFinalText.length, vrKeyboardCursorPos));
+  const start = cursor > 0 ? pendingFinalText.lastIndexOf("\n", cursor - 1) + 1 : 0;
+  const breakAt = pendingFinalText.indexOf("\n", cursor);
+  return { start, end: breakAt === -1 ? pendingFinalText.length : breakAt };
+}
+
+// Moves to the adjacent visual line while retaining a best-effort column. A
+// false return means the cursor is already at the first/last line, which is
+// the signal for the Up/Down action to enter sent-message history mode.
+function moveVrKeyboardCursorByLine(delta) {
+  if (delta !== -1 && delta !== 1) return false;
+  const current = currentVrKeyboardLineBounds();
+  if ((delta < 0 && current.start === 0) || (delta > 0 && current.end === pendingFinalText.length)) return false;
+
+  if (vrKeyboardVerticalGoalColumn === null) {
+    vrKeyboardVerticalGoalColumn = vrKeyboardCursorPos - current.start;
+  }
+
+  let targetStart;
+  let targetEnd;
+  if (delta < 0) {
+    targetEnd = current.start - 1;
+    targetStart = targetEnd > 0 ? pendingFinalText.lastIndexOf("\n", targetEnd - 1) + 1 : 0;
+  } else {
+    targetStart = current.end + 1;
+    const nextBreak = pendingFinalText.indexOf("\n", targetStart);
+    targetEnd = nextBreak === -1 ? pendingFinalText.length : nextBreak;
+  }
+
+  const column = Math.max(0, Math.min(vrKeyboardVerticalGoalColumn, targetEnd - targetStart));
+  vrKeyboardCursorPos = targetStart + column;
+  markVrKeyboardCursorActivity();
+  return true;
+}
+
+function navigateVrKeyboardVertical(direction) {
+  const delta = direction === "older" ? -1 : 1;
+  if (moveVrKeyboardCursorByLine(delta)) return;
+  recallSentMessage(direction);
 }
 
 // Right stick: opens the keyboard (cursor starts at the end of whatever
@@ -4311,7 +5048,9 @@ function moveVrKeyboardCursor(delta) {
 // no-ending path handleFinalRecognizedText's "auto" sendMode uses).
 function openVrKeyboard() {
   vrKeyboardVisible = true;
+  resetVrKeyboardVerticalGoal();
   vrKeyboardCursorPos = pendingFinalText.length;
+  vrKeyboardConversionRequestGeneration++;
   markVrKeyboardCursorActivity();
   // No per-hand default needed here (there used to be one) —
   // update_keyboard_overlay ray-casts both hands every render tick
@@ -4582,8 +5321,8 @@ function withoutGrabbingGrip(hand, handState) {
 // pixel geometry — and, since lib.rs's KEYBOARD_TRANSFORM carries a
 // matching compensating shift (see its own comment), the exact world
 // position too — it's always had. VR_KB_CANVAS_WIDTH is wider than that
-// grid alone: a 2x2 block of cells the same size as the grid's own
-// (cellW x cellH each), for the cursor controls (see
+// grid alone: a 2x5 block of cells the same size as the grid's own
+// (cellW x cellH each), for the cursor/history/quick-setting controls (see
 // computeVrKeyboardLayout's cursorActions), plus VR_KB_GAP_X clearance on
 // each side of that block's own *padded* footprint (matching the standard
 // gap everywhere else, and VR_KB_GRID_LEFT past its outer edge, matching
@@ -4869,19 +5608,19 @@ function updateVrKeyboardFlickDirection(hand, hitX, hitY) {
   // nothing here to commit to instead.
 }
 
-// How many characters the cursor row's ≪/≫ buttons skip at once.
-const VR_KB_CURSOR_JUMP = 5;
+// How many characters the cursor row's ◀/▶ buttons move at once.
+const VR_KB_CURSOR_STEP = 1;
 // ⌫ renders as a missing-glyph box in the overlay's font (Meiryo/Yu Gothic,
 // see rasterize_cached in overlay.rs and font()'s own comment — neither
 // carries the Miscellaneous Technical block ⌫/⌦ live in) — a left-pointing
 // triangle + an × reads as "erase what's behind the cursor" without needing
 // an actual backspace glyph the font doesn't have. Both characters are
-// known to render fine: ◀ is the same one the cursor-jump buttons use, and
-// × (U+00D7, Latin-1 Supplement) is about as safe a glyph as exists in a
-// font that renders Latin text at all. An earlier version used ◀■ (a plain
-// filled square) — legible enough side by side with the ◀/▶ cursor buttons,
-// but read as "a generic solid button", not specifically "delete", on its
-// own; × reads unambiguously as "remove" the way it does in close buttons
+// known to render fine: ◀ is a familiar arrow shape in the overlay font,
+// and × (U+00D7, Latin-1 Supplement) is about as safe a glyph as exists in
+// a font that renders Latin text at all. An earlier version used ◀■ (a
+// plain filled square) — legible enough beside the arrow controls, but read
+// as "a generic solid button", not specifically "delete", on its own; ×
+// reads unambiguously as "remove" the way it does in close buttons
 // elsewhere.
 const VR_KB_BACKSPACE_LABEL = "◀×";
 
@@ -5036,7 +5775,8 @@ function computeVrKeyboardLayout() {
     // (see vrKeyboardConfirmedLength) — either fresh unconfirmed text 変換
     // hasn't touched yet, or a candidate review already in progress (where
     // pressing again cycles the focused segment, see handleHenkanPress).
-    const canConvert = vrKeyboardConversionSegments !== null || vrKeyboardConfirmedLength < pendingFinalText.length;
+    const hasUnconfirmedInput = currentVrKeyboardInputRange() !== null;
+    const canConvert = vrKeyboardConversionSegments !== null || hasUnconfirmedInput || vrKeyboardConfirmedLength < pendingFinalText.length;
     cell(1, 0, "変換", canConvert ? { type: "henkan" } : undefined);
     cell(2, 0, ...modeButton("numsym", "vrKbModeNumber"));
     cell(3, 0, ...modeButton("english", "vrKbModeEnglish"));
@@ -5066,8 +5806,8 @@ function computeVrKeyboardLayout() {
 
     // 変換 moved to column 1 above, freeing this column for the 4 controls
     // below. No forward-delete button (there used to be one, "Del") — BS
-    // plus the cursor column's ◀/▶ (see cursorActions below) covers the
-    // same ground without needing a fifth slot.
+    // plus the long cursor-jump controls (see cursorActions below) covers
+    // the same ground without needing a fifth slot.
     cell(0, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
     cell(1, 4, t("vrKbSpaceButton"), { type: "insert", text: " ", confirmed: true });
     cell(2, 4, t("vrKbNewlineButton"), { type: "insert", text: "\n", confirmed: true });
@@ -5080,16 +5820,16 @@ function computeVrKeyboardLayout() {
     cell(3, 4, t("vrKbConfirmButton"), { type: "confirm" });
   }
 
-  // Cursor + quick-settings controls: a 2x4 block of full-size cells (same
-  // cellW x cellH as any other key), positioned exactly at VR_KB_CURSOR_BOX
-  // (to the right of column 5, vertically lined up with the whole grid) —
-  // rows 0-1 replaced a single ~50px-tall strip that used to run below the
-  // whole grid, too small a target to reliably land a VR pointer press on.
-  // ≪/≫ (multi-char jump — replaced an earlier Home/End pair, which needed
-  // the whole string's length to read and didn't help with a mid-string
-  // edit the way a plain multi-char skip does) on top, ◀/▶ (single-char)
-  // below that, then Auto/profile/Chatbox/TTS in rows 2-3. Drawn as its own
-  // visually separate box (VR_KB_CURSOR_BOX, sent to Rust alongside
+  // Cursor + history + quick-settings controls: a 2x5 block of full-size cells
+  // (same cellW x cellH as any other key), positioned exactly at
+  // VR_KB_CURSOR_BOX (to the right of column 5, vertically lined up with the
+  // whole grid) — rows 0-1 replaced a single ~50px-tall strip that used to
+  // run below the whole grid, too small a target to reliably land a VR
+  // pointer press on. ◀/▶ (single-character cursor movement) is on top, ↑/↓
+  // (vertical line movement, falling back to older/newer sent-message history
+  // only at the first/last line) below that, then
+  // Auto/profile/Chatbox/TTS in rows 2-3. Drawn as its own visually
+  // separate box (VR_KB_CURSOR_BOX, sent to Rust alongside
   // `buttons` — see CURSOR_BOX_* in overlay.rs) so it reads as a distinct
   // control, not a 6th grid column — an earlier version that extended the
   // grid's own canvas rightward for this shifted the whole existing
@@ -5103,10 +5843,10 @@ function computeVrKeyboardLayout() {
   // block's own position depends on getting that right).
   const ctrlColX = VR_KB_CURSOR_BOX.x;
   const cursorActions = [
-    { x: ctrlColX, y: cellY(0), label: "≪", action: { type: "cursor", delta: -VR_KB_CURSOR_JUMP } },
-    { x: ctrlColX + cellW + gapX, y: cellY(0), label: "≫", action: { type: "cursor", delta: VR_KB_CURSOR_JUMP } },
-    { x: ctrlColX, y: cellY(1), label: "◀", action: { type: "cursor", delta: -1 } },
-    { x: ctrlColX + cellW + gapX, y: cellY(1), label: "▶", action: { type: "cursor", delta: 1 } },
+    { x: ctrlColX, y: cellY(0), label: "◀", action: { type: "cursor", delta: -VR_KB_CURSOR_STEP } },
+    { x: ctrlColX + cellW + gapX, y: cellY(0), label: "▶", action: { type: "cursor", delta: VR_KB_CURSOR_STEP } },
+    { x: ctrlColX, y: cellY(1), label: "↑", action: { type: "historyOlder" } },
+    { x: ctrlColX + cellW + gapX, y: cellY(1), label: "↓", action: { type: "historyNewer" } },
     // Desktop-only until now (see #mode-toggle-btn/#hotkey-profile-btn/
     // #chatbox-toggle-btn/#tts-toggle-btn) — same underlying state either
     // way (setSendMode/setChatboxEnabled/setTtsEnabled/setActiveProfileIndex
@@ -5240,6 +5980,10 @@ let vrKeyboardConversionSegments = null;
 let vrKeyboardConversionBase = null; // index into pendingFinalText where the whole conversion starts
 let vrKeyboardConversionTotalLength = 0; // current combined length of every segment's applied candidate
 let vrKeyboardConversionFocus = 0; // index into vrKeyboardConversionSegments currently being cycled/navigated
+// Snapshot of the cursor-inserted input range that owns the current
+// conversion. It lets a late response update that same range without
+// clobbering a newer insertion elsewhere while the request was in flight.
+let vrKeyboardConversionInputRange = null;
 
 async function handleHenkanPress() {
   if (vrKeyboardConversionSegments !== null) {
@@ -5253,29 +5997,31 @@ async function handleHenkanPress() {
     return;
   }
 
-  // Converts the whole not-yet-confirmed tail (see vrKeyboardConfirmedLength's
-  // own comment) rather than scanning backward from the cursor for a
-  // hiragana run — the confirmed/unconfirmed boundary *is* now the thing
-  // that decides what 変換 acts on, matching what's shown with the blue
-  // background in the box. Mirrors the 変換 button's own enabled condition
-  // in computeVrKeyboardLayout, so a press here can only ever be reachable
-  // when there's actually something to convert.
-  if (vrKeyboardConfirmedLength >= pendingFinalText.length) return;
-  const start = vrKeyboardConfirmedLength;
-  const segmentText = pendingFinalText.slice(start);
+  // Prefer the exact run inserted at the current cursor. The legacy
+  // confirmed-length-to-end range remains the fallback for ordinary
+  // append-at-the-end keyboard input, where the unconfirmed region really is
+  // a suffix. This is what makes a cursor moved into existing text convert
+  // the characters typed there instead of the old trailing characters.
+  const inputRange = currentVrKeyboardInputRange();
+  const inputRangeSnapshot = inputRange ? { start: inputRange.start, end: inputRange.end } : null;
+  const start = inputRange ? inputRange.start : vrKeyboardConfirmedLength;
+  const end = inputRange ? inputRange.end : pendingFinalText.length;
+  if (start >= end) return;
+  const requestGeneration = ++vrKeyboardConversionRequestGeneration;
+  const requestText = pendingFinalText;
+  const segmentText = requestText.slice(start, end);
   try {
     const segments = await window.__TAURI__.core.invoke("convert_kana_to_kanji", { text: segmentText });
     if (!segments || segments.length === 0) return;
     // The network round-trip above can take long enough that the user types
-    // more, deletes, sends, or otherwise moves on before it resolves —
-    // `start`/`segmentText` were captured before any of that, so applying
-    // them unconditionally could splice this stale conversion into
-    // whatever's now at that position instead of what was actually
-    // converted (reported as already-confirmed text reappearing, or extra
-    // characters landing wrong, whenever this raced with typing). Bail out
-    // instead of applying if the text there isn't still exactly what was
-    // sent for conversion.
+    // more, deletes, sends, or otherwise moves on before it resolves. The
+    // generation token rejects edits/reset/concurrent requests, and the
+    // full-text check makes sure a late response cannot splice stale output
+    // into a different text or cursor context.
+    if (requestGeneration !== vrKeyboardConversionRequestGeneration) return;
+    if (pendingFinalText !== requestText) return;
     if (pendingFinalText.slice(start, start + segmentText.length) !== segmentText) return;
+    vrKeyboardConversionInputRange = inputRangeSnapshot;
     vrKeyboardConversionBase = start;
     vrKeyboardConversionTotalLength = segmentText.length;
     vrKeyboardConversionSegments = segments.map((s) => ({
@@ -5285,15 +6031,43 @@ async function handleHenkanPress() {
     vrKeyboardConversionFocus = 0;
     applyVrKeyboardConversionSegments();
   } catch (err) {
-    log(`[ime:error] ${err}`);
+    if (requestGeneration === vrKeyboardConversionRequestGeneration) log(`[ime:error] ${err}`);
   }
 }
 
 function applyVrKeyboardConversionSegments() {
   const replacement = vrKeyboardConversionSegments.map((s) => s.candidates[s.index]).join("");
-  const end = vrKeyboardConversionBase + vrKeyboardConversionTotalLength;
+  const oldLength = vrKeyboardConversionTotalLength;
+  const end = vrKeyboardConversionBase + oldLength;
+  const shiftsConfirmedBoundary = end <= vrKeyboardConfirmedLength;
+  const activeInputRange = currentVrKeyboardInputRange();
+  const ownsInputRange =
+    activeInputRange &&
+    vrKeyboardConversionInputRange &&
+    activeInputRange.start === vrKeyboardConversionInputRange.start &&
+    activeInputRange.end >= end;
   pendingFinalText = pendingFinalText.slice(0, vrKeyboardConversionBase) + replacement + pendingFinalText.slice(end);
+  resetVrKeyboardVerticalGoal();
   vrKeyboardConversionTotalLength = replacement.length;
+  // A candidate can be longer or shorter than the hiragana it replaces. If
+  // the old conversion was before the confirmed boundary, move that boundary
+  // with the replacement delta; otherwise the old confirmed suffix would
+  // drift and a later 変換 could target it again.
+  if (shiftsConfirmedBoundary) vrKeyboardConfirmedLength += replacement.length - oldLength;
+  vrKeyboardConfirmedLength = Math.max(0, Math.min(vrKeyboardConfirmedLength, pendingFinalText.length));
+  if (ownsInputRange) {
+    const extraInputLength = activeInputRange.end - end;
+    const inputEnd = vrKeyboardConversionBase + replacement.length + extraInputLength;
+    if (inputEnd > vrKeyboardConversionBase) {
+      vrKeyboardInputRange = { start: vrKeyboardConversionBase, end: inputEnd };
+      vrKeyboardConversionInputRange = { start: vrKeyboardConversionBase, end: inputEnd };
+    } else {
+      // A zero-width candidate (or an empty result) leaves no composing
+      // range to highlight; don't retain an invalid start === end object.
+      vrKeyboardInputRange = null;
+      vrKeyboardConversionInputRange = null;
+    }
+  }
   vrKeyboardCursorPos = vrKeyboardConversionBase + replacement.length;
   markVrKeyboardCursorActivity();
   renderMergedText();
@@ -5311,20 +6085,27 @@ function resetVrKeyboardConversion() {
   vrKeyboardConversionBase = null;
   vrKeyboardConversionTotalLength = 0;
   vrKeyboardConversionFocus = 0;
+  vrKeyboardConversionInputRange = null;
+  // Invalidate any invoke that is still waiting on the network. Clearing the
+  // local review object alone would let that old response recreate it later.
+  vrKeyboardConversionRequestGeneration++;
 }
 
 // Marks everything up to the current end of pendingFinalText as confirmed
-// (see vrKeyboardConfirmedLength's own comment) — the only thing that ever
-// advances that boundary. Ends any candidate review in progress the same
-// way resetVrKeyboardConversion does (accepting whatever's currently
-// applied, mid-review or not), but unlike that function this is the one
-// that actually turns the blue "not yet confirmed" text plain. Called both
-// by 確定 (skips conversion entirely — just accepts the raw text as-is) and
-// by picking the last segment's candidate in a review (see "selectCandidate"
+// (see vrKeyboardConfirmedLength's own comment) — the explicit operation
+// that advances the legacy boundary for the whole current text. Ends any
+// candidate review in progress the same way resetVrKeyboardConversion does
+// (accepting whatever's currently applied, mid-review or not), but unlike
+// that function this is the one that actually turns the blue "not yet
+// confirmed" text plain. Called both by 確定 (skips conversion entirely —
+// just accepts the raw text as-is) and by picking the last segment's
+// candidate in a review (see "selectCandidate"
 // in applyVrKeyboardAction) — same action either way: stop treating this
 // span as pending and accept what's currently there.
 function confirmVrKeyboardConversion() {
+  resetVrKeyboardVerticalGoal();
   vrKeyboardConfirmedLength = pendingFinalText.length;
+  vrKeyboardInputRange = null;
   resetVrKeyboardConversion();
   renderMergedText();
 }
@@ -5334,12 +6115,12 @@ function confirmVrKeyboardConversion() {
 // independent per hand (see vrKeyboardHands' own comment for why: each
 // hand engages/releases against its *own* tracked state, so right-then-left
 // (or simultaneous) presses can never mix up which hand types what).
-// Cursor/delete-type buttons repeat while held (like a physical keyboard's
-// key-repeat) instead of only firing once on release — see
+// Long-cursor-jump/delete/history buttons repeat while held (like a physical
+// keyboard's key-repeat) instead of only firing once on release — see
 // processVrKeyboardTrigger. Flick keys ("key") and one-shot actions
 // (henkan/send/mode/...) aren't here: they either need a release-time
 // flick direction or don't make sense to spam.
-const VR_KB_REPEATABLE_TYPES = ["cursor", "delete"];
+const VR_KB_REPEATABLE_TYPES = ["cursor", "delete", "historyOlder", "historyNewer"];
 const VR_KB_REPEAT_INITIAL_DELAY_MS = 400; // hold this long before repeat kicks in
 const VR_KB_REPEAT_INTERVAL_MS = 100; // then repeat this often
 
@@ -5354,7 +6135,7 @@ const KEY_SOUND_URL = "/assets/key_sound.mp3";
 // settings-panel change (see setupAppearancePanel), read directly in the
 // hot path below instead of re-parsing localStorage on every single key
 // press.
-let keySoundVolumeCache = 1;
+let keySoundVolumeCache = 0.3;
 
 // key_sound.mp3's own recorded level is louder than actually comfortable at
 // the slider's 100% position — rather than re-encoding the source file
@@ -5451,7 +6232,7 @@ function applyVrKeyboardAction(action, direction) {
       // text was pure friction with no upside, unlike kana where the blue
       // "not yet confirmed" state exists specifically to show what 変換
       // still has left to act on.
-      if (action.confirmed) vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
+      if (action.confirmed) markVrKeyboardInputConfirmed();
       break;
     case "insert":
       insertAtVrKeyboardCursor(action.text);
@@ -5461,11 +6242,13 @@ function applyVrKeyboardAction(action, direction) {
       // newline are structural separators too: mark everything through the
       // inserted separator confirmed so a later 変換 acts on the next
       // composing run, not on the whitespace itself.
-      if (action.confirmed) vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
+      if (action.confirmed) markVrKeyboardInputConfirmed();
       break;
     case "variant": {
       const next = VR_KB_VARIANT_NEXT[pendingFinalText[vrKeyboardCursorPos - 1]];
       if (next) {
+        resetSentMessageHistoryNavigation();
+        resetVrKeyboardVerticalGoal();
         pendingFinalText = pendingFinalText.slice(0, vrKeyboardCursorPos - 1) + next + pendingFinalText.slice(vrKeyboardCursorPos);
         markVrKeyboardCursorActivity();
         renderMergedText();
@@ -5497,17 +6280,21 @@ function applyVrKeyboardAction(action, direction) {
         }
       }
       break;
+    case "historyOlder":
+      navigateVrKeyboardVertical("older");
+      break;
+    case "historyNewer":
+      navigateVrKeyboardVertical("newer");
+      break;
     case "cursor":
       // While converting, ◀/▶ move which bunsetsu segment 変換 cycles next
       // (real IMEs use the same keys for this) instead of the text cursor —
       // there'd be nothing else to move a *character* cursor with anyway
       // while the text is mid-replacement.
       if (vrKeyboardConversionSegments !== null) {
-        // Plain `%` can come out negative in JS when the sum does (e.g.
-        // delta -5 with only 2 segments) — the ≪/≫ jump buttons (see
-        // cursorActions in computeVrKeyboardLayout) made that a real case,
-        // not just a theoretical one at delta ±1. An extra `+ n, % n` fixes
-        // the sign without changing the ±1 behavior at all.
+        // Keep the modulo result non-negative when stepping backward past
+        // the first segment. The extra `+ n, % n` is harmless for the
+        // normal ±1 step and keeps this correct if the step size changes.
         const n = vrKeyboardConversionSegments.length;
         vrKeyboardConversionFocus = (((vrKeyboardConversionFocus + action.delta) % n) + n) % n;
       } else {
@@ -5518,12 +6305,13 @@ function applyVrKeyboardAction(action, direction) {
       deleteBeforeVrKeyboardCursor();
       break;
     case "placeCursor":
+      resetVrKeyboardVerticalGoal();
       // Not a layout button — see processVrKeyboardTrigger's box-click
       // branch. Routed through here anyway so it ends a conversion cycle via
-      // the top line above like any other non-henkan action: unlike ◀/▶
-      // (which move segment focus mid-conversion), a click names an exact
-      // character spot, which segment focus has no way to express. The clamp
-      // covers text that shrank in the tick between lib.rs resolving the
+      // the top line above like any other non-henkan action: unlike the
+      // ◀/▶ buttons (which move segment focus mid-conversion), a click names
+      // an exact character spot, which segment focus has no way to express.
+      // The clamp covers text that shrank in the tick between lib.rs resolving the
       // index (against what was last drawn) and this press.
       vrKeyboardCursorPos = Math.min(action.index, pendingFinalText.length);
       markVrKeyboardCursorActivity();
@@ -5553,7 +6341,7 @@ function applyVrKeyboardAction(action, direction) {
       setTtsEnabled(!ttsEnabled);
       break;
     case "copyText":
-      // Fire-and-forget, same as the Profile menu's own preset-copy button —
+      // Fire-and-forget, same as the Profile menu's own JSON-copy button —
       // clipboard permission can be denied in some contexts, and there's
       // nothing more useful to do here than silently no-op if so.
       navigator.clipboard.writeText(pendingFinalText).catch(() => {});
@@ -5574,7 +6362,7 @@ function applyVrKeyboardAction(action, direction) {
           // hiragana pending conversion — same "starts out confirmed, not
           // blue" treatment as a template phrase (see the "insert" case's
           // own `confirmed` handling).
-          vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
+          markVrKeyboardInputConfirmed();
         })
         .catch((err) => log(`[vr-keyboard] paste failed: ${err}`));
       break;
@@ -5587,8 +6375,8 @@ function applyVrKeyboardAction(action, direction) {
 // it — module-level so the value assigned there is visible to itself.
 let hotkeyHoldMsCache = DEFAULT_HOTKEY_HOLD_MS;
 let hotkeyPriorityHandCache = "right";
-let hotkeyActiveDuringKeyboardCache = false;
-let vrKeyboardPositionModeCache = "centered";
+let hotkeyActiveDuringKeyboardCache = true;
+let vrKeyboardPositionModeCache = "fixed";
 
 function setupHotkeys() {
   const statusEl = document.querySelector("#hotkey-status");
@@ -5696,7 +6484,7 @@ function setupHotkeys() {
   // loop can send it to update_keyboard_overlay without reaching across that
   // callback's scope.
   let vrKeyboardGrabDepthStickY = 0;
-  let leftAWasPressed = false; // left controller's lower face button (X on Quest) — toggles STT start/stop
+  let leftAWasPressed = false; // left controller's lower face button (X on Quest) — cycles the STT language
 
   setInterval(async () => {
     if (tickInFlight) return;
@@ -5891,11 +6679,13 @@ function setupHotkeys() {
       const cursorRecentlyMoved = now - vrKeyboardCursorActivityAt < CURSOR_BLINK_PAUSE_MS;
       const cursorBlinkOn = cursorRecentlyMoved || Math.floor(now / CURSOR_BLINK_MS) % 2 === 0;
       const cursor = vrKeyboardVisible && cursorBlinkOn ? vrKeyboardCursorPos : null;
-      // Marks everything not yet confirmed (see vrKeyboardConfirmedLength's
-      // own comment) — whatever 変換/確定 would next act on.
-      const hasUnconfirmed = pendingFinalText.length > vrKeyboardConfirmedLength;
-      const highlightStart = hasUnconfirmed ? vrKeyboardConfirmedLength : null;
-      const highlightEnd = hasUnconfirmed ? pendingFinalText.length : null;
+      // Marks the exact unconfirmed run 変換 will act on. A cursor-inserted
+      // run can be in the middle of otherwise confirmed text, so it takes
+      // precedence over the legacy confirmed-length-to-end range.
+      const inputRange = currentVrKeyboardInputRange();
+      const hasUnconfirmed = inputRange !== null || pendingFinalText.length > vrKeyboardConfirmedLength;
+      const highlightStart = inputRange ? inputRange.start : hasUnconfirmed ? vrKeyboardConfirmedLength : null;
+      const highlightEnd = inputRange ? inputRange.end : hasUnconfirmed ? pendingFinalText.length : null;
       // During the post-send settling window, keep the exact indicator
       // frame that was on screen at send time even if the box itself remains
       // visible for keyboard/interim input. After 500ms the live values take
@@ -6510,6 +7300,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   // system's own comment), so an upgrading install never sees a blank/
   // default profile even for one frame.
   migrateLegacyProfileDataIfNeeded();
+  applyProfileSampleDefaultsIfNeeded();
+  applyProfileHotkeyDefaultsIfNeeded();
 
   // First thing: translates all static [data-i18n] text right away. The
   // dynamic pieces (status text, ending list, hotkey dropdowns, character

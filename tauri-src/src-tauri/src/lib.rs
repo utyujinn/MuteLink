@@ -13,6 +13,7 @@ use std::fs;
 use std::net::UdpSocket;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use rosc::{OscMessage, OscPacket, OscType};
 use serde::{Deserialize, Serialize};
@@ -94,20 +95,332 @@ impl BackgroundSurface {
             Self::Box => "vr_box_background.bin",
         }
     }
+
+    fn slot_prefix(self) -> &'static str {
+        match self {
+            Self::Keyboard => "vr_keyboard_background",
+            Self::Box => "vr_box_background",
+        }
+    }
+
+    fn session_index(self) -> usize {
+        match self {
+            Self::Keyboard => 0,
+            Self::Box => 1,
+        }
+    }
 }
 
+// One random slot per surface for the lifetime of this process. It is seeded
+// during Tauri setup and then deliberately reused by reconnect and all
+// runtime selection/upload/delete operations; only the next process launch
+// rerolls it. A missing slot is replaced only when the previously chosen
+// image was deleted (or no image existed when Random was first selected).
+static SESSION_RANDOM_SLOTS: Mutex<[Option<usize>; 2]> = Mutex::new([None, None]);
+
 // Same convention as user_dict_path above. Unlike the old single-surface
-// vr_keyboard_background.rgba file (raw RGBA, no header, always exactly
-// KEYBOARD_CANVAS_WIDTH x KEYBOARD_CANVAS_HEIGHT since that was the only
-// size ever written), overlay::BackgroundImage is self-describing (any of
-// the three surfaces can be a different size — the cursor panel's own
+// background file, overlay::BackgroundImage is self-describing (the keyboard
+// and preview surfaces can have different sizes — the cursor panel's own
 // target is a runtime Rect, not a compile-time constant, see its own
 // comment), so the file needs to carry its width/height alongside the
 // pixels: an 8-byte little-endian (width: u32, height: u32) header followed
-// by raw RGBA. That old file is no longer read; a background set before
-// this change needs to be re-picked once.
+// by raw RGBA. The previous single-image file is copied into gallery slot 0
+// by migrate_legacy_background_image when it is still valid.
 fn background_image_path(surface: BackgroundSurface) -> PathBuf {
     voicevox_dir().join(surface.file_name())
+}
+
+const MAX_BACKGROUND_IMAGES: usize = 10;
+const MAX_BACKGROUND_PIXELS: usize = 4_000_000;
+
+#[derive(Clone, Serialize, Deserialize)]
+struct BackgroundSelection {
+    mode: String,
+    index: usize,
+}
+
+impl Default for BackgroundSelection {
+    fn default() -> Self {
+        Self {
+            mode: "default".to_string(),
+            index: 0,
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct BackgroundSelectionConfig {
+    #[serde(default)]
+    keyboard: BackgroundSelection,
+    #[serde(rename = "box", default)]
+    box_surface: BackgroundSelection,
+    // Physical slot numbers in display order. The files themselves stay at
+    // stable 0..9 filenames; removing a gallery item only removes its number
+    // from this order, so a crash can never make a different image inherit
+    // the old manual selection.
+    #[serde(default)]
+    keyboard_order: Vec<usize>,
+    #[serde(rename = "boxOrder", default)]
+    box_order: Vec<usize>,
+}
+
+impl Default for BackgroundSelectionConfig {
+    fn default() -> Self {
+        Self {
+            keyboard: BackgroundSelection::default(),
+            box_surface: BackgroundSelection::default(),
+            keyboard_order: Vec::new(),
+            box_order: Vec::new(),
+        }
+    }
+}
+
+impl BackgroundSelectionConfig {
+    fn selection(&self, surface: BackgroundSurface) -> &BackgroundSelection {
+        match surface {
+            BackgroundSurface::Keyboard => &self.keyboard,
+            BackgroundSurface::Box => &self.box_surface,
+        }
+    }
+
+    fn set_selection(&mut self, surface: BackgroundSurface, selection: BackgroundSelection) {
+        match surface {
+            BackgroundSurface::Keyboard => self.keyboard = selection,
+            BackgroundSurface::Box => self.box_surface = selection,
+        }
+    }
+
+    fn order(&self, surface: BackgroundSurface) -> &[usize] {
+        match surface {
+            BackgroundSurface::Keyboard => &self.keyboard_order,
+            BackgroundSurface::Box => &self.box_order,
+        }
+    }
+
+    fn order_mut(&mut self, surface: BackgroundSurface) -> &mut Vec<usize> {
+        match surface {
+            BackgroundSurface::Keyboard => &mut self.keyboard_order,
+            BackgroundSurface::Box => &mut self.box_order,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct BackgroundImageData {
+    width: u32,
+    height: u32,
+    rgba: Vec<u8>,
+}
+
+fn background_image_slot_path(surface: BackgroundSurface, slot: usize) -> PathBuf {
+    voicevox_dir().join(format!("{}_{slot}.bin", surface.slot_prefix()))
+}
+
+fn background_selection_path() -> PathBuf {
+    voicevox_dir().join("vr_background_selection.json")
+}
+
+fn existing_background_slots(surface: BackgroundSurface) -> Vec<usize> {
+    (0..MAX_BACKGROUND_IMAGES)
+        .filter(|slot| background_image_slot_path(surface, *slot).is_file())
+        .collect()
+}
+
+// The pre-gallery build stored one image directly in vr_*_background.bin.
+// Treat that file as the first gallery item once, so upgrading users keep
+// their existing background instead of silently losing it when the new
+// slot-based storage is first touched.
+fn migrate_legacy_background_image(surface: BackgroundSurface) -> Result<bool, String> {
+    if !existing_background_slots(surface).is_empty() {
+        return Ok(false);
+    }
+    let legacy = background_image_path(surface);
+    if legacy.is_file() && load_background_image_file(&legacy).is_some() {
+        fs::copy(&legacy, background_image_slot_path(surface, 0)).map_err(|e| e.to_string())?;
+        return Ok(true);
+    }
+    Ok(false)
+}
+
+fn load_background_selection_config() -> (BackgroundSelectionConfig, bool) {
+    let path = background_selection_path();
+    let Ok(bytes) = fs::read(path) else {
+        return (BackgroundSelectionConfig::default(), false);
+    };
+    match serde_json::from_slice::<BackgroundSelectionConfig>(&bytes) {
+        Ok(config) => (config, true),
+        // A damaged preference file should not prevent the app from starting;
+        // the image files themselves are still recovered by the migration
+        // above and can be selected again from the gallery.
+        Err(_) => (BackgroundSelectionConfig::default(), false),
+    }
+}
+
+fn save_background_selection_config(config: &BackgroundSelectionConfig) -> Result<(), String> {
+    let bytes = serde_json::to_vec_pretty(config).map_err(|e| e.to_string())?;
+    fs::write(background_selection_path(), bytes).map_err(|e| e.to_string())
+}
+
+fn normalized_background_order(raw: &[usize], slots: &[usize]) -> Vec<usize> {
+    let mut order = Vec::with_capacity(slots.len());
+    for slot in raw {
+        if slots.contains(slot) && !order.contains(slot) {
+            order.push(*slot);
+        }
+    }
+    for slot in slots {
+        if !order.contains(slot) {
+            order.push(*slot);
+        }
+    }
+    order
+}
+
+fn physical_background_slot(config: &BackgroundSelectionConfig, surface: BackgroundSurface, display_slot: usize) -> Result<usize, String> {
+    config
+        .order(surface)
+        .get(display_slot)
+        .copied()
+        .ok_or_else(|| format!("background slot {display_slot} does not exist"))
+}
+
+fn display_background_slot(config: &BackgroundSelectionConfig, surface: BackgroundSurface, physical_slot: usize) -> usize {
+    config
+        .order(surface)
+        .iter()
+        .position(|slot| *slot == physical_slot)
+        .unwrap_or(0)
+}
+
+fn ensure_background_selection_config(surface: BackgroundSurface) -> Result<BackgroundSelectionConfig, String> {
+    // Keep this before migration: the other surface may have created the
+    // shared config file already, but this surface's old active file still
+    // needs to become its first manual gallery item. The return value is
+    // deliberately about an actual copy, not merely an active file existing;
+    // otherwise selecting Default would be undone on the next command.
+    let migrated_legacy_image = migrate_legacy_background_image(surface)?;
+    let (mut config, existed) = load_background_selection_config();
+    let slots = existing_background_slots(surface);
+    let normalized_order = normalized_background_order(config.order(surface), &slots);
+    let order_changed = config.order(surface) != normalized_order.as_slice();
+    if order_changed {
+        *config.order_mut(surface) = normalized_order;
+    }
+
+    // If there is image data but no preference file, this is either the
+    // migration case above or a partially cleared settings file. Preserve
+    // the old visible image as a manual first item rather than defaulting to
+    // a blank surface. `selection.index` is a stable physical slot; the
+    // order vector maps it to the compact display position later.
+    let selection = config.selection(surface).clone();
+    let invalid_manual = selection.mode == "manual" && !slots.contains(&selection.index);
+    let invalid_mode = !matches!(selection.mode.as_str(), "default" | "random" | "manual");
+    let mut selection_changed = false;
+    if (!existed || migrated_legacy_image) && !slots.is_empty() && selection.mode == "default" {
+        config.set_selection(
+            surface,
+            BackgroundSelection {
+                mode: "manual".to_string(),
+                index: slots[0],
+            },
+        );
+        selection_changed = true;
+    } else if invalid_manual || invalid_mode {
+        config.set_selection(surface, BackgroundSelection::default());
+        selection_changed = true;
+    }
+    if order_changed || selection_changed {
+        save_background_selection_config(&config)?;
+    }
+    Ok(config)
+}
+
+fn random_background_slot(surface: BackgroundSurface, count: usize) -> usize {
+    if count <= 1 {
+        return 0;
+    }
+    let salt = match surface {
+        BackgroundSurface::Keyboard => 0x9e37_79b9_7f4a_7c15_u64,
+        BackgroundSurface::Box => 0xd1b5_4a32_d192_ed03_u64,
+    };
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    // A small xorshift mix is enough here: the only requirement is a fresh
+    // choice on the next launch, not cryptographic randomness.
+    let mut value = now ^ salt;
+    value ^= value >> 30;
+    value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value ^= value >> 27;
+    value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^= value >> 31;
+    (value % count as u64) as usize
+}
+
+fn session_random_slot(surface: BackgroundSurface, slots: &[usize], reroll: bool) -> Option<usize> {
+    if slots.is_empty() {
+        return None;
+    }
+    let mut state = SESSION_RANDOM_SLOTS.lock().ok()?;
+    let index = surface.session_index();
+    let current = state[index];
+    let chosen = if reroll || !current.is_some_and(|slot| slots.contains(&slot)) {
+        let next = slots[random_background_slot(surface, slots.len())];
+        state[index] = Some(next);
+        next
+    } else {
+        current.unwrap()
+    };
+    Some(chosen)
+}
+
+fn selected_background_slot(
+    surface: BackgroundSurface,
+    selection: &BackgroundSelection,
+    slots: &[usize],
+    reroll_random: bool,
+) -> Result<Option<usize>, String> {
+    match selection.mode.as_str() {
+        "default" => Ok(None),
+        "random" => Ok(session_random_slot(surface, slots, reroll_random)),
+        "manual" => {
+            if slots.contains(&selection.index) {
+                Ok(Some(selection.index))
+            } else {
+                Err(format!("manual background slot {} does not exist", selection.index))
+            }
+        }
+        other => Err(format!("unknown background selection mode: {other}")),
+    }
+}
+
+fn activate_background_selection(
+    surface: BackgroundSurface,
+    selection: &BackgroundSelection,
+    reroll_random: bool,
+) -> Result<Option<overlay::BackgroundImage>, String> {
+    let slots = existing_background_slots(surface);
+    let active_path = background_image_path(surface);
+    let Some(slot) = selected_background_slot(surface, selection, &slots, reroll_random)? else {
+        if active_path.exists() {
+            fs::remove_file(&active_path).map_err(|e| e.to_string())?;
+        }
+        return Ok(None);
+    };
+    let image = load_background_image_file(&background_image_slot_path(surface, slot))
+        .ok_or_else(|| format!("failed to load background image slot {slot}"))?;
+    let (width, height, rgba) = &image;
+    write_background_image_file(&active_path, *width, *height, rgba)?;
+    Ok(Some(image))
+}
+
+fn prepare_background_surface(surface: BackgroundSurface, resolve_random: bool) -> Option<overlay::BackgroundImage> {
+    let config = ensure_background_selection_config(surface).ok()?;
+    // `true` is used only by Tauri setup, once per process. Reconnect and
+    // every runtime command pass false, so Random keeps the same slot for the
+    // rest of this process.
+    activate_background_selection(surface, config.selection(surface), resolve_random).ok().flatten()
 }
 
 fn write_background_image_file(path: &Path, width: usize, height: usize, rgba: &[u8]) -> Result<(), String> {
@@ -127,8 +440,41 @@ fn load_background_image_file(path: &Path) -> Option<overlay::BackgroundImage> {
     }
     let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
     let height = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    if width == 0 || height == 0 {
+        return None;
+    }
+    let pixel_count = width.checked_mul(height)?;
+    if pixel_count > MAX_BACKGROUND_PIXELS {
+        return None;
+    }
+    let expected_len = pixel_count.checked_mul(4)?;
     let rgba = bytes[8..].to_vec();
-    (rgba.len() == width * height * 4).then_some((width, height, rgba))
+    (rgba.len() == expected_len).then_some((width, height, rgba))
+}
+
+fn background_thumbnail(image: &overlay::BackgroundImage, max_width: u32, max_height: u32) -> BackgroundImageData {
+    let (width, height, rgba) = image;
+    let (width, height) = (*width, *height);
+    let max_width = max_width.max(1) as f64;
+    let max_height = max_height.max(1) as f64;
+    let scale = (max_width / width.max(1) as f64).min(max_height / height.max(1) as f64).min(1.0);
+    let target_width = ((width as f64 * scale).round() as usize).max(1);
+    let target_height = ((height as f64 * scale).round() as usize).max(1);
+    let mut thumbnail = vec![0u8; target_width * target_height * 4];
+    for y in 0..target_height {
+        let source_y = ((y as f64 * height as f64 / target_height as f64) as usize).min(height.saturating_sub(1));
+        for x in 0..target_width {
+            let source_x = ((x as f64 * width as f64 / target_width as f64) as usize).min(width.saturating_sub(1));
+            let source = (source_y * width + source_x) * 4;
+            let target = (y * target_width + x) * 4;
+            thumbnail[target..target + 4].copy_from_slice(&rgba[source..source + 4]);
+        }
+    }
+    BackgroundImageData {
+        width: target_width as u32,
+        height: target_height as u32,
+        rgba: thumbnail,
+    }
 }
 
 struct VoicevoxState(Mutex<Synthesizer<OpenJtalk>>);
@@ -599,12 +945,13 @@ struct VrHandles {
 
 struct OpenVrState(Mutex<Option<VrHandles>>);
 
-fn init_openvr() -> Option<VrHandles> {
-    // SAFETY: called once at startup before any other OpenVR call, per the
-    // openvr crate's safety contract for `init`.
+fn init_openvr(resolve_random: bool) -> Option<VrHandles> {
+    // SAFETY: the first call happens during startup before any other OpenVR
+    // call, per the openvr crate's safety contract for `init`. Reconnects drop
+    // the old Context before calling this again.
     let context = unsafe { openvr::init(openvr::ApplicationType::Background) }.ok()?;
     let system = context.system().ok()?;
-    let hud = init_hud_overlay(&context);
+    let hud = init_hud_overlay(&context, resolve_random);
     if let Err(e) = &hud {
         eprintln!("[overlay] HUD init failed: {e}");
     }
@@ -631,7 +978,7 @@ const HUD_DEPTH_PUSH: f32 = 0.12;
 const HUD_TRANSFORM: [[f32; 4]; 3] =
     [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, -0.15], [0.0, 0.0, 1.0, -1.0 - HUD_DEPTH_PUSH]];
 
-fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
+fn init_hud_overlay(context: &openvr::Context, resolve_random: bool) -> Result<Hud, String> {
     let mut overlay = context.overlay().map_err(|e| format!("overlay interface unavailable: {e:?}"))?;
 
     let handle = overlay
@@ -700,11 +1047,11 @@ fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
         box_binding: BoxBinding::Hmd,
         box_raster: None,
         box_cache: overlay::BoxCache::default(),
-        box_background: load_background_image_file(&background_image_path(BackgroundSurface::Box)),
+        box_background: prepare_background_surface(BackgroundSurface::Box, resolve_random),
         box_bg_opacity: overlay::BOX_ALPHA_DEFAULT,
         box_style_epoch: 0,
         keyboard_cache: overlay::KeyboardCache::default(),
-        keyboard_background: load_background_image_file(&background_image_path(BackgroundSurface::Keyboard)),
+        keyboard_background: prepare_background_surface(BackgroundSurface::Keyboard, resolve_random),
         keyboard_bg_opacity: overlay::KEYBOARD_BG_ALPHA_DEFAULT,
         key_opacity: overlay::KEY_OPACITY_DEFAULT,
         keyboard_accent: DEFAULT_ACCENT_COLOR_RGB,
@@ -801,8 +1148,8 @@ fn init_pointer_set(overlay: &mut openvr::Overlay, keys: [&str; 3], hand: &str) 
 // 0.56 (was 0.8) — a ~30% width cut; see overlay.rs's KEYBOARD_CANVAS_HEIGHT
 // for the matching ~10% *height* cut, done separately since width/height
 // need different percentages here. Then ×1289/900 ≈ 0.8020 when
-// KEYBOARD_CANVAS_WIDTH grew from 900 to 1289 (a 2x2 cursor-control block
-// added to the grid's right, in its own visually separate box — see that
+// KEYBOARD_CANVAS_WIDTH grew from 900 to 1289 (a 2x5 cursor/history/quick-settings
+// control block added to the grid's right, in its own visually separate box — see that
 // constant's own comment): scaling world width by the same ratio the
 // canvas grew by keeps every existing pixel's physical size unchanged
 // (ray_cast_keyboard's px/py math is already written in terms of this
@@ -1449,8 +1796,8 @@ fn controller_absolute_pose(system: &openvr::System, role: openvr::TrackedContro
 
 // The cursor-control column's own background box (see overlay.rs's
 // CURSOR_BOX_* and update_keyboard_overlay below) — drawn as a visually
-// separate rectangle from the main panel so the 2x2 cursor-move buttons
-// read as their own distinct control, not part of the kana grid. Derived
+// separate rectangle from the main panel so the 2x5 cursor/history/quick-setting
+// buttons read as their own distinct control, not part of the kana grid. Derived
 // from fixed pixel constants in main.js's computeVrKeyboardLayout (never
 // from anything that changes at runtime), so despite being sent every
 // call like `buttons`, it only actually ever needs to be drawn once — see
@@ -1987,36 +2334,21 @@ fn apply_background_to_hud(hud: &mut Hud, surface: BackgroundSurface, image: Opt
     }
 }
 
-// One of the two tintable VR overlay surfaces' background image (settings >
-// Appearance) — `width`/`height` are whatever the frontend's own crop tool
-// cropped/resized to for that surface (see main.js's vrBackgroundSurfaces;
-// each surface has its own target size, so this isn't validated against a
-// single fixed constant here — see overlay::BackgroundImage's own comment).
-// Persisted to disk unconditionally (so it's there on the next launch even
-// if OpenVR/the HUD isn't currently up), and applied to the live Hud only
-// when one exists — a sync fn, not async, matching add_pronunciation_word's
-// own reasoning: this isn't a render-tick command, so there's no need to
-// keep it off whatever thread Tauri already dispatches plain commands to.
+// Legacy single-image command kept as a compatibility wrapper for older
+// cached frontends. The new settings UI calls add_background_image so saving
+// and selecting the gallery item are one user action.
 #[tauri::command]
 fn set_background_image(surface: String, width: u32, height: u32, rgba: Vec<u8>, state: State<'_, OpenVrState>) -> Result<(), String> {
-    let surface = BackgroundSurface::parse(&surface)?;
-    let (width, height) = (width as usize, height as usize);
-    if rgba.len() != width * height * 4 {
-        return Err(format!("expected {} bytes ({width}x{height}x4), got {}", width * height * 4, rgba.len()));
-    }
-    write_background_image_file(&background_image_path(surface), width, height, &rgba)?;
-    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
-    if let Some(handles) = guard.as_mut() {
-        if let Ok(hud) = handles.hud.as_mut() {
-            apply_background_to_hud(hud, surface, Some((width, height, rgba)));
-        }
-    }
+    let _ = add_background_image(surface, width, height, rgba, state)?;
     Ok(())
 }
 
 #[tauri::command]
 fn clear_background_image(surface: String, state: State<'_, OpenVrState>) -> Result<(), String> {
     let surface = BackgroundSurface::parse(&surface)?;
+    let mut config = ensure_background_selection_config(surface)?;
+    config.set_selection(surface, BackgroundSelection::default());
+    save_background_selection_config(&config)?;
     let path = background_image_path(surface);
     if path.exists() {
         fs::remove_file(&path).map_err(|e| e.to_string())?;
@@ -2036,6 +2368,202 @@ fn clear_background_image(surface: String, state: State<'_, OpenVrState>) -> Res
 #[tauri::command]
 fn has_background_image(surface: String) -> Result<bool, String> {
     Ok(background_image_path(BackgroundSurface::parse(&surface)?).exists())
+}
+
+#[tauri::command]
+fn list_background_images(surface: String) -> Result<Vec<usize>, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let config = ensure_background_selection_config(surface)?;
+    // The frontend uses dense display indexes (0..N-1); the config keeps the
+    // corresponding physical slot numbers stable behind them.
+    Ok((0..config.order(surface).len()).collect())
+}
+
+#[tauri::command]
+fn save_background_image(surface: String, width: u32, height: u32, rgba: Vec<u8>) -> Result<usize, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let mut config = ensure_background_selection_config(surface)?;
+    let (width, height) = (width as usize, height as usize);
+    let pixel_count = width
+        .checked_mul(height)
+        .ok_or_else(|| "background image dimensions are too large".to_string())?;
+    if pixel_count == 0 || pixel_count > MAX_BACKGROUND_PIXELS {
+        return Err(format!("background image must be between 1 and {MAX_BACKGROUND_PIXELS} pixels"));
+    }
+    let expected_len = pixel_count
+        .checked_mul(4)
+        .ok_or_else(|| "background image dimensions are too large".to_string())?;
+    if rgba.len() != expected_len {
+        return Err(format!("expected {expected_len} bytes ({width}x{height}x4), got {}", rgba.len()));
+    }
+    let physical_slot = (0..MAX_BACKGROUND_IMAGES)
+        .find(|slot| !background_image_slot_path(surface, *slot).exists())
+        .ok_or_else(|| format!("background gallery is full (max {MAX_BACKGROUND_IMAGES})"))?;
+    write_background_image_file(&background_image_slot_path(surface, physical_slot), width, height, &rgba)?;
+    config.order_mut(surface).push(physical_slot);
+    if let Err(err) = save_background_selection_config(&config) {
+        let _ = fs::remove_file(background_image_slot_path(surface, physical_slot));
+        return Err(err);
+    }
+    Ok(config.order(surface).len() - 1)
+}
+
+#[tauri::command]
+fn add_background_image(
+    surface: String,
+    width: u32,
+    height: u32,
+    rgba: Vec<u8>,
+    state: State<'_, OpenVrState>,
+) -> Result<usize, String> {
+    let display_slot = save_background_image(surface.clone(), width, height, rgba)?;
+    let parsed_surface = BackgroundSurface::parse(&surface)?;
+    let config = ensure_background_selection_config(parsed_surface)?;
+    let physical_slot = physical_background_slot(&config, parsed_surface, display_slot)?;
+    let keep_random = config.selection(parsed_surface).mode == "random";
+    let result = set_background_selection(
+        surface,
+        if keep_random { "random".to_string() } else { "manual".to_string() },
+        if keep_random { None } else { Some(display_slot) },
+        state,
+    );
+    if let Err(err) = result {
+        // The gallery insert and its selection are one user action. Remove
+        // the just-written physical slot if the second half fails so retrying
+        // Apply cannot accumulate duplicate images. ensure() also repairs the
+        // order/selection manifest if the failed command got as far as saving
+        // it before returning an error.
+        let _ = fs::remove_file(background_image_slot_path(parsed_surface, physical_slot));
+        let _ = ensure_background_selection_config(parsed_surface);
+        return Err(err);
+    }
+    Ok(display_slot)
+}
+
+#[tauri::command]
+fn get_background_image(surface: String, slot: usize) -> Result<BackgroundImageData, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let config = ensure_background_selection_config(surface)?;
+    let physical_slot = physical_background_slot(&config, surface, slot)?;
+    let (width, height, rgba) = load_background_image_file(&background_image_slot_path(surface, physical_slot))
+        .ok_or_else(|| format!("background slot {slot} is empty or unreadable"))?;
+    Ok(BackgroundImageData {
+        width: width as u32,
+        height: height as u32,
+        rgba,
+    })
+}
+
+#[tauri::command]
+fn get_background_thumbnail(
+    surface: String,
+    slot: usize,
+    max_width: u32,
+    max_height: u32,
+) -> Result<BackgroundImageData, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let config = ensure_background_selection_config(surface)?;
+    let physical_slot = physical_background_slot(&config, surface, slot)?;
+    if max_width == 0 || max_height == 0 || max_width > 1024 || max_height > 1024 {
+        return Err("thumbnail dimensions must be between 1 and 1024".to_string());
+    }
+    let image = load_background_image_file(&background_image_slot_path(surface, physical_slot))
+        .ok_or_else(|| format!("background slot {slot} is empty or unreadable"))?;
+    Ok(background_thumbnail(&image, max_width, max_height))
+}
+
+#[tauri::command]
+fn get_background_selection(surface: String) -> Result<BackgroundSelection, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let config = ensure_background_selection_config(surface)?;
+    let mut selection = config.selection(surface).clone();
+    if selection.mode == "manual" {
+        selection.index = display_background_slot(&config, surface, selection.index);
+    } else {
+        selection.index = 0;
+    }
+    Ok(selection)
+}
+
+#[tauri::command]
+fn set_background_selection(
+    surface: String,
+    mode: String,
+    index: Option<usize>,
+    state: State<'_, OpenVrState>,
+) -> Result<BackgroundSelection, String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let mut config = ensure_background_selection_config(surface)?;
+    let slots = existing_background_slots(surface);
+    let selection = match mode.as_str() {
+        "default" => BackgroundSelection { mode, index: 0 },
+        "random" => BackgroundSelection { mode, index: 0 },
+        "manual" => {
+            let display_slot = index.ok_or_else(|| "manual background selection needs an index".to_string())?;
+            let physical_slot = physical_background_slot(&config, surface, display_slot)?;
+            if !slots.contains(&physical_slot) {
+                return Err(format!("manual background slot {display_slot} does not exist"));
+            }
+            BackgroundSelection {
+                mode,
+                index: physical_slot,
+            }
+        }
+        other => return Err(format!("unknown background selection mode: {other}")),
+    };
+    let image = activate_background_selection(surface, &selection, false)?;
+    config.set_selection(surface, selection.clone());
+    save_background_selection_config(&config)?;
+    let mut response = selection;
+    if response.mode == "manual" {
+        response.index = display_background_slot(&config, surface, response.index);
+    } else {
+        response.index = 0;
+    }
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(handles) = guard.as_mut() {
+        if let Ok(hud) = handles.hud.as_mut() {
+            apply_background_to_hud(hud, surface, image);
+        }
+    }
+    Ok(response)
+}
+
+#[tauri::command]
+fn delete_background_image(surface: String, slot: usize, state: State<'_, OpenVrState>) -> Result<(), String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let mut config = ensure_background_selection_config(surface)?;
+    let physical_slot = physical_background_slot(&config, surface, slot)?;
+    let path = background_image_slot_path(surface, physical_slot);
+    if !path.is_file() {
+        return Err(format!("background slot {slot} is empty"));
+    }
+    fs::remove_file(&path).map_err(|e| e.to_string())?;
+
+    // The physical filename stays stable; compact the user-visible order by
+    // removing just this entry. If the process stops before the manifest save,
+    // ensure_background_selection_config() drops the missing physical slot on
+    // the next call instead of making another image inherit the selection.
+    config.order_mut(surface).retain(|item| *item != physical_slot);
+    let selection = config.selection(surface).clone();
+    let next_selection = match selection.mode.as_str() {
+        "manual" if selection.index == physical_slot => BackgroundSelection::default(),
+        _ => selection,
+    };
+    let image = activate_background_selection(surface, &next_selection, false)?;
+    config.set_selection(surface, next_selection);
+    if let Err(err) = save_background_selection_config(&config) {
+        // The file is already gone; a later ensure() repairs the order and
+        // invalid manual selection, so there is no wrong-image fallback.
+        return Err(err);
+    }
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(handles) = guard.as_mut() {
+        if let Ok(hud) = handles.hud.as_mut() {
+            apply_background_to_hud(hud, surface, image);
+        }
+    }
+    Ok(())
 }
 
 // The keyboard/box opacity sliders and the accent color (settings >
@@ -2495,7 +3023,7 @@ fn reconnect_vr(state: State<OpenVrState>) -> bool {
     // down. Confirmed in practice: this is exactly what reconnecting used
     // to crash with.
     *guard = None;
-    *guard = init_openvr();
+    *guard = init_openvr(false);
     guard.is_some()
 }
 
@@ -2539,7 +3067,13 @@ pub fn run() {
             let user_dict = load_user_dict(&synth);
             app.manage(VoicevoxState(Mutex::new(synth)));
             app.manage(UserDictState(Mutex::new(user_dict)));
-            app.manage(OpenVrState(Mutex::new(init_openvr())));
+            // Resolve the gallery's Random choice once per process before
+            // constructing the Hud. This also updates the active file when
+            // SteamVR is not available yet, so a later reconnect uses the
+            // same choice instead of rerolling.
+            let _ = prepare_background_surface(BackgroundSurface::Box, true);
+            let _ = prepare_background_surface(BackgroundSurface::Keyboard, true);
+            app.manage(OpenVrState(Mutex::new(init_openvr(false))));
             app.manage(sense_voice::SenseVoiceState::new());
             app.manage(sense_voice::DownloadCancelState::new());
             app.manage(vad::VadState::new());
@@ -2563,6 +3097,14 @@ pub fn run() {
             set_background_image,
             clear_background_image,
             has_background_image,
+            list_background_images,
+            save_background_image,
+            add_background_image,
+            get_background_image,
+            get_background_thumbnail,
+            get_background_selection,
+            set_background_selection,
+            delete_background_image,
             set_vr_overlay_appearance,
             character_catalog,
             download_character,

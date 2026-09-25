@@ -174,7 +174,7 @@
             <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
               <button id="settings-reset-btn" class="danger-btn" type="button" data-i18n="resetButton">
-                設定を全てリセット
+                設定をリセット
               </button>
             </div>
           </section>
@@ -234,6 +234,17 @@
               </select>
             </div>
             <div id="profile-list" class="profile-list"></div>
+
+            <h3 data-i18n="profileJsonHeading">プロファイルのJSON</h3>
+            <p class="hint" data-i18n="profileJsonHint">
+              選択中のプロファイル（キャラクター・語尾・テンプレート・ホットキー）をJSONとしてコピーできます。各プロファイル行の「JSON」ボタンでも個別にコピーできます。JSONを読み込むと選択中のプロファイルへ上書きします。
+            </p>
+            <div class="row">
+              <button id="profile-json-copy-btn" type="button" data-i18n="profileJsonCopyButton">現在のプロファイルをJSONでコピー</button>
+              <button id="profile-json-load-btn" type="button" data-i18n="profileJsonLoadButton">JSONを読み込む</button>
+            </div>
+            <textarea id="profile-json-area" class="profile-json-area" rows="5"></textarea>
+            <p id="profile-json-status" class="hint"></p>
           </section>
 
           <section class="settings-panel" data-panel="device">
@@ -281,22 +292,6 @@
             </div>
 
             <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="uiScaleLabel">UIサイズ</span>
-              <div class="slider-wrap">
-                <input type="range" id="ui-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
-                <div class="slider-ticks" id="ui-scale-ticks"></div>
-              </div>
-            </div>
-
-            <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="fontScaleLabel">フォントサイズ</span>
-              <div class="slider-wrap">
-                <input type="range" id="font-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
-                <div class="slider-ticks" id="font-scale-ticks"></div>
-              </div>
-            </div>
-
-            <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="fontFamilyLabel">フォント</span>
               <select id="font-family-select">
                 <option value="" data-i18n="fontDefault">既定</option>
@@ -310,7 +305,7 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="vrKeyOpacityLabel">キーの不透明度</span>
               <div class="slider-wrap">
-                <input type="range" id="vr-key-opacity-input" min="0" max="1" step="0.05" value="0.95" />
+                <input type="range" id="vr-key-opacity-input" min="0" max="1" step="0.05" value="0.5" />
                 <div class="slider-ticks" id="vr-key-opacity-ticks"></div>
               </div>
             </div>
@@ -318,55 +313,67 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="keySoundVolumeLabel">キー入力音の音量</span>
               <div class="slider-wrap">
-                <input type="range" id="key-sound-volume-input" min="0" max="1" step="0.1" value="1" />
+                <input type="range" id="key-sound-volume-input" min="0" max="1" step="0.1" value="0.3" />
                 <div class="slider-ticks" id="key-sound-volume-ticks"></div>
               </div>
             </div>
 
             <h3 data-i18n="vrOverlayBackgroundHeading">VRオーバーレイの背景画像</h3>
             <p class="hint" data-i18n="vrOverlayBackgroundHint">
-              VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。選んだ画像はそれぞれの縦横比に合わせて切り取ってから設定します。
+              VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。各画面で10枚まで保存し、デフォルト・ランダム・手動選択を選べます。
             </p>
 
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="vrKeyboardBgOpacityLabel">キーボード背景の不透明度</span>
               <div class="slider-wrap">
-                <input type="range" id="vr-keyboard-bg-opacity-input" min="0" max="1" step="0.05" value="0.88" />
+                <input type="range" id="vr-keyboard-bg-opacity-input" min="0" max="1" step="0.05" value="0.5" />
                 <div class="slider-ticks" id="vr-keyboard-bg-opacity-ticks"></div>
               </div>
             </div>
-            <div class="settings-list-row">
+            <div class="settings-list-row vr-background-image-row">
               <span class="settings-list-label" data-i18n="vrKeyboardBgImageLabel">キーボード背景</span>
-              <div class="row">
-                <span id="vr-keyboard-background-status" class="hint"></span>
-                <input type="file" id="vr-keyboard-background-file" accept="image/*" hidden />
-                <button type="button" id="vr-keyboard-background-choose-btn" data-i18n="chooseImageButton">
-                  画像を選ぶ
-                </button>
-                <button type="button" id="vr-keyboard-background-remove-btn" data-i18n="removeImageButton" hidden>
-                  削除
-                </button>
+              <div class="vr-background-editor">
+                <div class="vr-background-grid" id="vr-keyboard-background-grid" role="group" data-i18n-aria-label="vrBackgroundGalleryLabel"></div>
+                <div class="row vr-background-actions">
+                  <span id="vr-keyboard-background-status" class="hint"></span>
+                  <input type="file" id="vr-keyboard-background-file" accept="image/*" hidden />
+                  <button type="button" id="vr-keyboard-background-choose-btn" data-i18n="vrBackgroundAddImageButton">
+                    画像を追加
+                  </button>
+                  <button type="button" id="vr-keyboard-background-remove-btn" data-i18n="vrBackgroundRemoveSelectedButton" hidden>
+                    選択画像を削除
+                  </button>
+                </div>
+                <p class="hint vr-background-gallery-hint" data-i18n="vrBackgroundGalleryHint">
+                  デフォルト・ランダム・画像を選択できます。ランダムは次回起動時に保存画像から1枚選びます。起動後やSteamVR再接続では再抽選されません。画像は各10枚まで保存できます。
+                </p>
               </div>
             </div>
 
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="vrBoxBgOpacityLabel">プレビュー部の不透明度</span>
               <div class="slider-wrap">
-                <input type="range" id="vr-box-bg-opacity-input" min="0" max="1" step="0.05" value="0.82" />
+                <input type="range" id="vr-box-bg-opacity-input" min="0" max="1" step="0.05" value="0.5" />
                 <div class="slider-ticks" id="vr-box-bg-opacity-ticks"></div>
               </div>
             </div>
-            <div class="settings-list-row">
+            <div class="settings-list-row vr-background-image-row">
               <span class="settings-list-label" data-i18n="vrBoxBgImageLabel">プレビュー部背景</span>
-              <div class="row">
-                <span id="vr-box-background-status" class="hint"></span>
-                <input type="file" id="vr-box-background-file" accept="image/*" hidden />
-                <button type="button" id="vr-box-background-choose-btn" data-i18n="chooseImageButton">
-                  画像を選ぶ
-                </button>
-                <button type="button" id="vr-box-background-remove-btn" data-i18n="removeImageButton" hidden>
-                  削除
-                </button>
+              <div class="vr-background-editor">
+                <div class="vr-background-grid" id="vr-box-background-grid" role="group" data-i18n-aria-label="vrBackgroundGalleryLabel"></div>
+                <div class="row vr-background-actions">
+                  <span id="vr-box-background-status" class="hint"></span>
+                  <input type="file" id="vr-box-background-file" accept="image/*" hidden />
+                  <button type="button" id="vr-box-background-choose-btn" data-i18n="vrBackgroundAddImageButton">
+                    画像を追加
+                  </button>
+                  <button type="button" id="vr-box-background-remove-btn" data-i18n="vrBackgroundRemoveSelectedButton" hidden>
+                    選択画像を削除
+                  </button>
+                </div>
+                <p class="hint vr-background-gallery-hint" data-i18n="vrBackgroundGalleryHint">
+                  デフォルト・ランダム・画像を選択できます。ランダムは次回起動時に保存画像から1枚選びます。起動後やSteamVR再接続では再抽選されません。画像は各10枚まで保存できます。
+                </p>
               </div>
             </div>
           </section>
@@ -401,7 +408,7 @@
             </div>
 
             <p class="hint" data-i18n="hotkeyHint">
-              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、認識言語が日本語→English→中文→한국어→OFF→日本語…の順に切り替わります(OFFは音声認識停止)。
+              SteamVR経由で両手のグリップ/トリガー/スティック押し込みの状態を読み取ります。左右の手にそれぞれ別々の語尾(または送信取り消し)を割り当てられます。手動モードでFinalが確定した状態で、割り当てた組み合わせを保持時間ぶん押し続けるとその語尾で即送信、または送信取り消しが実行されます(スティックは押した瞬間に発火)。両手を同時に保持している場合、優先する手の状態がオーバーレイに表示されます。左手下側のボタンを押すたびに、設定で選択した言語(OFFも含む)を順番に切り替えます。
             </p>
 
             <div class="settings-list-row">
@@ -411,37 +418,37 @@
 
             <h3 data-i18n="vrKeyboardHeading">VRキーボード(開発中)</h3>
             <p class="hint" data-i18n="vrKeyboardHint">
-              右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中は既定でグリップ/トリガーの長押しによる送信は無効になりますが、下の「キーボード表示中もホットキーを有効にする」をオンにすると有効化できます)。開発中の機能です。
+              右トリガーのダブルクリック(既定)でVR内キーボードの表示/非表示を切り替え、編集後は画面上の送信ボタンで送信します。右スティック押し込み(単押し、既定)で入力中の文章を全消しします。グリップ/トリガーの単押し・長押し・ダブルクリックはすべて下の欄で割り当てを変更できます(表示中も既定でグリップ/トリガーの長押しによる送信が有効です)。開発中の機能です。
             </p>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="hotkeyActiveDuringKeyboardLabel">キーボード表示中もホットキーを有効にする</span>
               <label class="switch">
-                <input type="checkbox" id="hotkey-active-during-keyboard-toggle" />
+                <input type="checkbox" id="hotkey-active-during-keyboard-toggle" checked />
                 <span class="switch-track"></span>
               </label>
             </div>
             <p class="hint" data-i18n="hotkeyActiveDuringKeyboardHint">
-              オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオフ — キーボード自身の送信ボタン/スティック/ダブルクリックと競合しないように)。
+              オンにすると、VRキーボードを開いている間もグリップ/トリガーの長押しによる語尾送信・送信取り消しが有効になります(既定はオン)。
             </p>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="vrKeyboardAutoCloseOnSendLabel">送信でキーボードを自動的に閉じる</span>
               <label class="switch">
-                <input type="checkbox" id="vr-keyboard-auto-close-on-send-toggle" checked />
+                <input type="checkbox" id="vr-keyboard-auto-close-on-send-toggle" />
                 <span class="switch-track"></span>
               </label>
             </div>
             <p class="hint" data-i18n="vrKeyboardAutoCloseOnSendHint">
-              オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(続けて入力したいときに)。
+              オフにすると、VRキーボード表示中に送信ボタンや画面下の語尾ボタンを押しても、キーボードが開いたままになります(既定はオフ)。
             </p>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="vrKeyboardPositionModeLabel">キーボードの位置</span>
               <div class="settings-radio-row">
                 <label
-                  ><input type="radio" name="vr-keyboard-position-mode" value="centered" checked />
+                  ><input type="radio" name="vr-keyboard-position-mode" value="centered" />
                   <span data-i18n="vrKeyboardPositionCentered">視界の中央に追従</span></label
                 >
                 <label
-                  ><input type="radio" name="vr-keyboard-position-mode" value="fixed" />
+                  ><input type="radio" name="vr-keyboard-position-mode" value="fixed" checked />
                   <span data-i18n="vrKeyboardPositionFixed">開いた位置に固定</span></label
                 >
               </div>
@@ -472,7 +479,7 @@
               <select id="hotkey-right-triggerDouble"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="slotADouble">言語切替ボタン ダブルクリック</span>
+              <span class="settings-list-label" data-i18n="slotADouble">親指下側ボタン ダブルクリック</span>
               <select id="hotkey-right-aDouble"></select>
             </div>
             <div class="settings-list-row">
@@ -510,7 +517,7 @@
               <select id="hotkey-left-triggerDouble"></select>
             </div>
             <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="slotADouble">言語切替ボタン ダブルクリック</span>
+              <span class="settings-list-label" data-i18n="slotADouble">親指下側ボタン ダブルクリック</span>
               <select id="hotkey-left-aDouble"></select>
             </div>
             <div class="settings-list-row">
@@ -526,16 +533,6 @@
               <select id="hotkey-left-stickLong"></select>
             </div>
 
-            <h3 data-i18n="presetHeading">プリセット</h3>
-            <p class="hint" data-i18n="presetHint">
-              現在の語尾とホットキー割り当てをJSONとしてコピーできます。他の人から受け取ったJSONを下の欄に貼り付けて「JSONを読み込む」を押すと、その内容で上書きされます。
-            </p>
-            <div class="row">
-              <button id="preset-copy-btn" type="button" data-i18n="presetCopyButton">JSONをコピー</button>
-              <button id="preset-load-btn" type="button" data-i18n="presetLoadButton">JSONを読み込む</button>
-            </div>
-            <textarea id="preset-json-area" class="preset-json-area" rows="5"></textarea>
-            <p id="preset-status" class="hint"></p>
           </section>
 
           <section class="settings-panel" data-panel="other">
