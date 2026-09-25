@@ -833,6 +833,15 @@ function renderMergedText() {
   if (pendingTextEditorEl.value !== pendingFinalText) pendingTextEditorEl.value = pendingFinalText;
 }
 
+// A recognition session can end without ever producing a final result (a
+// short local VAD segment, a backend error, or a Web Speech session restart).
+// Never leave the last interim result stranded in the merged/VR preview.
+function clearCurrentInterim() {
+  if (!currentInterimText) return;
+  currentInterimText = "";
+  renderMergedText();
+}
+
 async function sendChatbox(text) {
   try {
     await window.__TAURI__.core.invoke("send_chatbox", { text });
@@ -1213,6 +1222,13 @@ async function pumpVadQueue() {
 // dispatchSenseVoiceSegment below hardcodes VAD_SEGMENT_SAMPLE_RATE instead
 // of reusing monitorCtx.sampleRate the way the interim path does.
 function handleVadResult(result, chunk) {
+  // Capture the current interim before the buffers are cleared. If Silero
+  // ends a very short utterance without returning a completed segment (or
+  // the final decode comes back empty), this is the only text we can rescue.
+  const utteranceEnding = vadInSpeech && !result.inSpeech;
+  const fallbackText = vadInSpeech ? currentInterimText : "";
+  const fallbackUtteranceId = senseVoiceUtteranceId;
+
   if (result.inSpeech) {
     if (!vadInSpeech) {
       senseVoiceUtteranceId++;
@@ -1236,8 +1252,22 @@ function handleVadResult(result, chunk) {
   }
   vadInSpeech = result.inSpeech;
 
-  for (const segment of result.segments) {
-    dispatchSenseVoiceSegment(segment);
+  const segments = result.segments.filter((segment) => segment.length > 0);
+  if (utteranceEnding && segments.length === 0) {
+    // No Final segment was produced at all — promote the last interim rather
+    // than leaving an orphaned white result on screen.
+    finalizeSenseVoiceInterimFallback(fallbackText, fallbackUtteranceId);
+    return;
+  }
+
+  // Normally there is at most one segment, but consume the fallback only once
+  // if a pathological VAD response returns several; a second empty decode
+  // must not append the same interim text twice.
+  let fallbackAvailable = true;
+  for (const segment of segments) {
+    const segmentFallback = fallbackAvailable ? fallbackText : "";
+    fallbackAvailable = false;
+    dispatchSenseVoiceSegment(segment, segmentFallback, fallbackUtteranceId);
   }
 }
 
@@ -1312,12 +1342,33 @@ async function runSenseVoiceInterim() {
   }
 }
 
+// A short VAD segment can end without a final decode (Silero may not pop a
+// segment at all), or the offline recognizer may return an empty string for
+// the completed audio. In either case the last interim is still a better
+// result than an orphaned white preview. The utterance-id check prevents an
+// old decode from resurrecting text after a newer utterance has started.
+function finalizeSenseVoiceInterimFallback(text, utteranceId) {
+  // A newer utterance owns the preview now; never clear its interim text on
+  // behalf of a stale decode.
+  if (utteranceId !== senseVoiceUtteranceId) return;
+  const fallback = (text ?? "").trim();
+  if (!fallback) {
+    clearCurrentInterim();
+    return;
+  }
+  log(`[sensevoice:final-fallback] text=${fallback}`);
+  handleFinalRecognizedText(fallback);
+}
+
 // `segment` is one already-VAD-segmented utterance's samples, already
 // resampled to 16kHz by vad.rs (see handleVadResult) — sent to
 // stt_transcribe as-is, no local buffering/concatenation needed since Rust
 // owns the whole segment now.
-async function dispatchSenseVoiceSegment(segment) {
-  if (segment.length === 0) return;
+async function dispatchSenseVoiceSegment(segment, fallbackText = "", fallbackUtteranceId = senseVoiceUtteranceId) {
+  if (segment.length === 0) {
+    finalizeSenseVoiceInterimFallback(fallbackText, fallbackUtteranceId);
+    return;
+  }
 
   setGoogleStatus("statusTranscribing");
   try {
@@ -1329,13 +1380,20 @@ async function dispatchSenseVoiceSegment(segment) {
         language: senseVoiceLangCode(),
       }),
     );
+    // A stop/restart or a newer utterance invalidates this decode. Do not
+    // append an old Final after the user has already moved on.
+    if (!recognizing || fallbackUtteranceId !== senseVoiceUtteranceId) return;
     setGoogleStatus("statusListening");
-    if (!text) return;
+    if (!text) {
+      finalizeSenseVoiceInterimFallback(fallbackText, fallbackUtteranceId);
+      return;
+    }
     log(`[sensevoice:final] text=${text}`);
     handleFinalRecognizedText(text);
   } catch (err) {
     setGoogleStatus("statusIdle");
     log(`[sensevoice:error] ${err}`);
+    finalizeSenseVoiceInterimFallback(fallbackText, fallbackUtteranceId);
   }
 }
 
@@ -1345,6 +1403,7 @@ function refreshRecognitionSession() {
   lastRecognitionRefreshAt = Date.now();
   log("[google] proactively refreshing recognition session after a long silence");
   recognizing = false; // so the old object's onend, if it fires late, is a no-op (see its own guard)
+  clearCurrentInterim();
   try {
     recognition.stop();
   } catch {
@@ -1427,9 +1486,14 @@ function createRecognition() {
   };
   r.onerror = (event) => {
     googleHadError = true;
+    if (recognition === r) clearCurrentInterim();
     log(`[google:error] ${event.error}${event.message ? ` (${event.message})` : ""}`);
   };
   r.onend = () => {
+    // A session that ends without a final result must not leave its last
+    // interim transcript stranded in the preview. Ignore a late event from an
+    // older object after a replacement session has already started.
+    if (recognition === r) clearCurrentInterim();
     // Recognition is meant to run continuously for as long as the app is
     // armed (see startVoiceMonitor's comment) — reaching onend at all means
     // either the browser ended the session on its own (backend-side
@@ -1521,6 +1585,7 @@ function scheduleGoogleRetry() {
 }
 
 async function startGoogleStt() {
+  clearCurrentInterim();
   sttEngine = loadSttEngine();
   sttModel = loadSttModel();
   sttInterimPreviewEnabled = loadSttInterimPreviewEnabled();
@@ -1577,9 +1642,13 @@ function stopGoogleStt() {
   clearTimeout(googleRetryTimer);
   if (sttEngine === "webspeech" && recognition) recognition.stop();
   vadInSpeech = false;
+  // Invalidate any in-flight local interim/final result before clearing the
+  // visible text, so a late decode cannot repopulate the next session.
+  senseVoiceUtteranceId++;
   senseVoiceInterimBuffer = [];
   senseVoiceInterimPrerollBuffer = [];
   vadChunkQueue = [];
+  clearCurrentInterim();
   // Fire-and-forget: clears Rust's VAD internal state (a half-open speech
   // segment, buffered silence) so the next session starts clean instead of
   // inheriting whatever was happening right before this stop (see
