@@ -54,6 +54,7 @@
           <button class="settings-nav-btn" data-panel="character" data-i18n="navCharacter">キャラクター</button>
           <button class="settings-nav-btn" data-panel="endings" data-i18n="navEndings">語尾</button>
           <button class="settings-nav-btn" data-panel="templates" data-i18n="navTemplates">テンプレート</button>
+          <button class="settings-nav-btn" data-panel="profile" data-i18n="navProfile">プロファイル</button>
           <button class="settings-nav-btn" data-panel="device" data-i18n="navDevice">Device</button>
           <button class="settings-nav-btn" data-panel="appearance" data-i18n="navAppearance">Appearance</button>
           <button class="settings-nav-btn" data-panel="hotkey" data-i18n="navHotkey">Hotkey</button>
@@ -217,6 +218,24 @@
             <div id="vr-keyboard-templates-list" class="ending-settings-list"></div>
           </section>
 
+          <section class="settings-panel" data-panel="profile">
+            <h2 data-i18n="navProfile">プロファイル</h2>
+            <p class="hint" data-i18n="profileMenuHint">
+              プロファイルは話すキャラクター・語尾・テンプレート・ホットキーの割り当てをまとめて切り替えます(General/Device/Appearanceはプロファイルに関わらず共通です)。ここでアクティブなプロファイルを選んだり、プロファイル数(1〜5)を変えたり、あるプロファイルの内容を別のプロファイルにコピーできます。
+            </p>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="profileCountLabel">プロファイル数</span>
+              <select id="profile-count-select">
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div id="profile-list" class="profile-list"></div>
+          </section>
+
           <section class="settings-panel" data-panel="device">
             <h2 data-i18n="navDevice">Device</h2>
 
@@ -257,6 +276,11 @@
             </div>
 
             <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="accentColorLabel">アクセントカラー</span>
+              <div class="color-swatch-row" id="accent-color-swatches"></div>
+            </div>
+
+            <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="uiScaleLabel">UIサイズ</span>
               <div class="slider-wrap">
                 <input type="range" id="ui-scale-input" min="0.8" max="1.5" step="0.1" value="1" />
@@ -282,21 +306,76 @@
                 <option value="serif">明朝体</option>
               </select>
             </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrKeyOpacityLabel">キーの不透明度</span>
+              <div class="slider-wrap">
+                <input type="range" id="vr-key-opacity-input" min="0" max="1" step="0.05" value="0.95" />
+                <div class="slider-ticks" id="vr-key-opacity-ticks"></div>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="keySoundVolumeLabel">キー入力音の音量</span>
+              <div class="slider-wrap">
+                <input type="range" id="key-sound-volume-input" min="0" max="1" step="0.1" value="1" />
+                <div class="slider-ticks" id="key-sound-volume-ticks"></div>
+              </div>
+            </div>
+
+            <h3 data-i18n="vrOverlayBackgroundHeading">VRオーバーレイの背景画像</h3>
+            <p class="hint" data-i18n="vrOverlayBackgroundHint">
+              VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。選んだ画像はそれぞれの縦横比に合わせて切り取ってから設定します。
+            </p>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrKeyboardBgOpacityLabel">キーボード背景の不透明度</span>
+              <div class="slider-wrap">
+                <input type="range" id="vr-keyboard-bg-opacity-input" min="0" max="1" step="0.05" value="0.88" />
+                <div class="slider-ticks" id="vr-keyboard-bg-opacity-ticks"></div>
+              </div>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrKeyboardBgImageLabel">キーボード背景</span>
+              <div class="row">
+                <span id="vr-keyboard-background-status" class="hint"></span>
+                <input type="file" id="vr-keyboard-background-file" accept="image/*" hidden />
+                <button type="button" id="vr-keyboard-background-choose-btn" data-i18n="chooseImageButton">
+                  画像を選ぶ
+                </button>
+                <button type="button" id="vr-keyboard-background-remove-btn" data-i18n="removeImageButton" hidden>
+                  削除
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrBoxBgOpacityLabel">プレビュー部の不透明度</span>
+              <div class="slider-wrap">
+                <input type="range" id="vr-box-bg-opacity-input" min="0" max="1" step="0.05" value="0.82" />
+                <div class="slider-ticks" id="vr-box-bg-opacity-ticks"></div>
+              </div>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="vrBoxBgImageLabel">プレビュー部背景</span>
+              <div class="row">
+                <span id="vr-box-background-status" class="hint"></span>
+                <input type="file" id="vr-box-background-file" accept="image/*" hidden />
+                <button type="button" id="vr-box-background-choose-btn" data-i18n="chooseImageButton">
+                  画像を選ぶ
+                </button>
+                <button type="button" id="vr-box-background-remove-btn" data-i18n="removeImageButton" hidden>
+                  削除
+                </button>
+              </div>
+            </div>
           </section>
 
           <section class="settings-panel" data-panel="hotkey">
             <h2 data-i18n="navHotkey">Hotkey</h2>
 
-            <div class="settings-list-row">
-              <span class="settings-list-label" data-i18n="hotkeyProfileLabel">プロファイル</span>
-              <div class="settings-radio-row">
-                <label><input type="radio" name="hotkey-profile" value="0" checked /> 1</label>
-                <label><input type="radio" name="hotkey-profile" value="1" /> 2</label>
-                <label><input type="radio" name="hotkey-profile" value="2" /> 3</label>
-              </div>
-            </div>
-            <p class="hint" data-i18n="hotkeyProfileHint">
-              グリップなど一部のボタンをゲーム側(ワールドなど)に使われてしまっているときのために、3種類のホットキー設定を用意して切り替えられます。下の割り当ては選んだプロファイルの内容です。メイン画面の「P1/P2/P3」ボタンでも切り替えられます。
+            <p class="hint" data-i18n="hotkeyProfileMovedHint">
+              どのプロファイルの割り当てを編集するかは、プロファイルメニューで選べます。下の割り当ては選んだプロファイルの内容です。メイン画面の「P1/P2/...」ボタンでも切り替えられます。
             </p>
 
             <div class="settings-list-row">
@@ -393,6 +472,10 @@
               <select id="hotkey-right-triggerDouble"></select>
             </div>
             <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotADouble">言語切替ボタン ダブルクリック</span>
+              <select id="hotkey-right-aDouble"></select>
+            </div>
+            <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>
               <select id="hotkey-right-none"></select>
             </div>
@@ -425,6 +508,10 @@
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotTriggerDouble">トリガー ダブルクリック</span>
               <select id="hotkey-left-triggerDouble"></select>
+            </div>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="slotADouble">言語切替ボタン ダブルクリック</span>
+              <select id="hotkey-left-aDouble"></select>
             </div>
             <div class="settings-list-row">
               <span class="settings-list-label" data-i18n="slotNone">どちらも押していない</span>
@@ -461,6 +548,20 @@
             </div>
             <p id="voicevox-status" class="hint">idle</p>
             <select id="voicevox-outputs" multiple hidden></select>
+
+            <h3 data-i18n="pronunciationDictHeading">発音辞書</h3>
+            <p class="hint" data-i18n="pronunciationDictHint">
+              VOICEVOXが単語を間違って読む場合(例:「は」を助詞の「わ」として読んでしまう等)、正しい読み方を登録できます。読み方はカタカナで入力してください。
+            </p>
+            <div id="pronunciation-dict-list" class="ending-settings-list"></div>
+            <div class="row">
+              <input id="pronunciation-dict-surface" type="text" />
+              <input id="pronunciation-dict-reading" type="text" />
+              <button id="pronunciation-dict-add-btn" type="button" data-i18n="pronunciationDictAddButton">
+                追加
+              </button>
+            </div>
+            <p id="pronunciation-dict-error" class="hint" hidden></p>
 
             <h3 data-i18n="logHeading">ログ</h3>
             <div id="log" class="log-panel"></div>
@@ -512,6 +613,18 @@
         <div class="row confirm-dialog-actions">
           <button id="confirm-dialog-cancel" type="button" data-i18n="cancelButton">キャンセル</button>
           <button id="confirm-dialog-ok" type="button" class="danger-btn">OK</button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="image-crop-dialog" class="image-crop-dialog">
+      <div class="image-crop-inner">
+        <p data-i18n="imageCropHint">ドラッグで位置を調整、スライダーで拡大できます。</p>
+        <canvas id="image-crop-canvas"></canvas>
+        <input type="range" id="image-crop-zoom" min="1" max="3" step="0.01" value="1" />
+        <div class="row confirm-dialog-actions">
+          <button type="button" id="image-crop-cancel-btn" data-i18n="cancelButton">キャンセル</button>
+          <button type="button" id="image-crop-apply-btn" data-i18n="applyButton">適用</button>
         </div>
       </div>
     </dialog>

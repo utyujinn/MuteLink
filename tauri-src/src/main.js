@@ -104,21 +104,79 @@ const I18N = {
   themeSystem: { ja: "システム既定", en: "System default", zh: "系统默认", ko: "시스템 기본값" },
   themeLight: { ja: "ライト", en: "Light", zh: "浅色", ko: "라이트" },
   themeDark: { ja: "ダーク", en: "Dark", zh: "深色", ko: "다크" },
+  accentColorLabel: { ja: "アクセントカラー", en: "Accent color", zh: "强调色", ko: "강조 색상" },
   uiScaleLabel: { ja: "UIサイズ", en: "UI size", zh: "界面大小", ko: "UI 크기" },
   fontScaleLabel: { ja: "フォントサイズ", en: "Font size", zh: "字体大小", ko: "글꼴 크기" },
   fontFamilyLabel: { ja: "フォント", en: "Font", zh: "字体", ko: "글꼴" },
   fontDefault: { ja: "既定", en: "Default", zh: "默认", ko: "기본값" },
 
+  vrKeyOpacityLabel: { ja: "キーの不透明度", en: "Key opacity", zh: "按键不透明度", ko: "키 불투명도" },
+  keySoundVolumeLabel: { ja: "キー入力音の音量", en: "Key click volume", zh: "按键音量", ko: "키 클릭 음량" },
+  vrOverlayBackgroundHeading: {
+    ja: "VRオーバーレイの背景画像",
+    en: "VR Overlay Background Images",
+    zh: "VR叠加层背景图片",
+    ko: "VR 오버레이 배경 이미지",
+  },
+  vrOverlayBackgroundHint: {
+    ja: "VRキーボード(カーソル操作ブロックを含む)と確認/破棄プレビューに、別々の背景画像と不透明度を設定できます。選んだ画像はそれぞれの縦横比に合わせて切り取ってから設定します。",
+    en: "Set a separate background image and opacity for the VR keyboard (including its cursor-control block) and the confirm/discard preview window. Each image is cropped to that surface's own aspect ratio before it's applied.",
+    zh: "可以为VR键盘(含光标操作区)和确认/放弃预览窗口分别设置不同的背景图片和不透明度。所选图片会先按各自的宽高比裁剪，然后再应用。",
+    ko: "VR 키보드(커서 조작 블록 포함)와 확인/취소 미리보기 창에 각각 별도의 배경 이미지와 불투명도를 설정할 수 있습니다. 선택한 이미지는 각 화면의 가로세로 비율에 맞게 잘린 후 적용됩니다.",
+  },
+  vrKeyboardBgOpacityLabel: {
+    ja: "キーボード背景の不透明度",
+    en: "Keyboard background opacity",
+    zh: "键盘背景不透明度",
+    ko: "키보드 배경 불투명도",
+  },
+  vrKeyboardBgImageLabel: { ja: "キーボード背景", en: "Keyboard background", zh: "键盘背景", ko: "키보드 배경" },
+  vrBoxBgOpacityLabel: {
+    ja: "プレビュー部の不透明度",
+    en: "Preview background opacity",
+    zh: "预览区背景不透明度",
+    ko: "미리보기 배경 불투명도",
+  },
+  vrBoxBgImageLabel: { ja: "プレビュー部背景", en: "Preview background", zh: "预览区背景", ko: "미리보기 배경" },
+  chooseImageButton: { ja: "画像を選ぶ", en: "Choose Image", zh: "选择图片", ko: "이미지 선택" },
+  removeImageButton: { ja: "削除", en: "Remove", zh: "删除", ko: "삭제" },
+  vrKeyboardBackgroundSetStatus: { ja: "設定済み", en: "Set", zh: "已设置", ko: "설정됨" },
+  vrKeyboardBackgroundUnsetStatus: { ja: "未設定", en: "Not set", zh: "未设置", ko: "설정 안 됨" },
+  imageCropHint: {
+    ja: "ドラッグで位置を調整、スライダーで拡大できます。",
+    en: "Drag to reposition, use the slider to zoom in.",
+    zh: "拖动可调整位置，使用滑块可放大。",
+    ko: "드래그로 위치를 조정하고, 슬라이더로 확대할 수 있습니다.",
+  },
+  applyButton: { ja: "適用", en: "Apply", zh: "应用", ko: "적용" },
+
   holdDurationLabel: { ja: "保持時間", en: "Hold duration", zh: "按住时长", ko: "유지 시간" },
   secondsSuffix: { ja: "秒", en: "s", zh: "秒", ko: "초" },
   priorityHandLabel: { ja: "優先する手", en: "Priority hand", zh: "优先手", ko: "우선 손" },
-  hotkeyProfileLabel: { ja: "プロファイル", en: "Profile", zh: "配置", ko: "프로필" },
-  hotkeyProfileHint: {
-    ja: "グリップなど一部のボタンをゲーム側(ワールドなど)に使われてしまっているときのために、3種類のホットキー設定を用意して切り替えられます。下の割り当ては選んだプロファイルの内容です。メイン画面の「P1/P2/P3」ボタンでも切り替えられます。",
-    en: "In case a game (e.g. a VRChat world) takes over some of your buttons like grip, you can prepare 3 separate hotkey setups and switch between them. The assignments below belong to whichever profile is selected. The \"P1/P2/P3\" button on the main screen switches too.",
-    zh: "如果游戏(例如VRChat世界)占用了握把等部分按键，可以准备3套快捷键配置并切换使用。下方的分配对应当前选中的配置。主界面的「P1/P2/P3」按钮也可以切换。",
-    ko: "그립 등 일부 버튼을 게임(예: VRChat 월드) 쪽에서 사용 중일 때를 대비해, 3가지 단축키 설정을 만들어 전환할 수 있습니다. 아래 할당은 선택한 프로필의 내용입니다. 메인 화면의 「P1/P2/P3」 버튼으로도 전환할 수 있습니다.",
+  hotkeyProfileMovedHint: {
+    ja: "どのプロファイルの割り当てを編集するかは、プロファイルメニューで選べます。下の割り当ては選んだプロファイルの内容です。メイン画面の「P1/P2/...」ボタンでも切り替えられます。",
+    en: "Which profile's assignments you're editing is chosen from the Profile menu. The assignments below belong to whichever profile is selected there. The \"P1/P2/...\" button on the main screen switches too.",
+    zh: "在哪个配置文件中编辑分配，请在配置文件菜单中选择。下方的分配对应在那里选中的配置文件。主界面的「P1/P2/...」按钮也可以切换。",
+    ko: "어느 프로필의 할당을 편집할지는 프로필 메뉴에서 선택합니다. 아래 할당은 거기서 선택한 프로필의 내용입니다. 메인 화면의 「P1/P2/...」 버튼으로도 전환할 수 있습니다.",
   },
+  navProfile: { ja: "プロファイル", en: "Profile", zh: "配置文件", ko: "프로필" },
+  profileMenuHint: {
+    ja: "プロファイルは話すキャラクター・語尾・テンプレート・ホットキーの割り当てをまとめて切り替えます(General/Device/Appearanceはプロファイルに関わらず共通です)。ここでアクティブなプロファイルを選んだり、プロファイル数(1〜5)を変えたり、あるプロファイルの内容を別のプロファイルにコピーできます。",
+    en: "A profile bundles the speaking character, endings, templates, and hotkey assignments together — General/Device/Appearance stay the same regardless of profile. Here you can pick the active profile, change how many exist (1-5), and copy one profile's contents into another.",
+    zh: "配置文件会把发声角色、语尾、模板和快捷键分配打包在一起切换(General/Device/Appearance 与配置文件无关，始终通用)。在这里可以选择当前使用的配置文件、更改配置文件数量(1〜5)、以及把某个配置文件的内容复制到另一个配置文件。",
+    ko: "프로필은 발화 캐릭터・어미・템플릿・단축키 할당을 함께 전환합니다(General/Device/Appearance는 프로필과 무관하게 공통입니다). 여기서 활성 프로필을 선택하거나, 프로필 개수(1~5)를 바꾸거나, 한 프로필의 내용을 다른 프로필로 복사할 수 있습니다.",
+  },
+  profileCountLabel: { ja: "プロファイル数", en: "Profile count", zh: "配置文件数量", ko: "프로필 개수" },
+  profileCountShrinkConfirm: {
+    ja: "プロファイル数を減らすと、はみ出したプロファイルの内容(キャラクター・語尾・テンプレート・ホットキー)は失われます。よろしいですか?",
+    en: "Reducing the profile count permanently discards the contents (character/endings/templates/hotkeys) of the profiles beyond the new count. Continue?",
+    zh: "减少配置文件数量会永久丢失超出部分的配置文件内容(角色・语尾・模板・快捷键)。确定要继续吗?",
+    ko: "프로필 개수를 줄이면 범위를 벗어난 프로필의 내용(캐릭터・어미・템플릿・단축키)이 사라집니다. 계속하시겠습니까?",
+  },
+  profileCharacterLabel: { ja: "キャラクター", en: "Character", zh: "角色", ko: "캐릭터" },
+  profileDetailsButton: { ja: "詳細", en: "Details", zh: "详情", ko: "상세" },
+  profileCopyButton: { ja: "コピー", en: "Copy", zh: "复制", ko: "복사" },
+  profilePasteButton: { ja: "貼り付け", en: "Paste", zh: "粘贴", ko: "붙여넣기" },
   hotkeyProfileSwitchLabel: {
     ja: "ホットキープロファイル切替",
     en: "Switch hotkey profile",
@@ -233,6 +291,12 @@ const I18N = {
   slotGripDouble: { ja: "グリップ ダブルクリック", en: "Grip double-click", zh: "握把双击", ko: "그립 더블클릭" },
   slotTrigger: { ja: "トリガーのみ", en: "Trigger only", zh: "仅扳机", ko: "트리거만" },
   slotTriggerDouble: { ja: "トリガー ダブルクリック", en: "Trigger double-click", zh: "扳机双击", ko: "트리거 더블클릭" },
+  slotADouble: {
+    ja: "言語切替ボタン ダブルクリック",
+    en: "Language-switch button double-click",
+    zh: "语言切换按钮 双击",
+    ko: "언어 전환 버튼 더블클릭",
+  },
   slotNone: { ja: "どちらも押していない", en: "Neither pressed", zh: "都未按下", ko: "아무것도 안 누름" },
   slotStick: { ja: "スティック押し込み", en: "Stick press", zh: "摇杆按下", ko: "스틱 누름" },
   slotStickLong: {
@@ -282,6 +346,23 @@ const I18N = {
   speakButton: { ja: "Speak", en: "Speak", zh: "朗读", ko: "말하기" },
   voicevoxSynthesizing: { ja: "音声合成中...", en: "Synthesizing...", zh: "合成中...", ko: "합성 중..." },
   voicevoxPlaying: { ja: "再生中", en: "Playing", zh: "播放中", ko: "재생 중" },
+
+  pronunciationDictHeading: { ja: "発音辞書", en: "Pronunciation Dictionary", zh: "发音词典", ko: "발음 사전" },
+  pronunciationDictHint: {
+    ja: "VOICEVOXが単語を間違って読む場合(例:「は」を助詞の「わ」として読んでしまう等)、正しい読み方を登録できます。読み方はカタカナで入力してください。",
+    en: "If VOICEVOX mispronounces a word (e.g. reading は as the わ particle sound), register the correct reading here. The reading must be entered in katakana.",
+    zh: "如果VOICEVOX读错某个单词(例如把「は」读成助词「わ」的发音),可以在这里登记正确的读法。读法请用片假名输入。",
+    ko: "VOICEVOX가 단어를 잘못 읽는 경우(예: 「は」를 조사 「わ」로 읽는 등) 올바른 읽는 법을 등록할 수 있습니다. 읽는 법은 가타카나로 입력하세요.",
+  },
+  pronunciationDictSurfacePlaceholder: { ja: "単語(例: はわはわ)", en: "Word (e.g. はわはわ)", zh: "单词(例: はわはわ)", ko: "단어(예: はわはわ)" },
+  pronunciationDictReadingPlaceholder: {
+    ja: "読み方 カタカナ(例: ハワハワ)",
+    en: "Reading, katakana (e.g. ハワハワ)",
+    zh: "读法 片假名(例: ハワハワ)",
+    ko: "읽는 법, 가타카나(예: ハワハワ)",
+  },
+  pronunciationDictAddButton: { ja: "追加", en: "Add", zh: "添加", ko: "추가" },
+  pronunciationDictRemoveAriaLabel: { ja: "削除", en: "Remove", zh: "删除", ko: "삭제" },
 
   logHeading: { ja: "ログ", en: "Log", zh: "日志", ko: "로그" },
 
@@ -603,6 +684,7 @@ function refreshDynamicI18nText() {
   // startup instead), so there's nothing for a language change to refresh.
   renderHotkeyAssignmentOptions();
   setupCharacterPanel();
+  renderProfileMenuList(); // its own labels/buttons (キャラクター/コピー/貼り付け) are translated text too
   renderMergedText(); // re-translates the pending-text placeholder when it's showing (see its own comment)
 }
 
@@ -795,7 +877,7 @@ function saveSendMode(mode) {
 }
 
 // Single entry points for Auto/Chatbox/TTS, same reasoning as
-// setHotkeyProfileIndex above — the desktop toggle buttons and the VR
+// setActiveProfileIndex further down — the desktop toggle buttons and the VR
 // keyboard's own copies of these (see computeVrKeyboardLayout's cursor-block
 // rows) both need to flip the same state and stay visually in sync,
 // regardless of which one was actually pressed.
@@ -993,7 +1075,16 @@ async function startVoiceMonitor() {
     // JS; a trained VAD tells actual speech apart from breath/airflow noise
     // far better than an amplitude threshold does (see TASK.md #20).
     if (sttEngine === "sensevoice" && recognizing) {
-      enqueueVadChunk(chunk.slice(), monitorCtx.sampleRate); // copy — the browser reuses this buffer next callback
+      const chunkCopy = chunk.slice(); // copy — the browser reuses this buffer next callback
+      // Only while NOT mid-utterance (per the last VAD result we heard back
+      // — see senseVoiceInterimPrerollBuffer's own comment), so the ring
+      // naturally never holds the chunk that ends up tipping detection over
+      // — no need to separately exclude it when it's spliced in later.
+      if (!vadInSpeech) {
+        senseVoiceInterimPrerollBuffer.push(chunkCopy);
+        if (senseVoiceInterimPrerollBuffer.length > SENSE_VOICE_INTERIM_PREROLL_CHUNKS) senseVoiceInterimPrerollBuffer.shift();
+      }
+      enqueueVadChunk(chunkCopy, monitorCtx.sampleRate);
     }
 
     if (!voiced) return;
@@ -1050,6 +1141,19 @@ let vadInSpeech = false;
 // from Rust (see handleVadResult), this is just a live snapshot to
 // re-transcribe for the 入力中 preview.
 let senseVoiceInterimBuffer = [];
+// A short rolling lookback of recent raw chunks, kept regardless of
+// vadInSpeech (updated only while it's false — see onaudioprocess) and
+// spliced onto the front of senseVoiceInterimBuffer the instant vadInSpeech
+// flips true (see handleVadResult) — same idea (and same size) as the
+// pre-VAD RMS approach's own senseVoicePrerollBuffer. This exists purely so
+// the 入力中 preview doesn't visibly start clipped: Final's own onset
+// margin comes from vad.rs's own pre-roll (anchored to the Rust-side VAD's
+// segment start, see extra_pre_roll_for), which isn't available until an
+// utterance *ends* and its segment is popped — too late for a preview
+// that's by definition shown mid-utterance. Nothing here affects what's
+// actually sent to VOICEVOX/OSC; that's still vad.rs's own segment.
+const SENSE_VOICE_INTERIM_PREROLL_CHUNKS = 3;
+let senseVoiceInterimPrerollBuffer = [];
 // Bumped every time a new utterance starts (see handleVadResult) so a
 // runSenseVoiceInterim() call that was in flight when the utterance ended
 // (flushed to Final, or superseded by the next utterance already starting)
@@ -1108,12 +1212,23 @@ function handleVadResult(result, chunk) {
   if (result.inSpeech) {
     if (!vadInSpeech) {
       senseVoiceUtteranceId++;
-      senseVoiceInterimBuffer = [];
+      // Seed with the preroll ring instead of starting empty — see
+      // senseVoiceInterimPrerollBuffer's own comment. Copied (not aliased):
+      // onaudioprocess reassigns the ring wholesale on shift/overflow, never
+      // mutates an array in place, but a fresh copy keeps that invariant
+      // obviously true here too rather than relying on it.
+      senseVoiceInterimBuffer = [...senseVoiceInterimPrerollBuffer];
       senseVoiceLastInterimAt = Date.now();
     }
     senseVoiceInterimBuffer.push(chunk);
   } else if (vadInSpeech) {
     senseVoiceInterimBuffer = [];
+    // Stale the instant the utterance it was trailing just ended — left in
+    // place, a new utterance starting again quickly would get audio from
+    // the *previous* one prepended instead of a fresh, actually-adjacent
+    // preroll (same reasoning the old flushSenseVoiceUtterance() had for
+    // its own equivalent reset).
+    senseVoiceInterimPrerollBuffer = [];
   }
   vadInSpeech = result.inSpeech;
 
@@ -1459,6 +1574,7 @@ function stopGoogleStt() {
   if (sttEngine === "webspeech" && recognition) recognition.stop();
   vadInSpeech = false;
   senseVoiceInterimBuffer = [];
+  senseVoiceInterimPrerollBuffer = [];
   vadChunkQueue = [];
   // Fire-and-forget: clears Rust's VAD internal state (a half-open speech
   // segment, buffered silence) so the next session starts clean instead of
@@ -1714,9 +1830,11 @@ function setupSettingsDialog() {
   setupCharacterPanel();
   setupEndingsPanel();
   setupTemplatesPanel();
+  setupProfilePanel();
   setupPresetPanel();
   setupAppearancePanel();
   setupDevicePanel();
+  setupPronunciationDict();
   setupAboutLinks();
   setupUpdater();
 }
@@ -1804,18 +1922,95 @@ function setupUpdater() {
 
 const APPEARANCE_STORAGE_KEY = "mutelink.appearance";
 
+// 10 hues spanning the wheel (青/水色/緑/黄緑/黄色/ベージュ/橙/赤/ピンク/紫 —
+// picked over the previous set, which leaned too heavily on blue-ish/
+// teal-ish hues to tell apart at a glance), each chosen to read clearly as a
+// border/fill color against both the light and dark surface colors (see
+// --color-accent in styles.css, which everything — buttons, links, radios,
+// the range slider thumb, --color-active-bg's own tint — now derives from).
+// Ordered to flow around the wheel (beige is the one non-hue, muted-neutral
+// exception, sitting as a warm bridge between yellow and orange rather than
+// breaking the sequence). Deliberate app-wide setting, not part of a
+// Profile (see the Profile system's own comment for why General/Device/
+// Appearance stay unprofiled).
+const COLOR_ACCENT_PRESETS = [
+  { id: "blue", hex: "#3d6fd6" },
+  { id: "skyblue", hex: "#2bb0d9" },
+  { id: "green", hex: "#3daa5f" },
+  { id: "yellowgreen", hex: "#8cc63f" },
+  { id: "yellow", hex: "#e0b400" },
+  { id: "beige", hex: "#c9a876" },
+  { id: "orange", hex: "#e0682e" },
+  { id: "red", hex: "#d9524f" },
+  { id: "pink", hex: "#f0559e" },
+  { id: "purple", hex: "#8a5cf0" },
+];
+const DEFAULT_ACCENT_COLOR = COLOR_ACCENT_PRESETS[0].hex;
+
+// Must match overlay.rs's own *_ALPHA_DEFAULT/KEY_OPACITY_DEFAULT constants
+// — what a fresh Hud (no set_vr_overlay_appearance push yet) starts at, so
+// these sliders' initial position always matches what's actually on screen.
+const VR_KEY_OPACITY_DEFAULT = 0.95;
+// Shared by the keyboard grid and its cursor-control block — they're one
+// combined background surface now, not two independent ones (see
+// vrBackgroundSurfaces' own comment).
+const VR_KEYBOARD_BG_OPACITY_DEFAULT = 0.88;
+const VR_BOX_BG_OPACITY_DEFAULT = 210 / 255;
+
+function defaultAppearance() {
+  return {
+    uiScale: 1,
+    fontScale: 1,
+    fontFamily: "",
+    theme: "system",
+    accentColor: DEFAULT_ACCENT_COLOR,
+    keyOpacity: VR_KEY_OPACITY_DEFAULT,
+    keyboardBgOpacity: VR_KEYBOARD_BG_OPACITY_DEFAULT,
+    boxBgOpacity: VR_BOX_BG_OPACITY_DEFAULT,
+    // 1 (100%) keeps existing installs sounding exactly as before this
+    // setting existed — see playKeySound's own comment for where this is
+    // actually read.
+    keySoundVolume: 1,
+  };
+}
+
 function loadAppearance() {
   try {
     const raw = JSON.parse(localStorage.getItem(APPEARANCE_STORAGE_KEY) ?? "null");
-    if (raw && typeof raw === "object") return raw;
+    if (raw && typeof raw === "object") return { ...defaultAppearance(), ...raw };
   } catch {
     // fall through to defaults
   }
-  return { uiScale: 1, fontScale: 1, fontFamily: "", theme: "system" };
+  return defaultAppearance();
 }
 
 function saveAppearance(appearance) {
   localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify(appearance));
+}
+
+// "#rrggbb" -> [r, g, b] — accentColor is always one of COLOR_ACCENT_PRESETS
+// or DEFAULT_ACCENT_COLOR, never arbitrary user input, so no format fallback.
+function hexToRgb(hex) {
+  const clean = hex.replace("#", "");
+  return [0, 2, 4].map((i) => parseInt(clean.slice(i, i + 2), 16));
+}
+
+// Pushes the opacity sliders + accent color to the live VR overlay (Rust
+// Hud) — see set_vr_overlay_appearance's own comment for why this, unlike
+// the background images, isn't persisted on that side at all. Fire-and-
+// forget from applyAppearance's own callers; failures (no SteamVR, no Hud)
+// are expected and just logged, not surfaced to the user.
+async function pushVrOverlayAppearance(appearance) {
+  try {
+    await window.__TAURI__.core.invoke("set_vr_overlay_appearance", {
+      keyboardBgOpacity: appearance.keyboardBgOpacity,
+      boxBgOpacity: appearance.boxBgOpacity,
+      keyOpacity: appearance.keyOpacity,
+      accent: hexToRgb(appearance.accentColor || DEFAULT_ACCENT_COLOR),
+    });
+  } catch (err) {
+    log(`[appearance] failed to push VR overlay appearance: ${err}`);
+  }
 }
 
 function applyAppearance(appearance) {
@@ -1827,6 +2022,8 @@ function applyAppearance(appearance) {
   } else {
     document.documentElement.setAttribute("data-theme", appearance.theme);
   }
+  document.documentElement.style.setProperty("--color-accent", appearance.accentColor || DEFAULT_ACCENT_COLOR);
+  pushVrOverlayAppearance(appearance);
 }
 
 // Must match .slider-wrap's width and the thumb width in styles.css. The
@@ -1913,6 +2110,384 @@ function setupAppearancePanel() {
       saveAppearance(appearance);
     });
   }
+
+  const swatchRow = document.querySelector("#accent-color-swatches");
+  swatchRow.innerHTML = "";
+  for (const preset of COLOR_ACCENT_PRESETS) {
+    const swatch = document.createElement("button");
+    swatch.type = "button";
+    swatch.className = "color-swatch";
+    swatch.style.backgroundColor = preset.hex;
+    swatch.classList.toggle("selected", preset.hex === appearance.accentColor);
+    swatch.title = preset.id;
+    swatch.setAttribute("aria-label", preset.id);
+    swatch.addEventListener("click", () => {
+      appearance.accentColor = preset.hex;
+      applyAppearance(appearance);
+      saveAppearance(appearance);
+      for (const el of swatchRow.querySelectorAll(".color-swatch")) el.classList.remove("selected");
+      swatch.classList.add("selected");
+    });
+    swatchRow.appendChild(swatch);
+  }
+
+  // Key opacity + the 2 surfaces' own background tint opacity (see
+  // overlay::KeyboardVisuals/BoxCache) — same slider-wrap/tick pattern as
+  // uiScaleInput/fontScaleInput above, just 0-1 in 5% steps since these are
+  // plain alpha values, not a scale factor.
+  const opacityFields = [
+    ["keyOpacity", "vr-key-opacity-input", "vr-key-opacity-ticks"],
+    ["keyboardBgOpacity", "vr-keyboard-bg-opacity-input", "vr-keyboard-bg-opacity-ticks"],
+    ["boxBgOpacity", "vr-box-bg-opacity-input", "vr-box-bg-opacity-ticks"],
+  ];
+  for (const [field, inputId, ticksId] of opacityFields) {
+    const input = document.querySelector(`#${inputId}`);
+    buildSliderTicks(input, document.querySelector(`#${ticksId}`), 4);
+    input.value = appearance[field];
+    input.addEventListener("input", () => {
+      appearance[field] = Number(input.value);
+      applyAppearance(appearance);
+      saveAppearance(appearance);
+    });
+  }
+
+  // 0-100% in 11 stops (10% steps) rather than the 5% steps above — this
+  // isn't a subtle visual tint, it's a click volume, where 21 stops would
+  // just be more clicking-through than the difference between adjacent
+  // steps is worth. Doesn't go through applyAppearance/pushVrOverlayAppearance
+  // (see keySoundVolumeCache's own comment) — this never reaches Rust or
+  // CSS, only playKeySound reads it, so there's nothing else to re-apply.
+  const keySoundVolumeInput = document.querySelector("#key-sound-volume-input");
+  buildSliderTicks(keySoundVolumeInput, document.querySelector("#key-sound-volume-ticks"), 2);
+  keySoundVolumeInput.value = appearance.keySoundVolume;
+  keySoundVolumeCache = appearance.keySoundVolume;
+  keySoundVolumeInput.addEventListener("input", () => {
+    appearance.keySoundVolume = Number(keySoundVolumeInput.value);
+    keySoundVolumeCache = appearance.keySoundVolume;
+    saveAppearance(appearance);
+  });
+
+  setupVrOverlayBackgroundPanels();
+}
+
+// ---- VR overlay background images (settings > Appearance) --------------
+// Two independently-settable surfaces — the VR keyboard (its grid *and* its
+// own cursor-control block, sharing one image — see below) and the
+// confirm/discard preview box — each with its own target crop size.
+//
+// The keyboard grid and the cursor block used to each get their own,
+// separately-cropped image. They sit only a few px apart (see
+// VR_KB_CURSOR_BOX_PADDING/overlay.rs's own CURSOR_BOX_PADDING), close
+// enough that two independently-picked photos never actually read as one
+// continuous picture — the seam between them was always obviously two
+// different crops. The "keyboard" entry's own width now instead spans the
+// *union* of both boxes (from the canvas's left edge out to the cursor
+// block's own padded right edge), so one image is cropped once and blitted
+// across both at once on the Rust side (see overlay.rs's keyboard_panel) —
+// the couple-px gap between the two boxes' own tint rects just shows that
+// same photo through, reading as continuous rather than as a seam.
+// The keyboard's own size is derived from compile-time-constant pixel
+// geometry (VR_KB_GRID_WIDTH/VR_KB_CANVAS_HEIGHT/VR_KB_CURSOR_BOX — none of
+// which change at runtime, see their own comments); the box's from Rust's
+// own CANVAS_WIDTH/CANVAS_HEIGHT.
+// A function, not a plain top-level const object: VR_KB_GRID_WIDTH/
+// VR_KB_CURSOR_BOX/VR_BOX_CANVAS_WIDTH etc. are declared further down this
+// same file (see computeVrKeyboardLayout's own section), so building this
+// object eagerly at parse time would hit those consts' temporal dead zone.
+// Every call site here already only runs from a user gesture well after the
+// whole module has finished loading, same as the old single-surface
+// version's own VR_KB_CANVAS_WIDTH references did.
+function vrBackgroundSurfaces() {
+  return {
+    keyboard: {
+      width: Math.round(VR_KB_CURSOR_BOX.x + VR_KB_CURSOR_BOX.w + VR_KB_CURSOR_BOX_PADDING),
+      height: VR_KB_CANVAS_HEIGHT,
+    },
+    box: { width: VR_BOX_CANVAS_WIDTH, height: VR_BOX_CANVAS_HEIGHT },
+  };
+}
+// This dialog's own element-id prefixes per surface (…-file/-choose-btn/
+// -remove-btn/-status, see index.html) — the one place a surface key maps
+// to concrete DOM ids, so setupBackgroundImagePanel/refreshBackgroundStatus
+// stay generic over both instead of two near-identical copies.
+const VR_BACKGROUND_SURFACE_ID_PREFIX = {
+  keyboard: "vr-keyboard-background",
+  box: "vr-box-background",
+};
+
+// A plain <canvas> pan/zoom-within-a-fixed-aspect-frame tool rather than
+// free-form crop handles — the target is always exactly one aspect ratio
+// (whichever surface is being edited — see vrBackgroundSurfaces()), so
+// there's nothing a resizable rectangle would add over "the frame is
+// already the right shape, just move/scale the image under it" — and it's
+// far simpler to get right without a pointer-drag-a-handle state machine.
+// cropImage/cropSurface/cropScale/etc. are this dialog's only state, valid
+// strictly between openImageCropDialog() and either crop button click.
+let cropImage = null;
+let cropSurface = null; // one of vrBackgroundSurfaces()' own keys
+let cropCoverScale = 1; // minimum scale so the image fully covers the frame — the zoom slider's own "1.0"
+let cropScale = 1;
+let cropOffsetX = 0; // pan, in *preview*-canvas pixels, from centered
+let cropOffsetY = 0;
+let cropDragging = false;
+let cropDragStartX = 0;
+let cropDragStartY = 0;
+let cropDragStartOffsetX = 0;
+let cropDragStartOffsetY = 0;
+
+// Keeps the image covering the whole frame no matter how far it's been
+// panned — clamped in *display* (canvas) pixels, called after every pan/
+// zoom change, not just on release, so the image can never be dragged to
+// reveal empty space even mid-drag.
+function clampCropOffsets(canvas) {
+  const dw = cropImage.width * cropScale;
+  const dh = cropImage.height * cropScale;
+  const maxOffsetX = Math.max(0, (dw - canvas.width) / 2);
+  const maxOffsetY = Math.max(0, (dh - canvas.height) / 2);
+  cropOffsetX = Math.min(maxOffsetX, Math.max(-maxOffsetX, cropOffsetX));
+  cropOffsetY = Math.min(maxOffsetY, Math.max(-maxOffsetY, cropOffsetY));
+}
+
+// Faint outlines of roughly where the real buttons will sit, drawn over the
+// cropped image preview so a busy/high-contrast part of a picked photo can
+// be checked against actual button positions before committing. Mirrors the
+// real keyboard's own grid (VR_KB_GRID_LEFT/TOP/CELL_W/H/GAP_X/Y, 5 cols x 4
+// rows) and cursor block (VR_KB_CURSOR_BOX, 2 cols x 5 rows) geometry — real
+// button *positions*, not real labels/current mode/content, since this only
+// needs to be a rough structural guide, not a live mirror of the actual
+// keyboard state (which depends on mode/profile/endings and would be a lot
+// more machinery for a dialog that's only ever open for a few seconds).
+function drawCropButtonOverlay(ctx, canvasWidth, target) {
+  const scale = canvasWidth / target.width;
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+  ctx.lineWidth = 1 / scale;
+  const drawCell = (x, y, w, h) => {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, 10);
+    ctx.fill();
+    ctx.stroke();
+  };
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < VR_KB_GRID_COLS; col++) {
+      drawCell(VR_KB_GRID_LEFT + col * (VR_KB_CELL_W + VR_KB_GAP_X), VR_KB_GRID_TOP + row * (VR_KB_CELL_H + VR_KB_GAP_Y), VR_KB_CELL_W, VR_KB_CELL_H);
+    }
+  }
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 2; col++) {
+      drawCell(VR_KB_CURSOR_BOX.x + col * (VR_KB_CELL_W + VR_KB_GAP_X), VR_KB_GRID_TOP + row * (VR_KB_CELL_H + VR_KB_GAP_Y), VR_KB_CELL_W, VR_KB_CELL_H);
+    }
+  }
+  // 語尾(endings) row(s), below the main grid — same formula
+  // computeVrKeyboardLayout itself uses (endTop/endRows/endH), reading the
+  // active profile's own endings count via loadEndings() rather than
+  // assuming a fixed row count, so this preview doesn't silently drift out
+  // of sync with however many endings the user has actually configured.
+  const endTop = VR_KB_GRID_TOP + 4 * (VR_KB_CELL_H + VR_KB_GAP_Y) + VR_KB_GAP_Y;
+  const endingsCount = loadEndings().length;
+  if (endingsCount > 0) {
+    const endRows = Math.ceil(endingsCount / VR_KB_GRID_COLS);
+    const endH = (VR_KB_CANVAS_HEIGHT - endTop - VR_KB_GAP_Y - (endRows - 1) * VR_KB_GAP_Y) / endRows;
+    for (let i = 0; i < endingsCount; i++) {
+      const col = i % VR_KB_GRID_COLS;
+      const row = Math.floor(i / VR_KB_GRID_COLS);
+      drawCell(VR_KB_GRID_LEFT + col * (VR_KB_CELL_W + VR_KB_GAP_X), endTop + row * (endH + VR_KB_GAP_Y), VR_KB_CELL_W, endH);
+    }
+  }
+  ctx.restore();
+}
+
+function drawCropPreview() {
+  const canvas = document.querySelector("#image-crop-canvas");
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const dw = cropImage.width * cropScale;
+  const dh = cropImage.height * cropScale;
+  ctx.drawImage(cropImage, (canvas.width - dw) / 2 + cropOffsetX, (canvas.height - dh) / 2 + cropOffsetY, dw, dh);
+  // Box (confirm/discard preview) has no buttons of its own — text only —
+  // so there's nothing structural to overlay there.
+  if (cropSurface === "keyboard") {
+    drawCropButtonOverlay(ctx, canvas.width, vrBackgroundSurfaces()[cropSurface]);
+  }
+}
+
+function openImageCropDialog(image, surface) {
+  cropImage = image;
+  cropSurface = surface;
+  const target = vrBackgroundSurfaces()[surface];
+  const canvas = document.querySelector("#image-crop-canvas");
+  // Display-only resolution — the exported image (see the apply handler in
+  // setupImageCropDialog) is always the full target width x height
+  // regardless of this. Capped by *both* width and height (not just width,
+  // the way this used to work) so the dialog reliably fits inside the
+  // window without needing to scroll to reach the zoom slider/buttons below
+  // it, regardless of how wide-and-short (the box) or how much wider the
+  // combined keyboard surface (see vrBackgroundSurfaces) a given target's
+  // own aspect ratio is.
+  const maxPreviewWidth = 640;
+  const maxPreviewHeight = Math.max(220, Math.round(window.innerHeight * 0.4));
+  let previewWidth = maxPreviewWidth;
+  let previewHeight = Math.round(previewWidth * (target.height / target.width));
+  if (previewHeight > maxPreviewHeight) {
+    previewHeight = maxPreviewHeight;
+    previewWidth = Math.round(previewHeight * (target.width / target.height));
+  }
+  canvas.width = previewWidth;
+  canvas.height = previewHeight;
+
+  cropCoverScale = Math.max(canvas.width / image.width, canvas.height / image.height);
+  cropScale = cropCoverScale;
+  cropOffsetX = 0;
+  cropOffsetY = 0;
+  document.querySelector("#image-crop-zoom").value = "1";
+
+  drawCropPreview();
+  document.querySelector("#image-crop-dialog").showModal();
+}
+
+function setupImageCropDialog() {
+  const canvas = document.querySelector("#image-crop-canvas");
+  const zoomInput = document.querySelector("#image-crop-zoom");
+  const dialog = document.querySelector("#image-crop-dialog");
+
+  zoomInput.addEventListener("input", () => {
+    cropScale = cropCoverScale * Number(zoomInput.value);
+    clampCropOffsets(canvas);
+    drawCropPreview();
+  });
+
+  canvas.addEventListener("pointerdown", (event) => {
+    cropDragging = true;
+    canvas.setPointerCapture(event.pointerId);
+    cropDragStartX = event.clientX;
+    cropDragStartY = event.clientY;
+    cropDragStartOffsetX = cropOffsetX;
+    cropDragStartOffsetY = cropOffsetY;
+  });
+  canvas.addEventListener("pointermove", (event) => {
+    if (!cropDragging) return;
+    // clientX/Y deltas are in CSS pixels; the canvas's own backing
+    // resolution (canvas.width) can differ from its displayed CSS size
+    // (styles.css caps it at max-width:100%) — scale the delta by that
+    // ratio so a full drag across the visible image always maps to a full
+    // drag across its backing pixels, regardless of how large it's shown.
+    const displayScale = canvas.width / canvas.getBoundingClientRect().width;
+    cropOffsetX = cropDragStartOffsetX + (event.clientX - cropDragStartX) * displayScale;
+    cropOffsetY = cropDragStartOffsetY + (event.clientY - cropDragStartY) * displayScale;
+    clampCropOffsets(canvas);
+    drawCropPreview();
+  });
+  const endDrag = () => {
+    cropDragging = false;
+  };
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+
+  document.querySelector("#image-crop-cancel-btn").addEventListener("click", () => {
+    dialog.close();
+    cropImage = null;
+    cropSurface = null;
+  });
+
+  document.querySelector("#image-crop-apply-btn").addEventListener("click", async () => {
+    // Renders the *exact same* composition onto a full-resolution offscreen
+    // canvas — every drawImage argument just scales up from preview-canvas
+    // pixels to full pixels by the same uniform ratio, since both canvases
+    // share the identical aspect ratio by construction (openImageCropDialog
+    // derives the preview's own height from the target surface's own
+    // width/height).
+    const target = vrBackgroundSurfaces()[cropSurface];
+    const full = document.createElement("canvas");
+    full.width = target.width;
+    full.height = target.height;
+    const previewCanvas = document.querySelector("#image-crop-canvas");
+    const ratio = target.width / previewCanvas.width;
+    const dw = cropImage.width * cropScale * ratio;
+    const dh = cropImage.height * cropScale * ratio;
+    const fullCtx = full.getContext("2d");
+    fullCtx.drawImage(cropImage, (full.width - dw) / 2 + cropOffsetX * ratio, (full.height - dh) / 2 + cropOffsetY * ratio, dw, dh);
+    const rgba = fullCtx.getImageData(0, 0, full.width, full.height).data;
+
+    const applyBtn = document.querySelector("#image-crop-apply-btn");
+    applyBtn.disabled = true;
+    try {
+      await window.__TAURI__.core.invoke("set_background_image", {
+        surface: cropSurface,
+        width: target.width,
+        height: target.height,
+        rgba: Array.from(rgba),
+      });
+      dialog.close();
+      const surface = cropSurface;
+      cropImage = null;
+      cropSurface = null;
+      await refreshBackgroundStatus(surface);
+    } catch (err) {
+      log(`[appearance] failed to set the ${cropSurface} background: ${err}`);
+    } finally {
+      applyBtn.disabled = false;
+    }
+  });
+}
+
+async function refreshBackgroundStatus(surface) {
+  const prefix = VR_BACKGROUND_SURFACE_ID_PREFIX[surface];
+  const statusEl = document.querySelector(`#${prefix}-status`);
+  const removeBtn = document.querySelector(`#${prefix}-remove-btn`);
+  let hasBackground = false;
+  try {
+    hasBackground = await window.__TAURI__.core.invoke("has_background_image", { surface });
+  } catch (err) {
+    log(`[appearance] ${err}`);
+  }
+  statusEl.textContent = t(hasBackground ? "vrKeyboardBackgroundSetStatus" : "vrKeyboardBackgroundUnsetStatus");
+  removeBtn.hidden = !hasBackground;
+}
+
+function setupBackgroundImagePanel(surface) {
+  const prefix = VR_BACKGROUND_SURFACE_ID_PREFIX[surface];
+  const fileInput = document.querySelector(`#${prefix}-file`);
+  const chooseBtn = document.querySelector(`#${prefix}-choose-btn`);
+  const removeBtn = document.querySelector(`#${prefix}-remove-btn`);
+
+  chooseBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = ""; // so picking the exact same file again still fires "change"
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const image = new Image();
+    image.addEventListener("load", () => {
+      URL.revokeObjectURL(url);
+      openImageCropDialog(image, surface);
+    });
+    image.addEventListener("error", () => {
+      URL.revokeObjectURL(url);
+      log("[appearance] failed to load the selected image");
+    });
+    image.src = url;
+  });
+
+  removeBtn.addEventListener("click", async () => {
+    removeBtn.disabled = true;
+    try {
+      await window.__TAURI__.core.invoke("clear_background_image", { surface });
+      await refreshBackgroundStatus(surface);
+    } catch (err) {
+      log(`[appearance] ${err}`);
+    } finally {
+      removeBtn.disabled = false;
+    }
+  });
+
+  refreshBackgroundStatus(surface);
+}
+
+function setupVrOverlayBackgroundPanels() {
+  setupImageCropDialog();
+  for (const surface of Object.keys(VR_BACKGROUND_SURFACE_ID_PREFIX)) setupBackgroundImagePanel(surface);
 }
 
 function setupSettingsNav() {
@@ -1930,7 +2505,6 @@ function setupSettingsNav() {
   showPanel("general");
 }
 
-const ENDINGS_STORAGE_KEY = "mutelink.endings";
 const DEFAULT_ENDING_PARAMS = {
   speedScale: 1,
   pitchScale: 0,
@@ -1940,9 +2514,9 @@ const DEFAULT_ENDING_PARAMS = {
   reading: "", // what to read instead of the literal text when speakEnding is on; falls back to the text itself if left blank
 };
 // Fixed at exactly 10 numbered slots (1-10) rather than a free-form list —
-// hotkeys are assigned by slot number (see HOTKEY_PROFILES_KEY et al.),
-// so editing what's in a slot automatically updates whatever hotkey points
-// at that number instead of needing to be re-picked.
+// hotkeys are assigned by slot number (see the Profile system's own
+// comment), so editing what's in a slot automatically updates whatever
+// hotkey points at that number instead of needing to be re-picked.
 const ENDINGS_SLOT_COUNT = 10;
 const DEFAULT_ENDINGS = [
   { text: "..o0", speedScale: 0.89, pitchScale: 0.01, intonationScale: 1.35, volumeScale: 1.08, speakEnding: false, reading: "" },
@@ -1957,29 +2531,16 @@ const DEFAULT_ENDINGS = [
   { text: "にゃん=w=", speedScale: 0.93, pitchScale: 0.03, intonationScale: 1.26, volumeScale: 1, speakEnding: true, reading: "にゃん" },
 ];
 
-// Always returns exactly ENDINGS_SLOT_COUNT entries, padding with generic
-// placeholders or truncating extras — this used to be a free-length list,
-// so anything saved before this became fixed-size gets normalized here
-// rather than needing a one-time migration step.
+// Endings are profile-scoped (see the Profile system further down) —
+// reads/writes the *active* profile's own endings list. normalizeEndingsList
+// (defined alongside the Profile system) does the fixed-slot-count padding/
+// truncation this used to do inline.
 function loadEndings() {
-  let list = DEFAULT_ENDINGS;
-  try {
-    const raw = JSON.parse(localStorage.getItem(ENDINGS_STORAGE_KEY) ?? "null");
-    if (Array.isArray(raw) && raw.length > 0 && raw.every((e) => typeof e?.text === "string")) {
-      list = raw;
-    }
-  } catch {
-    // fall through to defaults
-  }
-  list = list.slice(0, ENDINGS_SLOT_COUNT);
-  while (list.length < ENDINGS_SLOT_COUNT) {
-    list.push({ text: `語尾${list.length + 1}`, ...DEFAULT_ENDING_PARAMS });
-  }
-  return list;
+  return getActiveProfile().endings;
 }
 
 function saveEndings(endings) {
-  localStorage.setItem(ENDINGS_STORAGE_KEY, JSON.stringify(endings));
+  updateActiveProfile((p) => ({ ...p, endings }));
 }
 
 // The VR keyboard's "テンプレ" (template) mode — a 12-slot quick-phrase
@@ -1988,37 +2549,30 @@ function saveEndings(endings) {
 // typed text). Storage contract (also relied on by the VR keyboard's own
 // layout code in computeVrKeyboardLayout): a plain JSON array of exactly
 // VR_KEYBOARD_TEMPLATE_SLOT_COUNT strings, empty string = that slot unset.
-const VR_KEYBOARD_TEMPLATES_KEY = "mutelink.vrKeyboardTemplates";
+// Profile-scoped the same way endings are — reads/writes the active
+// profile's own templates list.
 const VR_KEYBOARD_TEMPLATE_SLOT_COUNT = 12;
 
-// Same defensive normalize-on-load shape as loadEndings() above (missing/
-// corrupt data just becomes empty slots, no migration/error needed).
 function loadVrKeyboardTemplates() {
-  let list;
-  try {
-    const raw = JSON.parse(localStorage.getItem(VR_KEYBOARD_TEMPLATES_KEY) ?? "null");
-    list = Array.isArray(raw) ? raw.map((v) => (typeof v === "string" ? v : "")) : [];
-  } catch {
-    list = [];
-  }
-  list = list.slice(0, VR_KEYBOARD_TEMPLATE_SLOT_COUNT);
-  while (list.length < VR_KEYBOARD_TEMPLATE_SLOT_COUNT) list.push("");
-  return list;
+  return getActiveProfile().templates;
 }
 
 function saveVrKeyboardTemplates(templates) {
-  localStorage.setItem(VR_KEYBOARD_TEMPLATES_KEY, JSON.stringify(templates));
+  updateActiveProfile((p) => ({ ...p, templates }));
 }
 
 // Plain text inputs, one per fixed slot (unlike renderGeneralEndingsList's
 // expandable rows — there's nothing to configure per template besides the
 // text itself, no add/remove since the slot count is fixed by the
 // keyboard's own 12-cell template-mode grid).
-function renderVrKeyboardTemplatesList() {
-  const list = document.querySelector("#vr-keyboard-templates-list");
-  if (!list) return;
-  list.innerHTML = "";
-  const templates = loadVrKeyboardTemplates();
+// `container`/`profileIndex` default to the main テンプレート settings panel
+// and the active profile — the Profile menu's own embedded editor (see
+// renderProfileMenuList) passes its own detail container and a specific
+// profile index instead, same pattern as renderGeneralEndingsList.
+function renderVrKeyboardTemplatesList(container = document.querySelector("#vr-keyboard-templates-list"), profileIndex = loadActiveProfileIndex()) {
+  if (!container) return;
+  container.innerHTML = "";
+  const templates = loadProfiles()[profileIndex].templates;
   templates.forEach((text, i) => {
     const row = document.createElement("div");
     row.className = "settings-list-row";
@@ -2031,13 +2585,13 @@ function renderVrKeyboardTemplatesList() {
     input.type = "text";
     input.value = text;
     input.addEventListener("change", () => {
-      const current = loadVrKeyboardTemplates();
+      const current = loadProfiles()[profileIndex].templates.slice();
       current[i] = input.value;
-      saveVrKeyboardTemplates(current);
+      updateProfileAt(profileIndex, (p) => ({ ...p, templates: current }));
     });
 
     row.append(label, input);
-    list.append(row);
+    container.append(row);
   });
 }
 
@@ -2157,27 +2711,37 @@ function formatEndingSummary(ending) {
   return ENDING_PARAM_DEFS.map((def) => `${t(def.labelKey)}${Number(ending[def.key]).toFixed(2)}`).join(" / ");
 }
 
-// Persists `endings` and refreshes every OTHER view of it (main-screen
-// tiles, hotkey assignment dropdowns) — called after a text edit, add, or
-// delete. Deliberately doesn't touch the settings list itself: callers that
-// need it rebuilt (add/delete) call renderGeneralEndingsList() separately;
-// a text edit doesn't, so the row the user's actively editing stays open
-// instead of the whole list collapsing back to closed.
-function refreshEndingConsumers() {
-  saveEndings(endings);
-  renderEndingButtons(document.querySelector("#ending-buttons"), endings, applyEnding);
-  renderHotkeyAssignmentOptions();
+// Persists `list` into profileIndex's own endings — if that's the currently
+// active profile, keeps the module `endings` mirror (and everything reading
+// it directly, like renderEndingButtons/the hotkey poll loop) in sync too.
+// Used for plain param edits (speak toggle, reading, sliders), which don't
+// need the main-screen tiles or hotkey dropdown *labels* rebuilt since the
+// ending's text didn't change.
+function saveProfileEndings(profileIndex, list) {
+  updateProfileAt(profileIndex, (p) => ({ ...p, endings: list }));
+  if (profileIndex === loadActiveProfileIndex()) endings = list;
 }
 
-// Rebuilt from the shared `endings` array whenever it changes (param edits
-// here, or a new favorite added from the main screen), so the two views of
-// the same data never drift apart.
+// Same, plus rebuilds every other view of the text (main-screen tiles,
+// hotkey dropdown option labels) — worth doing after a text edit, which
+// those two views also show, but not on every param tweak. Both refreshes
+// are no-ops in effect when profileIndex isn't the active one, since
+// neither view reflects a non-active profile regardless.
+function refreshProfileEndingConsumers(profileIndex, list) {
+  saveProfileEndings(profileIndex, list);
+  if (profileIndex === loadActiveProfileIndex()) {
+    renderEndingButtons(document.querySelector("#ending-buttons"), endings, applyEnding);
+    renderHotkeyAssignmentOptions();
+  }
+}
+
 // Every hand/slot hotkey combo currently pointing at ending slot number
-// `slotNumber` (1-based), as human-readable "右手: トリガーのみ" strings —
-// so the 語尾 panel can show right on each row where it's wired up, instead
-// of having to go check the Hotkey panel to find out.
-function hotkeyRefsForEndingSlot(slotNumber) {
-  const assignments = loadHotkeyAssignments();
+// `slotNumber` (1-based) *within `profileIndex`'s own hotkey assignments* —
+// as human-readable "右手: トリガーのみ" strings — so the 語尾 panel (and the
+// Profile menu's own embedded copy of it) can show right on each row where
+// it's wired up, instead of having to go check the Hotkey panel to find out.
+function hotkeyRefsForEndingSlot(slotNumber, profileIndex = loadActiveProfileIndex()) {
+  const assignments = loadProfiles()[profileIndex].hotkey;
   const target = String(slotNumber);
   const refs = [];
   for (const hand of HOTKEY_HANDS) {
@@ -2190,11 +2754,15 @@ function hotkeyRefsForEndingSlot(slotNumber) {
   return refs;
 }
 
-function renderGeneralEndingsList() {
-  const list = document.querySelector("#ending-settings-list");
-  list.innerHTML = "";
+// `container`/`profileIndex` default to the main 語尾 settings panel and the
+// active profile — the Profile menu's own embedded editor (see
+// renderProfileMenuList) passes its own detail container and a specific
+// profile index instead, to edit a profile that may not be the active one.
+function renderGeneralEndingsList(container = document.querySelector("#ending-settings-list"), profileIndex = loadActiveProfileIndex()) {
+  container.innerHTML = "";
+  const list = loadProfiles()[profileIndex].endings;
 
-  endings.forEach((ending, i) => {
+  list.forEach((ending, i) => {
     const slotNumber = i + 1;
     const row = document.createElement("div");
     row.className = "ending-settings-row";
@@ -2223,7 +2791,7 @@ function renderGeneralEndingsList() {
 
     const hotkeyRefs = document.createElement("div");
     hotkeyRefs.className = "ending-hotkey-refs";
-    const refs = hotkeyRefsForEndingSlot(slotNumber);
+    const refs = hotkeyRefsForEndingSlot(slotNumber, profileIndex);
     if (refs.length > 0) {
       hotkeyRefs.textContent = `→ ${refs.join(" / ")}`;
     } else {
@@ -2252,7 +2820,7 @@ function renderGeneralEndingsList() {
       ending.text = value;
       textSpan.textContent = value;
       readingInput.placeholder = value;
-      refreshEndingConsumers();
+      refreshProfileEndingConsumers(profileIndex, list);
     });
     textRow.append(textLabel, textInput);
     detail.appendChild(textRow);
@@ -2272,7 +2840,7 @@ function renderGeneralEndingsList() {
     speakSwitch.append(speakCheckbox, speakTrack);
     speakCheckbox.addEventListener("change", () => {
       ending.speakEnding = speakCheckbox.checked;
-      saveEndings(endings);
+      saveProfileEndings(profileIndex, list);
     });
     speakRow.append(speakLabel, speakSwitch);
     detail.appendChild(speakRow);
@@ -2289,7 +2857,7 @@ function renderGeneralEndingsList() {
     readingInput.value = ending.reading ?? "";
     readingInput.addEventListener("change", () => {
       ending.reading = readingInput.value.trim();
-      saveEndings(endings);
+      saveProfileEndings(profileIndex, list);
     });
     readingRow.append(readingLabel, readingInput);
     detail.appendChild(readingRow);
@@ -2321,7 +2889,7 @@ function renderGeneralEndingsList() {
         ending[def.key] = Number(input.value);
         val.value = ending[def.key].toFixed(2);
         valuesSpan.textContent = formatEndingSummary(ending);
-        saveEndings(endings);
+        saveProfileEndings(profileIndex, list);
       });
 
       val.addEventListener("change", () => {
@@ -2332,7 +2900,7 @@ function renderGeneralEndingsList() {
         val.value = v.toFixed(2);
         input.value = v;
         valuesSpan.textContent = formatEndingSummary(ending);
-        saveEndings(endings);
+        saveProfileEndings(profileIndex, list);
       });
 
       paramRow.append(label, input, val);
@@ -2346,7 +2914,7 @@ function renderGeneralEndingsList() {
     });
 
     row.append(summary, hotkeyRefs, detail);
-    list.appendChild(row);
+    container.appendChild(row);
   });
 }
 
@@ -2356,6 +2924,86 @@ function setupEndingsPanel() {
 
 function setupTemplatesPanel() {
   renderVrKeyboardTemplatesList();
+}
+
+// Settings > Other's pronunciation dictionary (see lib.rs's
+// list_pronunciation_words/add_pronunciation_word/remove_pronunciation_word)
+// — a thin UI over VOICEVOX's own OpenJtalk::use_user_dict mechanism, for
+// fixing a specific word/phrase OpenJTalk's rule-based reading gets wrong
+// (e.g. reading は as the わ topic-particle sound where that's not actually
+// what's meant). Unlike the ending/template lists above, this isn't
+// localStorage-backed — the word list lives in Rust (persisted alongside
+// the VOICEVOX models) since it has to be loaded into the actual
+// OpenJtalk analyzer, not just displayed.
+async function renderPronunciationDictList() {
+  const list = document.querySelector("#pronunciation-dict-list");
+  if (!list) return;
+  let words;
+  try {
+    words = await window.__TAURI__.core.invoke("list_pronunciation_words");
+  } catch (err) {
+    log(`[pronunciation-dict] ${err}`);
+    return;
+  }
+  list.innerHTML = "";
+  for (const word of words) {
+    const row = document.createElement("div");
+    row.className = "settings-list-row";
+
+    const surfaceEl = document.createElement("span");
+    surfaceEl.className = "settings-list-label";
+    surfaceEl.textContent = word.surface;
+
+    const readingEl = document.createElement("span");
+    readingEl.textContent = word.pronunciation;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "link-btn";
+    removeBtn.textContent = "✕";
+    removeBtn.setAttribute("aria-label", t("pronunciationDictRemoveAriaLabel"));
+    removeBtn.addEventListener("click", async () => {
+      try {
+        await window.__TAURI__.core.invoke("remove_pronunciation_word", { id: word.id });
+        renderPronunciationDictList();
+      } catch (err) {
+        log(`[pronunciation-dict] ${err}`);
+      }
+    });
+
+    row.append(surfaceEl, readingEl, removeBtn);
+    list.append(row);
+  }
+}
+
+function setupPronunciationDict() {
+  const surfaceInput = document.querySelector("#pronunciation-dict-surface");
+  const readingInput = document.querySelector("#pronunciation-dict-reading");
+  const addBtn = document.querySelector("#pronunciation-dict-add-btn");
+  const errorEl = document.querySelector("#pronunciation-dict-error");
+  surfaceInput.placeholder = t("pronunciationDictSurfacePlaceholder");
+  readingInput.placeholder = t("pronunciationDictReadingPlaceholder");
+
+  addBtn.addEventListener("click", async () => {
+    const surface = surfaceInput.value.trim();
+    const pronunciation = readingInput.value.trim();
+    if (!surface || !pronunciation) return;
+    errorEl.hidden = true;
+    try {
+      await window.__TAURI__.core.invoke("add_pronunciation_word", { surface, pronunciation });
+      surfaceInput.value = "";
+      readingInput.value = "";
+      renderPronunciationDictList();
+    } catch (err) {
+      // Rust's own validation error (voicevox_core's own message, e.g.
+      // "カタカナ以外の文字") is already specific enough to act on directly —
+      // shown as-is rather than mapped through a second translation layer.
+      errorEl.textContent = String(err);
+      errorEl.hidden = false;
+    }
+  });
+
+  renderPronunciationDictList();
 }
 
 const PRESET_TYPE = "mutelink-preset";
@@ -2483,17 +3131,17 @@ function showConfirmDialog(message) {
   });
 }
 
-const SELECTED_STYLE_KEY = "mutelink.selectedStyleId";
 const DEFAULT_STYLE_ID = 46; // 小夜/SAYO ノーマル, the character bundled with the app
 
+// Which character speaks is profile-scoped (see the Profile system further
+// down) — reads/writes the *active* profile's own styleId, same pattern as
+// loadHotkeyAssignments/loadEndings/loadVrKeyboardTemplates below.
 function loadSelectedStyleId() {
-  const raw = localStorage.getItem(SELECTED_STYLE_KEY);
-  const id = raw !== null ? Number(raw) : DEFAULT_STYLE_ID;
-  return Number.isFinite(id) ? id : DEFAULT_STYLE_ID;
+  return getActiveProfile().styleId;
 }
 
 function saveSelectedStyleId(id) {
-  localStorage.setItem(SELECTED_STYLE_KEY, String(id));
+  updateActiveProfile((p) => ({ ...p, styleId: id }));
 }
 
 // Read by speak() on every synthesis call, so switching the character in
@@ -2664,9 +3312,9 @@ async function setupCharacterPanel() {
 //   a preference.
 function resetClearsKeys() {
   return [
-    ENDINGS_STORAGE_KEY,
-    HOTKEY_PROFILES_KEY,
-    HOTKEY_ACTIVE_PROFILE_KEY,
+    PROFILES_KEY,
+    PROFILE_COUNT_KEY,
+    ACTIVE_PROFILE_KEY,
     HOTKEY_HOLD_DURATION_KEY,
     HOTKEY_PRIORITY_HAND_KEY,
     APPEARANCE_STORAGE_KEY,
@@ -2676,7 +3324,6 @@ function resetClearsKeys() {
     STT_ENGINE_KEY,
     STT_MODEL_KEY,
     STT_INTERIM_PREVIEW_KEY,
-    SELECTED_STYLE_KEY,
     TTS_LANG_ENABLED_KEY,
     STT_CYCLE_LANG_KEY,
     VOICE_RMS_THRESHOLD_KEY,
@@ -2704,16 +3351,23 @@ function setupGeneralPanel() {
 // threshold (Date.now()-based), not a tick count, so it stays meaningful
 // at any poll rate.
 const HOTKEY_POLL_MS = 20;
-const HOTKEY_PROFILES_KEY = "mutelink.hotkeyProfiles";
-const HOTKEY_ACTIVE_PROFILE_KEY = "mutelink.activeHotkeyProfile";
-const HOTKEY_PROFILE_COUNT = 3;
 // "stick" (short press) and "stickLong" are two independent slots sharing
 // one physical control — see processStickPress for why that needs its own
 // dispatch, separate from how the other 4 slots fire (processHandHotkey).
 // "gripDouble"/"triggerDouble" are the same idea applied to grip/trigger —
 // see processDoubleClick — independent of (and can coexist with) their
 // plain grip/trigger hold-based counterparts.
-const HOTKEY_SLOTS = ["both", "grip", "gripDouble", "trigger", "triggerDouble", "none", "stick", "stickLong"];
+// "aDouble" — a double-click of the lower face button ("A"/"X", see
+// leftAWasPressed's own comment) — reuses the exact same double-click
+// machinery as gripDouble/triggerDouble (see processDoubleClick), even
+// though that button's *single* press isn't part of this assignment system
+// at all (it's hardcoded to cycleSttState/handleCyclePress). The two don't
+// fight over a fast double-press: handleCyclePress already delays its own
+// single-press action by CYCLE_DOUBLE_PRESS_MS and cancels it outright if a
+// second press follows within that window (built for the exact same
+// XSOverlay double-press conflict), so a double-click here fires this
+// assignment with the language cycle left untouched.
+const HOTKEY_SLOTS = ["both", "grip", "gripDouble", "trigger", "triggerDouble", "aDouble", "none", "stick", "stickLong"];
 // Map to I18N keys, not translated text directly, so hotkeyRefsForEndingSlot()
 // (and anywhere else) always reflects the *current* uiLang via t() rather
 // than whatever language was active when this module evaluated.
@@ -2723,6 +3377,7 @@ const HOTKEY_SLOT_LABEL_KEYS = {
   gripDouble: "slotGripDouble",
   trigger: "slotTrigger",
   triggerDouble: "slotTriggerDouble",
+  aDouble: "slotADouble",
   none: "slotNone",
   stick: "slotStick",
   stickLong: "slotStickLong",
@@ -2844,8 +3499,17 @@ const HOTKEY_HANDS = ["right", "left"];
 // right-stick rather than a real assignment before double-click existed;
 // moving it to double-click freed the stick back up, so cancel moved from
 // stick's long press to its short one — a long press was reported as
-// uncomfortably slow to trigger deliberately); left hand covers 4/5/10
-// plus a stick-press cancel (ending 3 left unset).
+// uncomfortably slow to trigger deliberately); left hand covers 4/5/10 plus
+// a stick-press cancel (ending 3 left unset), and its lower face button
+// ("A"/"X", see leftAWasPressed) double-clicked *also* toggles the keyboard
+// — a second, off-hand way to reach it, on the same button that already
+// single-clicks to cycle the STT language (handleCyclePress). The two don't
+// fight over a fast double-click: handleCyclePress already cancels its own
+// pending single-press cycle outright if a second press follows within
+// CYCLE_DOUBLE_PRESS_MS (built for the unrelated XSOverlay double-press
+// conflict on this exact button), so a double-click here fires the keyboard
+// toggle with the language left untouched, and a genuine single click still
+// cycles it same as always.
 function defaultHotkeyAssignments() {
   return {
     right: {
@@ -2854,77 +3518,489 @@ function defaultHotkeyAssignments() {
       gripDouble: "",
       trigger: "2",
       triggerDouble: HOTKEY_KEYBOARD_TOGGLE_ACTION,
+      aDouble: "",
       none: "",
       stick: HOTKEY_CANCEL_ACTION,
       stickLong: "",
     },
-    left: { both: "10", grip: "4", gripDouble: "", trigger: "5", triggerDouble: "", none: "", stick: HOTKEY_CANCEL_ACTION, stickLong: "" },
+    left: {
+      both: "10",
+      grip: "4",
+      gripDouble: "",
+      trigger: "5",
+      triggerDouble: "",
+      aDouble: HOTKEY_KEYBOARD_TOGGLE_ACTION,
+      none: "",
+      stick: HOTKEY_CANCEL_ACTION,
+      stickLong: "",
+    },
   };
 }
 
-// Which of the HOTKEY_PROFILE_COUNT profiles is currently in effect — both
-// for editing (the Hotkey panel's dropdowns show this one) and for live
-// hotkey firing (setupHotkeys()'s poll loop calls loadHotkeyAssignments()
-// fresh every tick, so switching this takes effect within one tick, no
-// extra wiring needed there).
-function loadHotkeyProfileIndex() {
-  const raw = Number(localStorage.getItem(HOTKEY_ACTIVE_PROFILE_KEY));
-  return Number.isInteger(raw) && raw >= 0 && raw < HOTKEY_PROFILE_COUNT ? raw : 0;
+// ---- Profiles ----------------------------------------------------------
+// A Profile bundles everything that makes sense to swap as a set when a
+// game/world takes over a controller button, or just to have a separate
+// "voice + endings + templates + hotkeys" setup ready to switch to: the
+// speaking character, 語尾 (endings), VR keyboard templates, and hotkey
+// hand/slot assignments. General/Device/Appearance stay single global
+// settings, not profiled — they're either machine-specific (device) or not
+// something anyone asked to swap per-profile. Managed centrally from the
+// new プロファイル settings panel (setupProfilePanel/renderProfileMenuList);
+// the four bundled settings' own panels (キャラクター/語尾/テンプレート/
+// Hotkey) are untouched and keep editing "whichever profile is active" the
+// same way the Hotkey panel already did before this existed.
+const PROFILE_COUNT_KEY = "mutelink.profileCount";
+const ACTIVE_PROFILE_KEY = "mutelink.activeProfile";
+const PROFILES_KEY = "mutelink.profiles";
+const MIN_PROFILE_COUNT = 1;
+const MAX_PROFILE_COUNT = 5;
+// Matches the old fixed HOTKEY_PROFILE_COUNT this replaced, so an upgrading
+// install's profile count doesn't change on its own (see
+// migrateLegacyProfileDataIfNeeded) and a fresh install's default is the
+// same "3 ready-to-go slots" it always was.
+const DEFAULT_PROFILE_COUNT = 3;
+
+function defaultProfile() {
+  return {
+    hotkey: defaultHotkeyAssignments(),
+    styleId: DEFAULT_STYLE_ID,
+    // .map(e => ({...e})) — fresh copies, not references into DEFAULT_ENDINGS
+    // itself, since renderGeneralEndingsList mutates ending objects in place.
+    endings: DEFAULT_ENDINGS.map((e) => ({ ...e })),
+    templates: Array.from({ length: VR_KEYBOARD_TEMPLATE_SLOT_COUNT }, () => ""),
+  };
 }
 
-function saveHotkeyProfileIndex(index) {
-  localStorage.setItem(HOTKEY_ACTIVE_PROFILE_KEY, String(index));
+// Same fixed-slot-count padding/truncation loadEndings/loadVrKeyboardTemplates
+// used to do directly — factored out since every profile now needs it
+// independently (loadProfiles below, and the migration path).
+function normalizeEndingsList(list) {
+  const out = list.slice(0, ENDINGS_SLOT_COUNT);
+  while (out.length < ENDINGS_SLOT_COUNT) out.push({ text: `語尾${out.length + 1}`, ...DEFAULT_ENDING_PARAMS });
+  return out;
 }
 
-function loadHotkeyProfiles() {
-  const defaults = Array.from({ length: HOTKEY_PROFILE_COUNT }, () => defaultHotkeyAssignments());
+function normalizeTemplatesList(list) {
+  const out = list.slice(0, VR_KEYBOARD_TEMPLATE_SLOT_COUNT).map((v) => (typeof v === "string" ? v : ""));
+  while (out.length < VR_KEYBOARD_TEMPLATE_SLOT_COUNT) out.push("");
+  return out;
+}
+
+function loadProfileCount() {
+  const raw = Number(localStorage.getItem(PROFILE_COUNT_KEY));
+  return Number.isInteger(raw) && raw >= MIN_PROFILE_COUNT && raw <= MAX_PROFILE_COUNT ? raw : DEFAULT_PROFILE_COUNT;
+}
+
+function saveProfileCount(count) {
+  localStorage.setItem(PROFILE_COUNT_KEY, String(count));
+}
+
+function loadActiveProfileIndex() {
+  const raw = Number(localStorage.getItem(ACTIVE_PROFILE_KEY));
+  const count = loadProfileCount();
+  return Number.isInteger(raw) && raw >= 0 && raw < count ? raw : 0;
+}
+
+function saveActiveProfileIndex(index) {
+  localStorage.setItem(ACTIVE_PROFILE_KEY, String(index));
+}
+
+function mergeProfile(def, saved) {
+  if (!saved || typeof saved !== "object") return def;
+  const savedEndings = Array.isArray(saved.endings) && saved.endings.every((e) => typeof e?.text === "string") ? saved.endings : def.endings;
+  return {
+    hotkey: {
+      right: { ...def.hotkey.right, ...saved.hotkey?.right },
+      left: { ...def.hotkey.left, ...saved.hotkey?.left },
+    },
+    styleId: Number.isFinite(saved.styleId) ? saved.styleId : def.styleId,
+    endings: normalizeEndingsList(savedEndings),
+    templates: normalizeTemplatesList(Array.isArray(saved.templates) ? saved.templates : def.templates),
+  };
+}
+
+// Cached in memory, invalidated only by saveProfiles/a profile-count change
+// (both go through saveProfiles) — loadHotkeyAssignments() reads through
+// here on every hotkey poll tick (setupHotkeys()'s ~50Hz loop), and a full
+// JSON.parse of every profile's endings/templates on every tick would be
+// wasteful busywork a plain hotkey-only profile object never needed.
+let profilesCache = null;
+
+function loadProfiles() {
+  if (profilesCache) return profilesCache;
+  const count = loadProfileCount();
+  const defaults = Array.from({ length: count }, () => defaultProfile());
   try {
-    const raw = JSON.parse(localStorage.getItem(HOTKEY_PROFILES_KEY) ?? "null");
+    const raw = JSON.parse(localStorage.getItem(PROFILES_KEY) ?? "null");
     if (Array.isArray(raw)) {
-      return defaults.map((def, i) => {
-        const saved = raw[i];
-        if (!saved || typeof saved !== "object") return def;
-        return {
-          right: { ...def.right, ...saved.right },
-          left: { ...def.left, ...saved.left },
-        };
-      });
+      profilesCache = defaults.map((def, i) => mergeProfile(def, raw[i]));
+      return profilesCache;
     }
   } catch {
     // fall through
   }
-  return defaults;
+  profilesCache = defaults;
+  return profilesCache;
 }
 
-function saveHotkeyProfiles(profiles) {
-  localStorage.setItem(HOTKEY_PROFILES_KEY, JSON.stringify(profiles));
+function saveProfiles(profiles) {
+  profilesCache = profiles;
+  localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
 }
 
-// Reads/writes only the *active* profile's assignments — every existing
-// caller (renderHotkeyAssignmentOptions, the poll loop, buildPresetObject,
-// etc.) keeps working unchanged, now transparently scoped to whichever
-// profile setHotkeyProfileIndex() last selected.
+function getActiveProfile() {
+  return loadProfiles()[loadActiveProfileIndex()];
+}
+
+function updateProfileAt(index, updater) {
+  const profiles = loadProfiles();
+  profiles[index] = updater(profiles[index]);
+  saveProfiles(profiles);
+}
+
+function updateActiveProfile(updater) {
+  updateProfileAt(loadActiveProfileIndex(), updater);
+}
+
+// Reads/writes only the *active* profile's hand/slot assignments — every
+// existing caller (renderHotkeyAssignmentOptions, the poll loop,
+// buildPresetObject, etc.) keeps working unchanged.
 function loadHotkeyAssignments() {
-  return loadHotkeyProfiles()[loadHotkeyProfileIndex()];
+  return getActiveProfile().hotkey;
 }
 
 function saveHotkeyAssignments(assignments) {
-  const profiles = loadHotkeyProfiles();
-  profiles[loadHotkeyProfileIndex()] = assignments;
-  saveHotkeyProfiles(profiles);
+  updateActiveProfile((p) => ({ ...p, hotkey: assignments }));
 }
 
-// The single entry point for changing which profile is active — keeps the
-// main-screen "P1/P2/P3" button, the Hotkey settings radio, and the
-// dropdowns showing that profile's assignments all in sync no matter which
-// control triggered the switch.
-function setHotkeyProfileIndex(index) {
-  saveHotkeyProfileIndex(index);
-  const profileBtn = document.querySelector("#hotkey-profile-btn");
-  if (profileBtn) profileBtn.textContent = `P${index + 1}`;
-  const radio = document.querySelector(`input[name="hotkey-profile"][value="${index}"]`);
-  if (radio) radio.checked = true;
+// The three pre-Profile localStorage keys this replaced — endings/character
+// were single global values, and hotkey assignments were the only thing
+// already profiled (fixed at 3). Referenced *only* from
+// migrateLegacyProfileDataIfNeeded below; everything else now goes through
+// getActiveProfile()/updateActiveProfile() above.
+const LEGACY_ENDINGS_KEY = "mutelink.endings";
+const LEGACY_TEMPLATES_KEY = "mutelink.vrKeyboardTemplates";
+const LEGACY_SELECTED_STYLE_KEY = "mutelink.selectedStyleId";
+const LEGACY_HOTKEY_PROFILES_KEY = "mutelink.hotkeyProfiles";
+const LEGACY_HOTKEY_ACTIVE_PROFILE_KEY = "mutelink.activeHotkeyProfile";
+
+// One-time upgrade from the pre-Profile layout: a single global endings/
+// character/templates, plus a separate, hotkey-only profile system fixed at
+// 3 slots. Runs once (guarded by PROFILES_KEY's own presence) before
+// anything else touches profile data — every profile starts out with
+// whatever the single old global endings/character/templates used to be
+// (only hotkey assignments actually varied per profile before), so an
+// upgrading install behaves identically until the user intentionally
+// diverges a profile via the new Profile menu. Must run before any
+// setup*() call that reads endings/character/templates/hotkey assignments.
+function migrateLegacyProfileDataIfNeeded() {
+  if (localStorage.getItem(PROFILES_KEY) !== null) return;
+
+  let legacyEndings = DEFAULT_ENDINGS;
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_ENDINGS_KEY) ?? "null");
+    if (Array.isArray(raw) && raw.length > 0 && raw.every((e) => typeof e?.text === "string")) legacyEndings = raw;
+  } catch {
+    // fall through to defaults
+  }
+
+  let legacyTemplates = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_TEMPLATES_KEY) ?? "null");
+    if (Array.isArray(raw)) legacyTemplates = raw.map((v) => (typeof v === "string" ? v : ""));
+  } catch {
+    // fall through to empty
+  }
+
+  const legacyStyleRaw = localStorage.getItem(LEGACY_SELECTED_STYLE_KEY);
+  const legacyStyleId = legacyStyleRaw !== null && Number.isFinite(Number(legacyStyleRaw)) ? Number(legacyStyleRaw) : DEFAULT_STYLE_ID;
+
+  let legacyHotkeyProfiles = [];
+  try {
+    const raw = JSON.parse(localStorage.getItem(LEGACY_HOTKEY_PROFILES_KEY) ?? "null");
+    if (Array.isArray(raw)) legacyHotkeyProfiles = raw;
+  } catch {
+    // fall through to empty
+  }
+  const legacyActiveRaw = Number(localStorage.getItem(LEGACY_HOTKEY_ACTIVE_PROFILE_KEY));
+  const legacyActiveIndex = Number.isInteger(legacyActiveRaw) && legacyActiveRaw >= 0 ? legacyActiveRaw : 0;
+
+  const count = Math.max(MIN_PROFILE_COUNT, Math.min(MAX_PROFILE_COUNT, legacyHotkeyProfiles.length || DEFAULT_PROFILE_COUNT));
+  saveProfileCount(count);
+
+  const defaultHotkey = defaultHotkeyAssignments();
+  const profiles = Array.from({ length: count }, (_, i) => ({
+    hotkey: {
+      right: { ...defaultHotkey.right, ...legacyHotkeyProfiles[i]?.right },
+      left: { ...defaultHotkey.left, ...legacyHotkeyProfiles[i]?.left },
+    },
+    styleId: legacyStyleId,
+    endings: normalizeEndingsList(legacyEndings.map((e) => ({ ...e }))),
+    templates: normalizeTemplatesList([...legacyTemplates]),
+  }));
+  saveProfiles(profiles);
+  saveActiveProfileIndex(Math.min(legacyActiveIndex, count - 1));
+}
+
+// The single entry point for changing which profile is active — re-reads
+// every profile-scoped setting from the newly active profile and refreshes
+// every view of it (main-screen ending tiles + P button, settings' endings/
+// templates/hotkey-dropdown lists, the character panel, the Profile menu's
+// own list), no matter which control triggered the switch. Mirrors
+// applyUiLang's "switch, then refresh everything that shows it" shape.
+function setActiveProfileIndex(index) {
+  saveActiveProfileIndex(index);
+
+  endings = loadEndings();
+  renderEndingButtons(document.querySelector("#ending-buttons"), endings, applyEnding);
+  renderGeneralEndingsList();
+
   renderHotkeyAssignmentOptions();
+  renderVrKeyboardTemplatesList();
+  setupCharacterPanel();
+
+  const mainBtn = document.querySelector("#hotkey-profile-btn");
+  if (mainBtn) mainBtn.textContent = `P${index + 1}`;
+  renderProfileMenuList();
+}
+
+// Grows/shrinks the saved profile list to match, padding new slots with
+// defaultProfile() and truncating extras — shrinking permanently discards
+// whatever was in the dropped slots (the caller, setupProfilePanel, confirms
+// with the user first when shrinking). Re-routes through
+// setActiveProfileIndex if the active index no longer exists post-shrink,
+// since that's the one function that knows how to refresh every view.
+function setProfileCount(newCount) {
+  const clamped = Math.min(MAX_PROFILE_COUNT, Math.max(MIN_PROFILE_COUNT, newCount));
+  const current = loadProfiles();
+  saveProfileCount(clamped);
+  const profiles = current.slice(0, clamped);
+  while (profiles.length < clamped) profiles.push(defaultProfile());
+  saveProfiles(profiles);
+
+  const activeIndex = loadActiveProfileIndex();
+  if (activeIndex >= clamped) {
+    setActiveProfileIndex(clamped - 1);
+  } else {
+    renderProfileMenuList();
+  }
+}
+
+// In-memory only (not persisted) — a "copy" survives until the next "paste"
+// or app restart, same expectation as a system clipboard, not something
+// meant to be a durable saved slot of its own.
+let profileClipboard = null;
+
+// One row per configured profile: which one is active (radio, replacing the
+// old Hotkey-panel-only radio group), copy/paste, and an expandable detail
+// (matching the ending-settings-row pattern used elsewhere) holding its own
+// full copy of every panel a profile actually bundles — キャラクター (a
+// plain dropdown of already-*installed* styles, not the キャラクター panel's
+// own expandable-list-with-download-buttons UI, which would be far too tall
+// repeated once per profile here), 語尾, テンプレート, and ホットキー — since
+// what a profile actually holds wasn't otherwise visible anywhere but those
+// separate panels' own always-active-profile-only view. Character catalog
+// is fetched once per render and shared across every row rather than once
+// per row, since they'd all show the exact same installed-styles list
+// anyway.
+async function renderProfileMenuList() {
+  const list = document.querySelector("#profile-list");
+  if (!list) return;
+
+  let catalog = [];
+  try {
+    catalog = await window.__TAURI__.core.invoke("character_catalog");
+  } catch (err) {
+    log(`[profile] ${err}`);
+  }
+  const installedStyles = catalog
+    .filter((entry) => entry.downloaded)
+    .flatMap((entry) => entry.characters.flatMap((character) => character.styles.map((style) => ({ id: style.id, label: `${character.name}(${style.name})` }))));
+
+  const count = loadProfileCount();
+  const profiles = loadProfiles();
+  const activeIndex = loadActiveProfileIndex();
+
+  list.innerHTML = "";
+  for (let i = 0; i < count; i++) {
+    const profile = profiles[i];
+    const row = document.createElement("div");
+    row.className = "ending-settings-row profile-row";
+
+    const header = document.createElement("div");
+    header.className = "profile-row-header";
+
+    const radioLabel = document.createElement("label");
+    radioLabel.className = "profile-row-select";
+    const radio = document.createElement("input");
+    radio.type = "radio";
+    radio.name = "active-profile";
+    radio.value = String(i);
+    radio.checked = i === activeIndex;
+    radio.addEventListener("change", () => {
+      if (!radio.checked) return;
+      setActiveProfileIndex(i);
+    });
+    radioLabel.append(radio, document.createTextNode(` P${i + 1}`));
+
+    const summary = document.createElement("button");
+    summary.type = "button";
+    summary.className = "profile-row-summary";
+    const chevron = document.createElement("span");
+    chevron.className = "ending-settings-chevron";
+    chevron.textContent = "▾";
+    summary.append(document.createTextNode(t("profileDetailsButton")), chevron);
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "profile-copy-btn";
+    copyBtn.textContent = t("profileCopyButton");
+    copyBtn.addEventListener("click", () => {
+      profileClipboard = JSON.parse(JSON.stringify(profile));
+      renderProfileMenuList(); // every row's paste button needs to become enabled
+    });
+
+    const pasteBtn = document.createElement("button");
+    pasteBtn.type = "button";
+    pasteBtn.className = "profile-paste-btn";
+    pasteBtn.textContent = t("profilePasteButton");
+    pasteBtn.disabled = !profileClipboard;
+    pasteBtn.addEventListener("click", () => {
+      if (!profileClipboard) return;
+      const current = loadProfiles();
+      current[i] = JSON.parse(JSON.stringify(profileClipboard));
+      saveProfiles(current);
+      // Pasting into the active profile changes what every other panel
+      // should be showing right now — setActiveProfileIndex is the one
+      // function that refreshes all of them; a non-active target just
+      // needs this list's own row (and its own already-open detail, if
+      // any) rebuilt.
+      if (i === activeIndex) setActiveProfileIndex(i);
+      else renderProfileMenuList();
+    });
+
+    header.append(radioLabel, summary, copyBtn, pasteBtn);
+
+    const detail = document.createElement("div");
+    detail.className = "ending-settings-detail profile-detail";
+    detail.hidden = true;
+
+    const charRow = document.createElement("div");
+    charRow.className = "settings-list-row";
+    const charLabel = document.createElement("span");
+    charLabel.className = "settings-list-label";
+    charLabel.textContent = t("profileCharacterLabel");
+    const charSelect = document.createElement("select");
+    charSelect.className = "profile-character-select";
+    for (const style of installedStyles) {
+      const opt = document.createElement("option");
+      opt.value = String(style.id);
+      opt.textContent = style.label;
+      opt.selected = style.id === profile.styleId;
+      charSelect.appendChild(opt);
+    }
+    charSelect.addEventListener("change", () => {
+      const newStyleId = Number(charSelect.value);
+      const current = loadProfiles();
+      current[i] = { ...current[i], styleId: newStyleId };
+      saveProfiles(current);
+      // The キャラクター panel itself (and its "現在の声" label) only ever
+      // shows the *active* profile's character — only needs a refresh when
+      // that's the one just edited here.
+      if (i === activeIndex) setupCharacterPanel();
+    });
+    charRow.append(charLabel, charSelect);
+    detail.appendChild(charRow);
+
+    const endingsHeading = document.createElement("h4");
+    endingsHeading.textContent = t("navEndings");
+    const endingsContainer = document.createElement("div");
+    endingsContainer.className = "ending-settings-list";
+    detail.append(endingsHeading, endingsContainer);
+
+    const templatesHeading = document.createElement("h4");
+    templatesHeading.textContent = t("navTemplates");
+    const templatesContainer = document.createElement("div");
+    templatesContainer.className = "ending-settings-list";
+    detail.append(templatesHeading, templatesContainer);
+
+    const hotkeyHeading = document.createElement("h4");
+    hotkeyHeading.textContent = t("navHotkey");
+    const hotkeyContainer = document.createElement("div");
+    detail.append(hotkeyHeading, hotkeyContainer);
+
+    // Rendered lazily, the first time this row is actually expanded — up to
+    // 5 profiles × (10 endings rows + 12 template inputs + 16 hotkey
+    // selects) mounted unconditionally would build a lot of DOM nobody may
+    // ever look at. A later full renderProfileMenuList() call (profile
+    // switch, count change, paste elsewhere) rebuilds every row from
+    // scratch regardless, so there's no staleness to worry about from
+    // leaving a once-opened detail's own children as-is afterward.
+    let detailRendered = false;
+    summary.addEventListener("click", () => {
+      const willOpen = detail.hidden;
+      detail.hidden = !willOpen;
+      row.classList.toggle("open", willOpen);
+      if (willOpen && !detailRendered) {
+        detailRendered = true;
+        renderGeneralEndingsList(endingsContainer, i);
+        renderVrKeyboardTemplatesList(templatesContainer, i);
+        renderProfileHotkeyEditor(hotkeyContainer, i);
+      }
+    });
+
+    row.append(header, detail);
+    list.append(row);
+  }
+}
+
+function setupProfilePanel() {
+  const countSelect = document.querySelector("#profile-count-select");
+  countSelect.value = String(loadProfileCount());
+  countSelect.addEventListener("change", async () => {
+    const newCount = Number(countSelect.value);
+    const oldCount = loadProfileCount();
+    if (newCount < oldCount) {
+      const ok = await showConfirmDialog(t("profileCountShrinkConfirm"));
+      if (!ok) {
+        countSelect.value = String(oldCount);
+        return;
+      }
+    }
+    setProfileCount(newCount);
+  });
+
+  renderProfileMenuList();
+}
+
+// Shared option-building for a single hand/slot <select> — used by both the
+// main Hotkey panel's fixed-id selects (renderHotkeyAssignmentOptions) and
+// the Profile menu's own embedded, dynamically-created ones
+// (renderProfileHotkeyEditor). `endingsList` is whichever profile's own
+// endings the options should preview (so slot "1" reads as that profile's
+// own ending #1, not necessarily the active profile's).
+function populateHotkeySelect(select, endingsList, currentValue) {
+  select.innerHTML = "";
+  const unsetOpt = document.createElement("option");
+  unsetOpt.value = "";
+  unsetOpt.textContent = t("unset");
+  const cancelOpt = document.createElement("option");
+  cancelOpt.value = HOTKEY_CANCEL_ACTION;
+  cancelOpt.textContent = t("cancelSend");
+  const keyboardOpt = document.createElement("option");
+  keyboardOpt.value = HOTKEY_KEYBOARD_TOGGLE_ACTION;
+  keyboardOpt.textContent = t("hotkeyKeyboardToggleOption");
+  select.append(unsetOpt, cancelOpt, keyboardOpt);
+  endingsList.forEach((ending, i) => {
+    const opt = document.createElement("option");
+    opt.value = String(i + 1);
+    opt.textContent = `${i + 1}. ${ending.text}`;
+    select.appendChild(opt);
+  });
+  // Falls back to "(未設定)" automatically if the saved value doesn't match
+  // any option (shouldn't normally happen now that slots are fixed at
+  // 1-10, but stays safe against stale pre-migration values).
+  select.value = currentValue;
 }
 
 function renderHotkeyAssignmentOptions() {
@@ -2932,27 +4008,43 @@ function renderHotkeyAssignmentOptions() {
   for (const hand of HOTKEY_HANDS) {
     for (const slot of HOTKEY_SLOTS) {
       const select = document.querySelector(`#hotkey-${hand}-${slot}`);
-      select.innerHTML = "";
-      const unsetOpt = document.createElement("option");
-      unsetOpt.value = "";
-      unsetOpt.textContent = t("unset");
-      const cancelOpt = document.createElement("option");
-      cancelOpt.value = HOTKEY_CANCEL_ACTION;
-      cancelOpt.textContent = t("cancelSend");
-      const keyboardOpt = document.createElement("option");
-      keyboardOpt.value = HOTKEY_KEYBOARD_TOGGLE_ACTION;
-      keyboardOpt.textContent = t("hotkeyKeyboardToggleOption");
-      select.append(unsetOpt, cancelOpt, keyboardOpt);
-      endings.forEach((ending, i) => {
-        const opt = document.createElement("option");
-        opt.value = String(i + 1);
-        opt.textContent = `${i + 1}. ${ending.text}`;
-        select.appendChild(opt);
+      populateHotkeySelect(select, endings, assignments[hand][slot]);
+    }
+  }
+}
+
+// The Profile menu's own embedded copy of the Hotkey panel's assignment
+// grid, scoped to one specific profile (which may not be the active one) —
+// dynamically builds its own <select> per hand/slot (the main panel's own
+// selects are fixed-id, one set total, always active-profile-only) and
+// saves straight into that profile's own hotkey object on change.
+function renderProfileHotkeyEditor(container, profileIndex) {
+  container.innerHTML = "";
+  const profile = loadProfiles()[profileIndex];
+  for (const hand of HOTKEY_HANDS) {
+    const heading = document.createElement("h4");
+    heading.textContent = t(HOTKEY_HAND_LABEL_KEYS[hand]);
+    container.appendChild(heading);
+    for (const slot of HOTKEY_SLOTS) {
+      const row = document.createElement("div");
+      row.className = "settings-list-row";
+      const label = document.createElement("span");
+      label.className = "settings-list-label";
+      label.textContent = t(HOTKEY_SLOT_LABEL_KEYS[slot]);
+      const select = document.createElement("select");
+      populateHotkeySelect(select, profile.endings, profile.hotkey[hand][slot]);
+      select.addEventListener("change", () => {
+        updateProfileAt(profileIndex, (p) => ({
+          ...p,
+          hotkey: { ...p.hotkey, [hand]: { ...p.hotkey[hand], [slot]: select.value } },
+        }));
+        // The main Hotkey panel's own fixed-id selects only ever show the
+        // active profile's assignments — only needs a refresh when that's
+        // the one just edited here.
+        if (profileIndex === loadActiveProfileIndex()) renderHotkeyAssignmentOptions();
       });
-      // Falls back to "(未設定)" automatically if the saved value doesn't
-      // match any option (shouldn't normally happen now that slots are
-      // fixed at 1-10, but stays safe against stale pre-migration values).
-      select.value = assignments[hand][slot];
+      row.append(label, select);
+      container.appendChild(row);
     }
   }
 }
@@ -3211,15 +4303,15 @@ function newDoubleClickButtonState() {
   return { pendingSince: 0, wasPressed: false };
 }
 let hotkeyDoubleClickState = {
-  right: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
-  left: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
+  right: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), a: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
+  left: { grip: newDoubleClickButtonState(), trigger: newDoubleClickButtonState(), a: newDoubleClickButtonState(), firedAt: 0, activeAssignment: "" },
 };
 
 // Derives the two-circle indicator's stage (0/1/2 — see draw_double_click_dots
 // in overlay.rs) purely from timestamps already being tracked for detection,
-// rather than a separately-set/reset flag: grip-double and trigger-double
-// share one hand's worth of display (same as the hold system already
-// collapses both/grip/trigger/none into one activeSlot per hand), and
+// rather than a separately-set/reset flag: grip-double, trigger-double, and
+// a-double share one hand's worth of display (same as the hold system
+// already collapses both/grip/trigger/none into one activeSlot per hand), and
 // nothing here needs an explicit reset anywhere else — once `firedAt` and
 // every button's `pendingSince` are both stale, this naturally reads 0
 // again on its own. An earlier version stored the stage as a plain field,
@@ -3242,8 +4334,8 @@ function doubleClickStageFor(hand) {
   const handState = hotkeyDoubleClickState[hand];
   const now = Date.now();
   if (now - handState.firedAt < HOTKEY_DOUBLE_CLICK_DOT_HOLD_MS) return 2;
-  if (handState.grip.wasPressed || handState.trigger.wasPressed) return 0;
-  if (handState.grip.pendingSince || handState.trigger.pendingSince) return 1;
+  if (handState.grip.wasPressed || handState.trigger.wasPressed || handState.a.wasPressed) return 0;
+  if (handState.grip.pendingSince || handState.trigger.pendingSince || handState.a.pendingSince) return 1;
   return 0;
 }
 
@@ -3278,7 +4370,15 @@ function processDoubleClick(hand, button, pressed, handAssignments, hold) {
   // press is its own trigger press/release) would randomly land inside an
   // earlier double-click's window and fire it. Grip has no keyboard role,
   // so this only ever applies to button === "trigger".
-  if (button === "trigger" && vrKeyboardVisible && vrKeyboardHands[hand].highlightedIndex !== null) {
+  // Clicking into the box to place the cursor counts the same way (see
+  // boxCursorIndex's own comment) — clicking two spots in quick succession
+  // would otherwise fire the trigger double-click (by default, toggling the
+  // keyboard closed).
+  if (
+    button === "trigger" &&
+    vrKeyboardVisible &&
+    (vrKeyboardHands[hand].highlightedIndex !== null || vrKeyboardHands[hand].boxCursorIndex !== null)
+  ) {
     state.wasPressed = pressed;
     return;
   }
@@ -3335,11 +4435,13 @@ let vrKeyboardGripWasPressed = { right: false, left: false };
 // ordinary hotkey grip. Called for "right" before "left" each tick, so on a
 // same-tick press by both hands, right wins.
 //
-// All the geometry (and keeping the drag rigid) lives in lib.rs — see
-// begin_keyboard_grab/end_keyboard_grab. Nothing needs sending per tick while
-// held: the panel is parented to the controller on SteamVR's side for the
-// duration, so it follows the hand at the headset's own frame rate rather
-// than this loop's HOTKEY_POLL_MS.
+// All the grip/release geometry (and keeping the drag rigid) lives in
+// lib.rs — see begin_keyboard_grab/end_keyboard_grab. Nothing needs sending
+// per tick for the grip itself: the panel is parented to the controller on
+// SteamVR's side for the duration, so it follows the hand at the headset's
+// own frame rate rather than this loop's HOTKEY_POLL_MS. The render loop
+// separately sends the cached right-stick depth value each tick, which is
+// what allows that rigid parented panel to move forward/back.
 async function processKeyboardGrab(hand, handState) {
   const wasPressed = vrKeyboardGripWasPressed[hand];
   vrKeyboardGripWasPressed[hand] = handState.grip;
@@ -3434,6 +4536,13 @@ const VR_KB_CANVAS_WIDTH =
 const VR_KB_CANVAS_HEIGHT = 823;
 const VR_KB_VERTICAL_SCALE = VR_KB_CANVAS_HEIGHT / 640;
 
+// Must match overlay.rs's own CANVAS_WIDTH/CANVAS_HEIGHT — the confirm/
+// discard preview box's own (separate) canvas. Used only to size its
+// background crop target (see VR_BACKGROUND_SURFACES); nothing else on this
+// side draws into that canvas.
+const VR_BOX_CANVAS_WIDTH = 560;
+const VR_BOX_CANVAS_HEIGHT = 300;
+
 const VR_KB_GRID_TOP = Math.round(90 * VR_KB_VERTICAL_SCALE);
 const VR_KB_GAP_Y = Math.round(10 * VR_KB_VERTICAL_SCALE);
 const VR_KB_CELL_H = Math.round(85 * VR_KB_VERTICAL_SCALE);
@@ -3441,11 +4550,12 @@ const VR_KB_CELL_H = Math.round(85 * VR_KB_VERTICAL_SCALE);
 // The cursor-control block's own background box (see overlay.rs's
 // CURSOR_BOX_* and lib.rs's RectArg) — a constant, not computed inside
 // computeVrKeyboardLayout, since it doesn't depend on anything that
-// changes at runtime (mode, endings, hover state, ...). 2 columns x 4 rows
+// changes at runtime (mode, endings, hover state, ...). 2 columns x 5 rows
 // of full-size cells (matches cursorActions' own geometry there exactly) —
 // rows 0-1 are cursor jump/step, rows 2-3 are the Auto/profile/Chatbox/TTS
 // controls (desktop-only until now, see computeVrKeyboardLayout's own
-// comment on them) — top edge level with row 0 (BS). `x` starts VR_KB_GAP_X
+// comment on them), row 4 is copy/paste — top edge level with row 0 (BS).
+// `x` starts VR_KB_GAP_X
 // past column 5's
 // own right edge *plus* VR_KB_CURSOR_BOX_PADDING, so that once Rust pads
 // the drawn background out by that same amount (see overlay.rs's
@@ -3459,7 +4569,7 @@ const VR_KB_CURSOR_BOX = {
   x: VR_KB_GRID_LEFT + VR_KB_GRID_COLS * (VR_KB_CELL_W + VR_KB_GAP_X) + VR_KB_CURSOR_BOX_PADDING + VR_KB_CURSOR_BOX_EXTRA_GAP,
   y: VR_KB_GRID_TOP,
   w: VR_KB_CELL_W * 2 + VR_KB_GAP_X,
-  h: VR_KB_CELL_H * 4 + VR_KB_GAP_Y * 3,
+  h: VR_KB_CELL_H * 5 + VR_KB_GAP_Y * 4,
 };
 
 // Standard Japanese flick-input layout (iOS/Android kana keyboards alike):
@@ -3665,6 +4775,19 @@ function updateVrKeyboardFlickDirection(hand, hitX, hitY) {
 
 // How many characters the cursor row's ≪/≫ buttons skip at once.
 const VR_KB_CURSOR_JUMP = 5;
+// ⌫ renders as a missing-glyph box in the overlay's font (Meiryo/Yu Gothic,
+// see rasterize_cached in overlay.rs and font()'s own comment — neither
+// carries the Miscellaneous Technical block ⌫/⌦ live in) — a left-pointing
+// triangle + an × reads as "erase what's behind the cursor" without needing
+// an actual backspace glyph the font doesn't have. Both characters are
+// known to render fine: ◀ is the same one the cursor-jump buttons use, and
+// × (U+00D7, Latin-1 Supplement) is about as safe a glyph as exists in a
+// font that renders Latin text at all. An earlier version used ◀■ (a plain
+// filled square) — legible enough side by side with the ◀/▶ cursor buttons,
+// but read as "a generic solid button", not specifically "delete", on its
+// own; × reads unambiguously as "remove" the way it does in close buttons
+// elsewhere.
+const VR_KB_BACKSPACE_LABEL = "◀×";
 
 // Builds the full button list (pixel rects within VR_KB_CANVAS_WIDTH x
 // VR_KB_CANVAS_HEIGHT) + a lookup from button index back to what selecting
@@ -3743,6 +4866,9 @@ function computeVrKeyboardLayout() {
     // flick machinery (type: "key", same as kana/numsym) so an up-flick
     // gives the uppercase form (see VR_KB_FLICK_ROWS' per-letter entries) —
     // flickHint surfaces that same uppercase letter as a small corner label.
+    // confirmed: true (see applyVrKeyboardAction's "key" case) — unlike
+    // kana, Latin letters never go through 変換, so there's nothing for a
+    // blue "not yet confirmed" state to usefully mark here.
     const letterW = (VR_KB_GRID_WIDTH - gridLeft * 2 - 9 * gapX) / 10;
     VR_KB_QWERTY_ROWS.forEach((row, r) => {
       [...row].forEach((ch, c) => {
@@ -3750,7 +4876,16 @@ function computeVrKeyboardLayout() {
         const y = cellY(r);
         const flickCells = vrKeyboardFlickCells(x, y, letterW, cellH, letterW + gapX, cellH + gapY);
         const upChar = resolveFlickChar(ch, "up");
-        buttons.push({ x, y, w: letterW, h: cellH, label: ch, action: { type: "key", base: ch }, flickCells, flickHint: upChar !== ch ? upChar : undefined });
+        buttons.push({
+          x,
+          y,
+          w: letterW,
+          h: cellH,
+          label: ch,
+          action: { type: "key", base: ch, confirmed: true },
+          flickCells,
+          flickHint: upChar !== ch ? upChar : undefined,
+        });
       });
     });
     // Space isn't in the QWERTY block (its 30 cells are exactly full), and
@@ -3759,11 +4894,13 @@ function computeVrKeyboardLayout() {
     cell(3, 1, t("vrKbModeNumber"), { type: "mode", mode: "numsym" });
     cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
     cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
-    cell(3, 4, "BS", { type: "delete" });
+    cell(3, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
   } else if (vrKeyboardMode === "numsym") {
     // Full-width like English above — see VR_KB_NUMSYM_ROWS' own comment
     // for why this replaced two separate "number"/"symbol" modes. Same
-    // flick machinery as English's letters, for the same reason.
+    // flick machinery as English's letters, for the same reason, and same
+    // confirmed: true reasoning (numbers/symbols never go through 変換
+    // either).
     const symW = (VR_KB_GRID_WIDTH - gridLeft * 2 - 9 * gapX) / 10;
     VR_KB_NUMSYM_ROWS.forEach((row, r) => {
       row.forEach((ch, c) => {
@@ -3777,7 +4914,7 @@ function computeVrKeyboardLayout() {
           w: symW,
           h: cellH,
           label: ch,
-          action: { type: "key", base: ch },
+          action: { type: "key", base: ch, confirmed: true },
           flickCells,
           flickHint: upChar !== ch ? upChar : undefined,
         });
@@ -3787,7 +4924,7 @@ function computeVrKeyboardLayout() {
     cell(3, 1, t("vrKbModeEnglish"), { type: "mode", mode: "english" });
     cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
     cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
-    cell(3, 4, "BS", { type: "delete" });
+    cell(3, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
   } else {
     // Column 1: an active mode's own button relabels to かな and toggles
     // back; the other two stay live so template↔english↔number/symbol is
@@ -3812,7 +4949,7 @@ function computeVrKeyboardLayout() {
       loadVrKeyboardTemplates().forEach((text, i) => {
         // Unset slots still render (as inert, action-less keys) so every
         // slot keeps a fixed position whether or not its neighbors are set.
-        const action = text ? { type: "insert", text } : undefined;
+        const action = text ? { type: "insert", text, confirmed: true } : undefined;
         cell(Math.floor(i / 3), (i % 3) + 1, text, action);
       });
     } else {
@@ -3831,13 +4968,11 @@ function computeVrKeyboardLayout() {
       );
     }
 
-    // ⌫ renders as a missing-glyph box in the overlay's font (see
-    // rasterize_cached in overlay.rs) — plain "BS" text instead. 変換 moved
-    // to column 1 above, freeing this column for the 4 controls below.
-    // No forward-delete button (there used to be one, "Del") — BS plus the
-    // cursor column's ◀/▶ (see cursorActions below) covers the same ground
-    // without needing a fifth slot.
-    cell(0, 4, "BS", { type: "delete" });
+    // 変換 moved to column 1 above, freeing this column for the 4 controls
+    // below. No forward-delete button (there used to be one, "Del") — BS
+    // plus the cursor column's ◀/▶ (see cursorActions below) covers the
+    // same ground without needing a fifth slot.
+    cell(0, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
     cell(1, 4, t("vrKbSpaceButton"), { type: "insert", text: " " });
     cell(2, 4, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
     // 確定 accepts whatever's currently unconfirmed (blue) as final text —
@@ -3878,7 +5013,7 @@ function computeVrKeyboardLayout() {
     { x: ctrlColX + cellW + gapX, y: cellY(1), label: "▶", action: { type: "cursor", delta: 1 } },
     // Desktop-only until now (see #mode-toggle-btn/#hotkey-profile-btn/
     // #chatbox-toggle-btn/#tts-toggle-btn) — same underlying state either
-    // way (setSendMode/setChatboxEnabled/setTtsEnabled/setHotkeyProfileIndex
+    // way (setSendMode/setChatboxEnabled/setTtsEnabled/setActiveProfileIndex
     // keep both UIs in sync), just reachable from the headset now too.
     // Auto/Chatbox/TTS get the quieter `toggledOn` look while on (not
     // `selected` — that's SELECTED_COLOR in overlay.rs, meant for a one-off
@@ -3886,9 +5021,15 @@ function computeVrKeyboardLayout() {
     // that's "on" most of the time); the profile button doesn't highlight at
     // all (matches the desktop "P1/P2/P3" button, which just shows the number).
     { x: ctrlColX, y: cellY(2), label: t("autoLabel"), action: { type: "toggleAuto" }, toggledOn: sendMode === "auto" },
-    { x: ctrlColX + cellW + gapX, y: cellY(2), label: `P${loadHotkeyProfileIndex() + 1}`, action: { type: "cycleProfile" } },
+    { x: ctrlColX + cellW + gapX, y: cellY(2), label: `P${loadActiveProfileIndex() + 1}`, action: { type: "cycleProfile" } },
     { x: ctrlColX, y: cellY(3), label: "Chatbox", action: { type: "toggleChatbox" }, toggledOn: chatboxEnabled },
     { x: ctrlColX + cellW + gapX, y: cellY(3), label: "TTS", action: { type: "toggleTts" }, toggledOn: ttsEnabled },
+    // Reuses the Profile menu's own コピー/貼り付け labels — same words,
+    // same action either way (copy: current text → system clipboard,
+    // paste: system clipboard → current text), just a different "current
+    // text" here (pendingFinalText, not a profile).
+    { x: ctrlColX, y: cellY(4), label: t("profileCopyButton"), action: { type: "copyText" } },
+    { x: ctrlColX + cellW + gapX, y: cellY(4), label: t("profilePasteButton"), action: { type: "pasteText" } },
   ];
   cursorActions.forEach((btn) => {
     buttons.push({ x: btn.x, y: btn.y, w: cellW, h: cellH, label: btn.label, action: btn.action, toggledOn: !!btn.toggledOn });
@@ -3941,6 +5082,16 @@ function newVrKeyboardHandState() {
     // it's actually pointing somewhere on the keyboard, not just whenever
     // the keyboard happens to be open.
     aimingAtPanel: false,
+    // Set alongside the above: non-null while this hand is aiming at the
+    // confirm/discard box (instead of the panel — lib.rs's hand_hit picks
+    // the nearer of the two when the ray crosses both), holding the char
+    // index into pendingFinalText a trigger pull would move the cursor to
+    // (see processVrKeyboardTrigger's "placeCursor"). Also lights this
+    // hand's laser, same as aimingAtPanel. Only ever ray-cast while the
+    // keyboard is open — the box shows no cursor otherwise (see the render
+    // loop's own `cursor`), and a trigger aimed at it with the keyboard
+    // closed stays an ordinary hotkey trigger (hold/double-click).
+    boxCursorIndex: null,
     // The action (see computeVrKeyboardLayout) of whichever button this
     // hand's trigger was DOWN on when it was pressed (not just currently
     // hovering — see the poll loop) — applied on release, using
@@ -4096,6 +5247,50 @@ const VR_KB_REPEATABLE_TYPES = ["cursor", "delete"];
 const VR_KB_REPEAT_INITIAL_DELAY_MS = 400; // hold this long before repeat kicks in
 const VR_KB_REPEAT_INTERVAL_MS = 100; // then repeat this often
 
+// A short click for tactile/audio feedback on every VR keyboard button press
+// (see applyVrKeyboardAction) — root-relative like main.js's own <script src>
+// in index.html, so it resolves the same regardless of which page/base URL
+// this happens to run from.
+const KEY_SOUND_URL = "/assets/key_sound.mp3";
+
+// Mirrors voiceRmsThresholdCache's own pattern: a plain module-level cache,
+// synced from the persisted appearance settings at startup and on every
+// settings-panel change (see setupAppearancePanel), read directly in the
+// hot path below instead of re-parsing localStorage on every single key
+// press.
+let keySoundVolumeCache = 1;
+
+// key_sound.mp3's own recorded level is louder than actually comfortable at
+// the slider's 100% position — rather than re-encoding the source file
+// (would need an external tool this dev machine doesn't have, e.g. ffmpeg),
+// the 0-100% the slider shows is scaled down to an actual 0-0.5 range here,
+// right before it's applied. The slider itself stays full-resolution
+// (11 steps across the same 0-100% the user sees) — only the ceiling it
+// maps to is lower.
+const KEY_SOUND_MAX_VOLUME = 0.5;
+
+// Deliberately does NOT reuse voicevoxOutputsSelect's own selection as-is:
+// that list's whole point is routing TTS *into* VRChat's mic (CABLE Input —
+// see populateOutputDevices' own CABLE-Input heuristic), and a UI click
+// leaking into that same stream is exactly the kind of noise other people
+// in-game shouldn't hear. This plays on whichever of the *selected* output
+// devices isn't CABLE Input — normally the user's own headphones/speakers,
+// if those are also checked alongside CABLE Input. If every selected device
+// is CABLE Input (the common default — see populateOutputDevices), there's
+// nothing to play to and this silently does nothing; no fallback to the
+// system default device, since that could just as easily resolve to CABLE
+// Input itself if the user ever set it as their Windows default.
+function playKeySound() {
+  if (keySoundVolumeCache <= 0) return;
+  const targets = Array.from(voicevoxOutputsSelect.selectedOptions).filter((o) => !o.textContent.includes("CABLE Input"));
+  for (const { value: sinkId } of targets) {
+    const audio = new Audio(KEY_SOUND_URL);
+    audio.volume = keySoundVolumeCache * KEY_SOUND_MAX_VOLUME;
+    if (sinkId && audio.setSinkId) audio.setSinkId(sinkId).catch(() => {});
+    audio.play().catch(() => {});
+  }
+}
+
 function processVrKeyboardTrigger(hand, handState, wasPressed) {
   const state = vrKeyboardHands[hand];
   if (handState.trigger && !wasPressed) {
@@ -4117,6 +5312,12 @@ function processVrKeyboardTrigger(hand, handState, wasPressed) {
       } else {
         state.repeatNextAt = 0;
       }
+    } else if (vrKeyboardVisible && state.boxCursorIndex !== null) {
+      // Clicking into the box places the cursor on press, not release — the
+      // way a desktop text field does on mousedown — and nothing is engaged,
+      // so the release below has nothing left to apply.
+      applyVrKeyboardAction({ type: "placeCursor", index: state.boxCursorIndex }, "center");
+      window.__TAURI__.core.invoke("trigger_hand_haptic", { hand }).catch(() => {});
     }
   }
   if (handState.trigger && state.engagedAction && state.repeatNextAt && Date.now() >= state.repeatNextAt) {
@@ -4139,13 +5340,32 @@ function processVrKeyboardTrigger(hand, handState, wasPressed) {
 
 function applyVrKeyboardAction(action, direction) {
   if (!["henkan", "selectCandidate", "cursor"].includes(action.type)) resetVrKeyboardConversion();
+  // placeCursor (clicking into the confirm/discard box, see
+  // processVrKeyboardTrigger) isn't a keyboard button press — every other
+  // action type that reaches this function is, so it's the one exclusion.
+  if (action.type !== "placeCursor") playKeySound();
 
   switch (action.type) {
     case "key":
       insertAtVrKeyboardCursor(resolveFlickChar(action.base, direction));
+      // English/symbol keys set this (see their own cell() calls in
+      // computeVrKeyboardLayout) — unlike kana, there's no 変換 step that
+      // could ever turn a typed letter/symbol into something else, so
+      // making the user press 変換/確定 before it's treated as finished
+      // text was pure friction with no upside, unlike kana where the blue
+      // "not yet confirmed" state exists specifically to show what 変換
+      // still has left to act on.
+      if (action.confirmed) vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
       break;
     case "insert":
       insertAtVrKeyboardCursor(action.text);
+      // Template phrases (see computeVrKeyboardLayout's template mode) are
+      // already-final text, not something to convert — they should never
+      // show up blue/pending the way freshly-flicked kana does. Space/
+      // newline don't set this: those get typed *while* composing
+      // something else, so they stay part of whatever's currently
+      // unconfirmed around them.
+      if (action.confirmed) vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
       break;
     case "variant": {
       const next = VR_KB_VARIANT_NEXT[pendingFinalText[vrKeyboardCursorPos - 1]];
@@ -4201,6 +5421,17 @@ function applyVrKeyboardAction(action, direction) {
     case "delete":
       deleteBeforeVrKeyboardCursor();
       break;
+    case "placeCursor":
+      // Not a layout button — see processVrKeyboardTrigger's box-click
+      // branch. Routed through here anyway so it ends a conversion cycle via
+      // the top line above like any other non-henkan action: unlike ◀/▶
+      // (which move segment focus mid-conversion), a click names an exact
+      // character spot, which segment focus has no way to express. The clamp
+      // covers text that shrank in the tick between lib.rs resolving the
+      // index (against what was last drawn) and this press.
+      vrKeyboardCursorPos = Math.min(action.index, pendingFinalText.length);
+      markVrKeyboardCursorActivity();
+      break;
     case "confirm":
       // Accepts whatever's currently unconfirmed as final text WITHOUT
       // converting it — resetVrKeyboardConversion() already ran above
@@ -4217,13 +5448,39 @@ function applyVrKeyboardAction(action, direction) {
       setSendMode(sendMode === "auto" ? "manual" : "auto");
       break;
     case "cycleProfile":
-      setHotkeyProfileIndex((loadHotkeyProfileIndex() + 1) % HOTKEY_PROFILE_COUNT);
+      setActiveProfileIndex((loadActiveProfileIndex() + 1) % loadProfileCount());
       break;
     case "toggleChatbox":
       setChatboxEnabled(!chatboxEnabled);
       break;
     case "toggleTts":
       setTtsEnabled(!ttsEnabled);
+      break;
+    case "copyText":
+      // Fire-and-forget, same as the Profile menu's own preset-copy button —
+      // clipboard permission can be denied in some contexts, and there's
+      // nothing more useful to do here than silently no-op if so.
+      navigator.clipboard.writeText(pendingFinalText).catch(() => {});
+      break;
+    case "pasteText":
+      // navigator.clipboard.readText() came back empty from here — unlike
+      // writeText (used by "copyText" above), a browser's own clipboard
+      // *read* needs a real DOM user-gesture behind the call, which firing
+      // from the VR controller poll loop isn't. tauri-plugin-clipboard-
+      // manager reads the OS clipboard straight from Rust instead,
+      // sidestepping that entirely.
+      window.__TAURI__.clipboardManager
+        .readText()
+        .then((text) => {
+          if (!text) return;
+          insertAtVrKeyboardCursor(text);
+          // Pasted text is already-finished content from elsewhere, not
+          // hiragana pending conversion — same "starts out confirmed, not
+          // blue" treatment as a template phrase (see the "insert" case's
+          // own `confirmed` handling).
+          vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
+        })
+        .catch((err) => log(`[vr-keyboard] paste failed: ${err}`));
       break;
   }
 }
@@ -4297,22 +5554,14 @@ function setupHotkeys() {
     });
   }
 
-  // 3 independent hotkey profiles, switchable both from here and via the
-  // main screen's "P1/P2/P3" button (see setHotkeyProfileIndex()) — for
-  // when a game/world takes over a button like grip, so a grip-free profile
-  // is one switch away instead of needing to reconfigure on the spot.
-  const initialProfileIndex = loadHotkeyProfileIndex();
-  for (const radio of document.querySelectorAll('input[name="hotkey-profile"]')) {
-    radio.checked = Number(radio.value) === initialProfileIndex;
-    radio.addEventListener("change", () => {
-      if (!radio.checked) return;
-      setHotkeyProfileIndex(Number(radio.value));
-    });
-  }
+  // Which profile is active is picked from the Profile settings panel now
+  // (see setupProfilePanel/renderProfileMenuList) — this button just cycles
+  // through whatever's currently configured, same as the VR keyboard's own
+  // profile-cycle button (see applyVrKeyboardAction's "cycleProfile" case).
   const profileBtn = document.querySelector("#hotkey-profile-btn");
-  profileBtn.textContent = `P${initialProfileIndex + 1}`;
+  profileBtn.textContent = `P${loadActiveProfileIndex() + 1}`;
   profileBtn.addEventListener("click", () => {
-    setHotkeyProfileIndex((loadHotkeyProfileIndex() + 1) % HOTKEY_PROFILE_COUNT);
+    setActiveProfileIndex((loadActiveProfileIndex() + 1) % loadProfileCount());
   });
 
   reconnectBtn.addEventListener("click", async () => {
@@ -4321,6 +5570,12 @@ function setupHotkeys() {
     const ok = await window.__TAURI__.core.invoke("reconnect_vr");
     hotkeyStatusKey = ok ? "vrStatusConnected" : "vrStatusDisconnected";
     statusEl.textContent = t(hotkeyStatusKey);
+    // reconnect_vr rebuilds Hud from scratch (Rust-side opacity/accent
+    // defaults) — background images reload themselves from disk, but
+    // opacity/accent only ever live in this frontend's localStorage, so a
+    // fresh Hud needs them pushed again, same as applyAppearance already
+    // does at startup/on every settings change.
+    if (ok) await pushVrOverlayAppearance(loadAppearance());
   });
 
   let overlayShown = false; // avoids spamming hide calls every frame while idle
@@ -4340,6 +5595,11 @@ function setupHotkeys() {
   let langTagShown = false; // same, for the separate language-tag overlay
   let tickInFlight = false; // setInterval doesn't wait for the previous async tick's IPC round-trip
   let vrAvailable = false; // updated by the poll below, read by the render loop
+  // hotkeyState is local to the poll callback below, but the overlay render
+  // callback runs separately. Cache the right stick value here so the render
+  // loop can send it to update_keyboard_overlay without reaching across that
+  // callback's scope.
+  let vrKeyboardGrabDepthStickY = 0;
   let leftAWasPressed = false; // left controller's lower face button (X on Quest) — toggles STT start/stop
 
   setInterval(async () => {
@@ -4350,6 +5610,7 @@ function setupHotkeys() {
       try {
         hotkeyState = await window.__TAURI__.core.invoke("hotkey_state");
       } catch {
+        vrKeyboardGrabDepthStickY = 0;
         return;
       }
 
@@ -4357,11 +5618,13 @@ function setupHotkeys() {
         hotkeyStatusKey = "vrStatusDisconnected";
         statusEl.textContent = t(hotkeyStatusKey);
         vrAvailable = false;
+        vrKeyboardGrabDepthStickY = 0;
         return;
       }
       hotkeyStatusKey = "vrStatusConnected";
       statusEl.textContent = t(hotkeyStatusKey);
       vrAvailable = true;
+      vrKeyboardGrabDepthStickY = hotkeyState.right.stickY;
 
       // Left controller's lower face button (X on Quest) steps through the
       // 日本語→English→中文→OFF language cycle, independent of whether a
@@ -4393,8 +5656,10 @@ function setupHotkeys() {
       await processKeyboardGrab("left", hotkeyState.left);
       processDoubleClick("right", "grip", hotkeyState.right.grip, stickAssignments.right, rightHotkeyHold);
       processDoubleClick("right", "trigger", hotkeyState.right.trigger, stickAssignments.right, rightHotkeyHold);
+      processDoubleClick("right", "a", hotkeyState.right.a, stickAssignments.right, rightHotkeyHold);
       processDoubleClick("left", "grip", hotkeyState.left.grip, stickAssignments.left, leftHotkeyHold);
       processDoubleClick("left", "trigger", hotkeyState.left.trigger, stickAssignments.left, leftHotkeyHold);
+      processDoubleClick("left", "a", hotkeyState.left.a, stickAssignments.left, leftHotkeyHold);
 
       // VR keyboard: each hand's trigger press engages whatever key *that
       // hand's own* pointer was last reported over (see the render loop's
@@ -4450,10 +5715,7 @@ function setupHotkeys() {
   const BOX_FADE_OUT_MS = 500;
   let renderInFlight = false;
 
-  setInterval(() => {
-    if (renderInFlight) return;
-    renderInFlight = true;
-
+  async function renderOverlayTick() {
     const now = Date.now();
 
     let boxPromise = null;
@@ -4651,26 +5913,34 @@ function setupHotkeys() {
           // own `reanchor` comment): fixed mode re-anchors in front of the
           // head on every open rather than reusing the last spot.
           reanchor: !vrKeyboardWasVisible,
+          // Right stick pushes/pulls the panel along view depth while it's
+          // being grip-dragged, regardless of which hand is holding it —
+          // see apply_keyboard_grab_depth. Harmless to send even when
+          // nothing is grabbed (Rust just ignores it then).
+          grabDepthStickY: vrKeyboardGrabDepthStickY,
         })
         .then((result) => {
           vrKeyboardHands.right.highlightedIndex = result.right.highlightedIndex;
           vrKeyboardHands.left.highlightedIndex = result.left.highlightedIndex;
           vrKeyboardHands.right.aimingAtPanel = result.right.hitX !== null;
           vrKeyboardHands.left.aimingAtPanel = result.left.hitX !== null;
+          vrKeyboardHands.right.boxCursorIndex = result.right.boxCursorIndex;
+          vrKeyboardHands.left.boxCursorIndex = result.left.boxCursorIndex;
           // Here rather than in the poll loop: this is where fresh aim data
           // arrives, at the render rate. Both hands, independently.
           updateVrKeyboardFlickDirection("right", result.right.hitX, result.right.hitY);
           updateVrKeyboardFlickDirection("left", result.left.hitX, result.left.hitY);
         });
       // Per-hand — a hand's own laser only shows once its aim actually lands
-      // within the panel's bounds (see aimingAtPanel's own comment), not
-      // just because the keyboard is open. One tick of lag: this reads
-      // whatever the *previous* update_keyboard_overlay call found, since
-      // this tick's own result isn't back yet (same lag the highlight/flick
-      // direction already accept elsewhere).
+      // within the panel's or the box's bounds (see aimingAtPanel's/
+      // boxCursorIndex's own comments), not just because the keyboard is
+      // open. One tick of lag: this reads whatever the *previous*
+      // update_keyboard_overlay call found, since this tick's own result
+      // isn't back yet (same lag the highlight/flick direction already
+      // accept elsewhere).
       pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", {
-        rightVisible: vrKeyboardHands.right.aimingAtPanel,
-        leftVisible: vrKeyboardHands.left.aimingAtPanel,
+        rightVisible: vrKeyboardHands.right.aimingAtPanel || vrKeyboardHands.right.boxCursorIndex !== null,
+        leftVisible: vrKeyboardHands.left.aimingAtPanel || vrKeyboardHands.left.boxCursorIndex !== null,
       });
     } else if (vrKeyboardWasVisible || keyboardFadingOutSince) {
       // Keeps showing the last frame's buttons, frozen, at a ramping alpha —
@@ -4684,6 +5954,8 @@ function setupHotkeys() {
       vrKeyboardHands.left.highlightedIndex = null;
       vrKeyboardHands.right.aimingAtPanel = false;
       vrKeyboardHands.left.aimingAtPanel = false;
+      vrKeyboardHands.right.boxCursorIndex = null;
+      vrKeyboardHands.left.boxCursorIndex = null;
       if (elapsed >= KEYBOARD_FADE_OUT_MS) {
         keyboardFadingOutSince = 0;
         keyboardFrozenButtons = null;
@@ -4694,6 +5966,9 @@ function setupHotkeys() {
           cursorBox: VR_KB_CURSOR_BOX,
           fixedPosition: vrKeyboardPositionModeCache === "fixed",
           reanchor: false,
+          // Fading out or already hidden — nothing to grab, see
+          // grabDepthStickY's own comment on the fresh-open call above.
+          grabDepthStickY: 0,
         });
       } else {
         const fadeAlpha = 1 - elapsed / KEYBOARD_FADE_OUT_MS;
@@ -4706,17 +5981,24 @@ function setupHotkeys() {
           // (a switch mid-fade-out takes effect too), just never re-anchored.
           fixedPosition: vrKeyboardPositionModeCache === "fixed",
           reanchor: false,
+          grabDepthStickY: 0,
         });
       }
       pointerPromise = window.__TAURI__.core.invoke("update_pointer_overlays", { rightVisible: false, leftVisible: false });
     }
     vrKeyboardWasVisible = vrKeyboardVisible;
 
-    if (!boxPromise && !tagPromise && !keyboardPromise && !pointerPromise) {
-      renderInFlight = false;
-      return;
-    }
-    Promise.all([boxPromise, tagPromise, keyboardPromise, pointerPromise].filter(Boolean))
+    if (!boxPromise && !tagPromise && !keyboardPromise && !pointerPromise) return;
+    await Promise.all([boxPromise, tagPromise, keyboardPromise, pointerPromise].filter(Boolean)).catch((err) => log(`[overlay] ${err}`));
+  }
+
+  setInterval(() => {
+    if (renderInFlight) return;
+    renderInFlight = true;
+    // Keep the in-flight guard recoverable even if a synchronous exception
+    // escapes this tick. Without the catch/finally, one frontend error would
+    // leave renderInFlight=true forever and silently freeze every overlay.
+    renderOverlayTick()
       .catch((err) => log(`[overlay] ${err}`))
       .finally(() => {
         renderInFlight = false;
@@ -5120,6 +6402,12 @@ function handleCyclePress() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  // Absolute first thing — before anything below reads endings/character/
+  // templates/hotkey assignments (all profile-scoped now, see the Profile
+  // system's own comment), so an upgrading install never sees a blank/
+  // default profile even for one frame.
+  migrateLegacyProfileDataIfNeeded();
+
   // First thing: translates all static [data-i18n] text right away. The
   // dynamic pieces (status text, ending list, hotkey dropdowns, character
   // panel) just no-op here since appReady is still false — they render

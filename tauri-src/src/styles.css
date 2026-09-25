@@ -18,14 +18,23 @@ body {
   margin: 0.25em auto 0.75em;
 }
 :root {
+  /* Overridden inline on :root by applyAppearance() (main.js) once the user
+     picks a preset in Appearance > アクセントカラー — this value is just the
+     pre-preset-system default, kept so the app still looks right before
+     that JS runs (or if a preset is somehow never applied). --color-active-bg
+     below is intentionally *derived* from it (color-mix), not just an
+     accent-colored border/fill like buttons/links get, so picking a preset
+     visibly reaches into a background color too, not only small controls —
+     browsers without color-mix() support just keep the flat fallback color
+     each block's own color-mix() argument already carries as its base. */
+  --color-accent: #3d6fd6;
   --color-text: #0f0f0f;
   --color-bg: #f6f6f6;
   --color-surface: #ffffff;
   --color-surface-alt: #e8e8e8;
   --color-border: #d4d4d4;
   --color-sidebar-bg: #ececec;
-  --color-active-bg: #e8e8e8;
-  --color-link-hover: #535bf2;
+  --color-active-bg: color-mix(in srgb, var(--color-accent) 16%, #e8e8e8);
 
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -52,8 +61,7 @@ body {
   --color-surface-alt: #1f1f1f;
   --color-border: #3a3a3a;
   --color-sidebar-bg: #262626;
-  --color-active-bg: #0f0f0f69;
-  --color-link-hover: #24c8db;
+  --color-active-bg: color-mix(in srgb, var(--color-accent) 22%, #0f0f0f69);
 }
 
 :root[data-theme="light"] {
@@ -63,8 +71,7 @@ body {
   --color-surface-alt: #e8e8e8;
   --color-border: #d4d4d4;
   --color-sidebar-bg: #ececec;
-  --color-active-bg: #e8e8e8;
-  --color-link-hover: #535bf2;
+  --color-active-bg: color-mix(in srgb, var(--color-accent) 16%, #e8e8e8);
 }
 
 /* App-wide themed scrollbar instead of the OS default. */
@@ -90,7 +97,7 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #396cd8;
+  background-color: var(--color-accent);
 }
 
 .app-main {
@@ -301,7 +308,7 @@ body.ui-mode-desktop .lang-cycle-btn {
 .ending-grid button:hover {
   z-index: 1;
   transform: scale(1.06);
-  border-color: #396cd8;
+  border-color: var(--color-accent);
 }
 
 /* Shows the pending text (and lets it be edited) on the desktop window
@@ -602,7 +609,7 @@ body.ui-mode-desktop .desktop-controls-row {
   content: "";
   position: absolute;
   inset: -20% -30%;
-  background: #396cd8;
+  background: var(--color-accent);
   transform: translateX(-115%) skewX(-18deg);
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.2s ease;
   z-index: -1;
@@ -622,7 +629,12 @@ body.ui-mode-desktop .desktop-controls-row {
 
 .settings-nav-btn.active::before,
 .settings-nav-btn.active:hover::before {
-  background: #5c8fee;
+  /* Brighter than the plain hover sweep above (same --color-accent, just
+     lightened) so the active panel still reads as more prominent than a
+     mere hover, whichever accent preset is picked — was a hardcoded blue
+     here regardless of --color-accent, which is what broke the "match
+     whatever accent you picked" consistency the swatch picker promises. */
+  background: color-mix(in srgb, var(--color-accent) 75%, white);
   transform: translateX(0) skewX(-18deg);
 }
 
@@ -691,6 +703,32 @@ body.ui-mode-desktop .desktop-controls-row {
   opacity: 0.4;
 }
 
+/* Appearance > アクセントカラー preset swatches (see COLOR_ACCENT_PRESETS/
+   setupAppearancePanel in main.js) — each button's own background-color is
+   set inline in JS (the preset's own hex), not via a CSS class per color,
+   since the preset list lives in JS and isn't meant to need a matching CSS
+   edit whenever it changes. */
+.color-swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5em;
+  justify-content: flex-end;
+}
+
+.color-swatch {
+  width: 1.7em;
+  height: 1.7em;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.color-swatch.selected {
+  border-color: var(--color-text);
+}
+
 /* Custom checkbox, matching the radio button treatment (rounded square
    instead of a circle). Placed before .switch below so that rule's equal-
    specificity "input { opacity: 0 }" override still wins by source order,
@@ -713,12 +751,12 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]:hover {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
 }
 
 input[type="checkbox"]:checked {
-  border-color: #396cd8;
-  background-color: #396cd8;
+  border-color: var(--color-accent);
+  background-color: var(--color-accent);
 }
 
 input[type="checkbox"]:checked::after {
@@ -787,12 +825,12 @@ input[type="checkbox"]:checked::after {
 
 .switch input:checked + .switch-track::after {
   left: 21px;
-  background-color: #396cd8;
-  border-color: #396cd8;
+  background-color: var(--color-accent);
+  border-color: var(--color-accent);
 }
 
 .switch input:focus-visible + .switch-track::after {
-  outline: 2px solid #396cd8;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
@@ -884,7 +922,7 @@ input[type="checkbox"]:checked::after {
 }
 
 .ending-settings-summary:hover {
-  color: #396cd8;
+  color: var(--color-accent);
 }
 
 .ending-settings-number {
@@ -947,6 +985,65 @@ input[type="checkbox"]:checked::after {
   padding: 0 0.2em 0.9em;
 }
 
+/* Profile menu rows (see renderProfileMenuList in main.js) — its own
+   classes rather than reusing .ending-settings-summary's width:100% (built
+   for a row with exactly one interactive element spanning the full width),
+   since a profile row's header packs a radio, a details toggle, *and* two
+   buttons side by side — reusing that class forced the details button to
+   claim the full row width and pushed copy/paste onto wrapped lines below
+   it. .ending-settings-row/-detail/-chevron are still reused as-is (the
+   border, hidden-toggle, and chevron-rotate rules apply unchanged). */
+.profile-row-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.5em 0.2em;
+}
+
+.profile-row-select {
+  display: flex;
+  align-items: center;
+  gap: 0.35em;
+  flex: 0 0 auto;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-row-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4em;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0.4em 0.6em;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  color: var(--color-text);
+}
+
+.profile-row-summary:hover {
+  color: var(--color-accent);
+}
+
+.profile-row-header .profile-copy-btn,
+.profile-row-header .profile-paste-btn {
+  flex: 0 0 auto;
+}
+
+.profile-detail {
+  padding: 0 0.2em 1em;
+}
+
+.profile-character-select {
+  min-width: 12em;
+  max-width: 100%;
+}
+
 .ending-param-row {
   display: flex;
   align-items: center;
@@ -989,7 +1086,7 @@ input[type="checkbox"]:checked::after {
 
 .ending-param-val:hover,
 .ending-param-val:focus-visible {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
   outline: none;
 }
 
@@ -1012,7 +1109,7 @@ input[type="checkbox"]:checked::after {
 
 .ending-text-input:hover,
 .ending-text-input:focus-visible {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
   outline: none;
 }
 
@@ -1033,7 +1130,7 @@ input[type="checkbox"]:checked::after {
 
 .preset-json-area:hover,
 .preset-json-area:focus-visible {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
   outline: none;
 }
 
@@ -1047,7 +1144,7 @@ input[type="checkbox"]:checked::after {
   border: none;
   background: transparent;
   box-shadow: none;
-  color: #396cd8;
+  color: var(--color-accent);
   text-decoration: underline;
   cursor: pointer;
   font-size: 0.9em;
@@ -1078,7 +1175,7 @@ input[type="checkbox"]:checked::after {
 .character-style-btn.active {
   border-color: transparent;
   color: #ffffff;
-  background-color: #396cd8;
+  background-color: var(--color-accent);
 }
 
 .character-add-row {
@@ -1147,6 +1244,55 @@ input[type="checkbox"]:checked::after {
   flex: 1 1 0;
 }
 
+/* Image crop dialog (see openImageCropDialog/setupImageCropDialog in
+   main.js) — same "small centered card" shape as .confirm-dialog, just
+   wide enough for the preview canvas (its own pixel size is set from JS,
+   matching the VR keyboard's own canvas aspect ratio, not fixed here). */
+.image-crop-dialog {
+  width: min(700px, 92vw);
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  color: var(--color-text);
+  background-color: var(--color-surface);
+  animation: settings-dialog-in 0.22s ease;
+}
+
+.image-crop-dialog::backdrop {
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(8px);
+  animation: settings-backdrop-in 0.28s ease;
+}
+
+.image-crop-inner {
+  padding: 1.4em 1.6em;
+  text-align: center;
+}
+
+.image-crop-inner p {
+  margin: 0 0 0.8em;
+}
+
+#image-crop-canvas {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  touch-action: none;
+  cursor: grab;
+  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+}
+
+#image-crop-canvas:active {
+  cursor: grabbing;
+}
+
+#image-crop-zoom {
+  display: block;
+  width: 100%;
+  margin: 1em 0 1.2em;
+}
+
 .settings-close-btn {
   position: relative;
   isolation: isolate;
@@ -1195,7 +1341,23 @@ input[type="checkbox"]:checked::after {
 .row {
   display: flex;
   justify-content: center;
+  /* Without this, a plain-text child (e.g. the 設定済み/未設定 status span
+     next to the background-image buttons) stretched to match its taller
+     button siblings' height, then top-aligned within that stretched box —
+     reading as "sitting a little above center" instead of vertically
+     centered with them. */
+  align-items: center;
   gap: 0.6em;
+}
+
+/* .hint's own margin-bottom (from `.settings-content .hint`, 0.9em, vs. a
+   margin-top of 0) is normally harmless on a plain inline span — but as a
+   *direct flex-item child* of .row it gets blockified, so that lopsided
+   margin box is what align-items: center above actually centers, not the
+   text itself. The extra empty space below then visibly pushes the text up
+   off-center — align-items: center alone isn't enough. */
+.row > .hint {
+  margin: 0;
 }
 
 a {
@@ -1205,7 +1367,7 @@ a {
 }
 
 a:hover {
-  color: var(--color-link-hover);
+  color: var(--color-accent);
 }
 
 h1 {
@@ -1232,7 +1394,7 @@ button {
 }
 
 button:hover {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
 }
 
 button:disabled {
@@ -1257,7 +1419,7 @@ select {
 
 select:hover,
 select:focus-visible {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
   outline: none;
 }
 
@@ -1285,11 +1447,11 @@ input[type="radio"] {
 }
 
 input[type="radio"]:hover {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
 }
 
 input[type="radio"]:checked {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
 }
 
 input[type="radio"]:checked::after {
@@ -1297,7 +1459,7 @@ input[type="radio"]:checked::after {
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background-color: #396cd8;
+  background-color: var(--color-accent);
 }
 
 /* Custom range slider: a thin plain pill track and a round accent thumb,
@@ -1325,7 +1487,7 @@ input[type="range"]::-webkit-slider-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background-color: #396cd8;
+  background-color: var(--color-accent);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   cursor: pointer;
   transition: transform 0.15s ease;
@@ -1335,7 +1497,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
 }
 button:active {
-  border-color: #396cd8;
+  border-color: var(--color-accent);
   background-color: var(--color-active-bg);
 }
 
@@ -1358,7 +1520,6 @@ button {
     --color-surface-alt: #1f1f1f;
     --color-border: #3a3a3a;
     --color-sidebar-bg: #262626;
-    --color-active-bg: #0f0f0f69;
-    --color-link-hover: #24c8db;
+    --color-active-bg: color-mix(in srgb, var(--color-accent) 22%, #0f0f0f69);
   }
 }

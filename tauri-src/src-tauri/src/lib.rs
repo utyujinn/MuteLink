@@ -47,7 +47,119 @@ fn voicevox_dir() -> PathBuf {
 
 const VRCHAT_OSC_ADDR: &str = "127.0.0.1:9000";
 
+// Must match main.js's COLOR_ACCENT_PRESETS[0]/DEFAULT_ACCENT_COLOR (#3d6fd6)
+// — the keyboard's own KeyboardStyle::derive input before applyAppearance's
+// first set_vr_overlay_appearance push lands (see Hud::keyboard_accent).
+const DEFAULT_ACCENT_COLOR_RGB: [u8; 3] = [61, 111, 214];
+
+// Same directory as the downloaded character models (see voicevox_dir's own
+// comment) — already a writable, install-relative location this app uses
+// for user-added persistent data, so the pronunciation dictionary follows
+// the same convention rather than introducing a new one.
+fn user_dict_path() -> PathBuf {
+    voicevox_dir().join("user_dict.json")
+}
+
+// Which of the two independently-tintable VR overlay surfaces a
+// background-image command targets (settings > Appearance) — see
+// overlay::BackgroundImage/KeyboardVisuals for how each is actually drawn.
+// The VR keyboard grid and its own cursor-control block share one surface
+// ("keyboard") rather than having one each — they sit close enough together
+// (see overlay::CURSOR_BOX_PADDING/the few-px gap main.js's layout leaves
+// between them) that two independently-cropped images never actually read
+// as one continuous picture the way a single combined one, spanning both,
+// does — see keyboard_panel's own comment in overlay.rs. A plain string
+// crosses the Tauri command boundary (see set_background_image etc.) rather
+// than a serde enum, since it also doubles as the file-name discriminant
+// here; `parse` is the one place an unrecognized value becomes an error
+// instead of silently doing nothing.
+#[derive(Clone, Copy)]
+enum BackgroundSurface {
+    Keyboard,
+    Box,
+}
+
+impl BackgroundSurface {
+    fn parse(s: &str) -> Result<Self, String> {
+        match s {
+            "keyboard" => Ok(Self::Keyboard),
+            "box" => Ok(Self::Box),
+            other => Err(format!("unknown background surface: {other}")),
+        }
+    }
+
+    fn file_name(self) -> &'static str {
+        match self {
+            Self::Keyboard => "vr_keyboard_background.bin",
+            Self::Box => "vr_box_background.bin",
+        }
+    }
+}
+
+// Same convention as user_dict_path above. Unlike the old single-surface
+// vr_keyboard_background.rgba file (raw RGBA, no header, always exactly
+// KEYBOARD_CANVAS_WIDTH x KEYBOARD_CANVAS_HEIGHT since that was the only
+// size ever written), overlay::BackgroundImage is self-describing (any of
+// the three surfaces can be a different size — the cursor panel's own
+// target is a runtime Rect, not a compile-time constant, see its own
+// comment), so the file needs to carry its width/height alongside the
+// pixels: an 8-byte little-endian (width: u32, height: u32) header followed
+// by raw RGBA. That old file is no longer read; a background set before
+// this change needs to be re-picked once.
+fn background_image_path(surface: BackgroundSurface) -> PathBuf {
+    voicevox_dir().join(surface.file_name())
+}
+
+fn write_background_image_file(path: &Path, width: usize, height: usize, rgba: &[u8]) -> Result<(), String> {
+    let mut buf = Vec::with_capacity(8 + rgba.len());
+    buf.extend_from_slice(&(width as u32).to_le_bytes());
+    buf.extend_from_slice(&(height as u32).to_le_bytes());
+    buf.extend_from_slice(rgba);
+    fs::write(path, buf).map_err(|e| e.to_string())
+}
+
+// A wrong-sized or unreadable file shouldn't block startup — the surface
+// just falls back to its plain flat tint, same as if none had ever been set.
+fn load_background_image_file(path: &Path) -> Option<overlay::BackgroundImage> {
+    let bytes = fs::read(path).ok()?;
+    if bytes.len() < 8 {
+        return None;
+    }
+    let width = u32::from_le_bytes(bytes[0..4].try_into().unwrap()) as usize;
+    let height = u32::from_le_bytes(bytes[4..8].try_into().unwrap()) as usize;
+    let rgba = bytes[8..].to_vec();
+    (rgba.len() == width * height * 4).then_some((width, height, rgba))
+}
+
 struct VoicevoxState(Mutex<Synthesizer<OpenJtalk>>);
+
+// The pronunciation-fix dictionary (settings > General, see
+// list_pronunciation_words/add_pronunciation_word/remove_pronunciation_word)
+// — surfaces OpenJtalk::use_user_dict, VOICEVOX's own supported way to
+// override how a specific word is read, for cases where its rule-based
+// reading disambiguation gets it wrong (e.g. は misread as the わ topic-
+// particle pronunciation in text that isn't actually using は that way).
+// Kept as its own Mutex<UserDict> rather than folding into VoicevoxState:
+// the word list itself needs to persist/be listable independent of the
+// Synthesizer, which only ever needs read access to hand to
+// text_analyzer().use_user_dict() after a change.
+struct UserDictState(Mutex<voicevox_core::blocking::UserDict>);
+
+// Loads whatever was saved from a previous session (silently starting
+// empty if the file doesn't exist yet, or can't be read — a corrupt/missing
+// dictionary file shouldn't block the app from starting; synthesis just
+// falls back to OpenJTalk's own default readings, same as before this
+// feature existed) and immediately applies it to the synthesizer's analyzer
+// so it's in effect from the very first synthesize() call.
+fn load_user_dict(synth: &Synthesizer<OpenJtalk>) -> voicevox_core::blocking::UserDict {
+    let dict = voicevox_core::blocking::UserDict::new();
+    let path = user_dict_path();
+    if path.exists() {
+        let _ = dict.load(&path);
+    }
+    let _ = synth.text_analyzer().use_user_dict(&dict);
+    dict
+}
 
 fn init_synthesizer() -> anyhow::Result<Synthesizer<OpenJtalk>> {
     let dir = voicevox_dir();
@@ -108,6 +220,63 @@ fn synthesize(
     }
 
     synth.synthesis(&query, style_id).perform().map_err(|e| e.to_string())
+}
+
+#[derive(Serialize)]
+struct PronunciationWordArg {
+    id: String,
+    surface: String,
+    pronunciation: String,
+}
+
+#[tauri::command]
+fn list_pronunciation_words(state: State<UserDictState>) -> Result<Vec<PronunciationWordArg>, String> {
+    let dict = state.0.lock().map_err(|e| e.to_string())?;
+    Ok(dict.with_words(|words| {
+        words
+            .iter()
+            .map(|(id, word)| PronunciationWordArg {
+                id: id.to_string(),
+                surface: word.surface().to_string(),
+                pronunciation: word.pronunciation().to_string(),
+            })
+            .collect()
+    }))
+}
+
+// accent_type is fixed at 0 (heiban/flat) rather than exposed to the
+// settings UI — VOICEVOX's own dictionary editor lets you place the pitch
+// drop anywhere, but that's real pitch-accent editing, more than this
+// feature needs to be useful for: it exists to fix a wrong *reading*
+// (surface -> pronunciation), and flat is a reasonable default that's still
+// far closer than the misreading being corrected either way.
+#[tauri::command]
+fn add_pronunciation_word(
+    surface: String,
+    pronunciation: String,
+    voicevox: State<VoicevoxState>,
+    state: State<UserDictState>,
+) -> Result<String, String> {
+    let word = voicevox_core::UserDictWord::builder()
+        .build(&surface, pronunciation, 0)
+        .map_err(|e| e.to_string())?;
+    let dict = state.0.lock().map_err(|e| e.to_string())?;
+    let id = dict.add_word(word).map_err(|e| e.to_string())?;
+    dict.save(user_dict_path()).map_err(|e| e.to_string())?;
+    let synth = voicevox.0.lock().map_err(|e| e.to_string())?;
+    synth.text_analyzer().use_user_dict(&dict).map_err(|e| e.to_string())?;
+    Ok(id.to_string())
+}
+
+#[tauri::command]
+fn remove_pronunciation_word(id: String, voicevox: State<VoicevoxState>, state: State<UserDictState>) -> Result<(), String> {
+    let uuid = uuid::Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    let dict = state.0.lock().map_err(|e| e.to_string())?;
+    dict.remove_word(uuid).map_err(|e| e.to_string())?;
+    dict.save(user_dict_path()).map_err(|e| e.to_string())?;
+    let synth = voicevox.0.lock().map_err(|e| e.to_string())?;
+    synth.text_analyzer().use_user_dict(&dict).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[derive(Serialize, Clone)]
@@ -280,7 +449,45 @@ struct Hud {
     // own comment. These only ever skip *rasterizing* identical content
     // again; the GPU upload still happens every tick regardless.
     box_raster: Option<(BoxRasterInputs, Vec<u8>)>,
+    box_cache: overlay::BoxCache,
+    // The confirm/discard box's own background image, if the user set one
+    // (settings > Appearance) — self-describing (width, height, rgba), see
+    // overlay::BackgroundImage. Loaded once at startup from
+    // background_image_path(Box) if that file exists.
+    box_background: Option<overlay::BackgroundImage>,
+    box_bg_opacity: f32,
+    // Bumped on every set/clear_background_image(Box) and on every
+    // set_vr_overlay_appearance call — overlay::render's own panel memo is
+    // keyed on this, not on box_background/box_bg_opacity directly, so it
+    // doesn't need to compare the whole buffer on every render tick just to
+    // notice nothing changed.
+    box_style_epoch: u32,
     keyboard_cache: overlay::KeyboardCache,
+    // The VR keyboard's own background image (shared by the grid and its
+    // cursor-control block — see BackgroundSurface's own comment), if the
+    // user set one (settings > Appearance) — self-describing (width,
+    // height, rgba), see overlay::BackgroundImage. Loaded once at startup
+    // from background_image_path(Keyboard) if that file exists.
+    keyboard_background: Option<overlay::BackgroundImage>,
+    keyboard_bg_opacity: f32,
+    // The keyboard keys' own opacity (separate from keyboard_bg_opacity,
+    // which only tints the panel behind them) — settings > Appearance, see
+    // overlay::KeyboardVisuals::key_opacity.
+    key_opacity: f32,
+    // The accent color the keyboard's own colors are derived from (settings
+    // > Appearance > アクセントカラー — same value styles.css's own
+    // --color-accent uses) — see overlay::KeyboardStyle::derive. Defaults to
+    // DEFAULT_ACCENT_COLOR_RGB until main.js's applyAppearance pushes the
+    // user's actual pick via set_vr_overlay_appearance (happens once at
+    // startup, so in practice this default is only ever visible for the
+    // brief window before that first push lands).
+    keyboard_accent: [u8; 3],
+    // Bumped on every set/clear_background_image(Keyboard) and on every
+    // set_vr_overlay_appearance call — covers everything KeyboardVisuals
+    // carries, same reasoning as box_style_epoch above (see also
+    // compose_keyboard_frame's own comment on why this has to be one
+    // counter, not a field per input).
+    keyboard_style_epoch: u32,
     // One laser pointer per hand, indexed by POINTER_HANDS — both show at
     // once so either hand's aim is visible before its trigger is pulled
     // (which hand's trigger actually types is main.js's
@@ -328,10 +535,11 @@ struct PointerSet {
     // update_pointer_overlays) so SteamVR's own tracking keeps it aligned
     // with the hand, with no per-frame ray math on this end — just a
     // translation offset along that controller's own -Z.
-    // Its content is static (render_pointer_dot() never changes) but gets
-    // re-uploaded for the first few visible frames after each show — see
-    // uploads_left and update_pointer_overlays' own comment for why a
-    // single upload at init time isn't enough.
+    // Its content is fixed *within one show* (render_pointer_dot() only
+    // ever depends on the accent color, which isn't expected to change
+    // mid-point) but gets re-uploaded for the first few visible frames after
+    // each show — see uploads_left and update_pointer_overlays' own comment
+    // for why a single upload at init time isn't enough.
     dot_handle: openvr::overlay::OverlayHandle,
     dot_gpu: overlay_gpu::GpuOverlay,
     // The laser line reaching from the controller out to dot_handle's
@@ -489,7 +697,16 @@ fn init_hud_overlay(context: &openvr::Context) -> Result<Hud, String> {
         // Matches the box's own HUD_TRANSFORM call above.
         box_binding: BoxBinding::Hmd,
         box_raster: None,
+        box_cache: overlay::BoxCache::default(),
+        box_background: load_background_image_file(&background_image_path(BackgroundSurface::Box)),
+        box_bg_opacity: overlay::BOX_ALPHA_DEFAULT,
+        box_style_epoch: 0,
         keyboard_cache: overlay::KeyboardCache::default(),
+        keyboard_background: load_background_image_file(&background_image_path(BackgroundSurface::Keyboard)),
+        keyboard_bg_opacity: overlay::KEYBOARD_BG_ALPHA_DEFAULT,
+        key_opacity: overlay::KEY_OPACITY_DEFAULT,
+        keyboard_accent: DEFAULT_ACCENT_COLOR_RGB,
+        keyboard_style_epoch: 0,
         pointers,
     })
 }
@@ -567,7 +784,7 @@ fn init_pointer_set(overlay: &mut openvr::Overlay, keys: [&str; 3], hand: &str) 
 // easier to read while looking down at it. keyboard_world_transform derives
 // the panel's actual world-space normal/right/up from this transform's own
 // rotation (composed with the HMD's) for the hit-test, so the hit-test and
-// the visual tilt always agree — see ray_cast_keyboard_plane's own comment.
+// the visual tilt always agree — see ray_cast_plane's own comment.
 // The "fixed" position mode (see KeyboardPlacement) anchors from this same
 // composition, so it opens exactly where the centered mode would. Sits below the
 // confirm/discard box (hand-tuned Y so the two don't overlap — the keyboard
@@ -628,8 +845,11 @@ const KEYBOARD_TRANSFORM: [[f32; 4]; 3] = [
 // own comment on the stale-texture race) rather than an actual visibility
 // problem, and read as too large once that bug was fixed; 1.5cm still read
 // as too large once the "covers the whole screen" beam bug was also fixed
-// (see POINTER_MAX_DISTANCE) — down to 1/3 of that.
-const POINTER_WORLD_WIDTH: f32 = 0.005;
+// (see POINTER_MAX_DISTANCE) — down to 1/3 of that (0.5cm), which then read
+// as too *small* once the click-to-place-cursor feature made the dot the
+// only visual feedback for exactly where a click will land — doubled back
+// up to 1cm.
+const POINTER_WORLD_WIDTH: f32 = 0.01;
 
 // Tag's top-left corner, as a flat offset (plain meters) from the box's own
 // bottom-left corner — hand-tuned, nudge these two numbers directly rather
@@ -778,7 +998,7 @@ fn mat_inverse_compose(a: &[[f32; 4]; 3], b: &[[f32; 4]; 3]) -> [[f32; 4]; 3] {
 // — a common adjustment for VR laser pointers. Tilting the aim ray down by
 // this much (rotating -Z toward -Y, i.e. toward the floor, around the
 // controller's own local X) is applied identically to the invisible
-// hit-test ray (ray_cast_keyboard_plane) and the visible pointer/beam, so
+// hit-test ray (ray_cast_plane) and the visible pointer/beam, so
 // what's drawn always matches what's actually being aimed at. Precomputed
 // sin/cos of 40 degrees (trig isn't available in stable const contexts) —
 // started at 20, then +15 (35), +2 (37), +3 (40) across successive rounds
@@ -795,7 +1015,7 @@ fn controller_aim_direction() -> [f32; 3] {
 // for nudging where the beam visually starts from without changing the
 // angle it points at. Negative Y = down, same convention
 // KEYBOARD_TRANSFORM's own Y offset uses. Applied everywhere the ray
-// origin is used: ray_cast_keyboard_plane's hit-test, and the dot/beam's
+// origin is used: ray_cast_plane's hit-test, and the dot/beam's
 // own transforms (pointer_dot_transform/pointer_beam_transform) — those
 // apply it directly since they're already expressed in controller-local
 // space (SteamVR composes the controller's live rotation on top via
@@ -831,7 +1051,7 @@ const AIM_ORIGIN_OFFSET: [f32; 3] = [0.0, -0.06, 0.0];
 // the pointer/beam should keep tracking the plane's depth right up to (and
 // past) its edges rather than snapping back to a fallback distance the
 // moment the aim drifts off the panel.
-fn ray_cast_keyboard_plane(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
+fn ray_cast_plane(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
     let kbd_pos = mat_translation(panel);
     let kbd_right = mat_basis_col(panel, 0);
     let kbd_up = mat_basis_col(panel, 1);
@@ -858,18 +1078,41 @@ fn ray_cast_keyboard_plane(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3
     Some((local_x, local_y, t))
 }
 
-fn ray_cast_keyboard(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
-    let (local_x, local_y, t) = ray_cast_keyboard_plane(panel, controller_pose)?;
+// ray_cast_plane's hit, mapped into a `canvas_w`x`canvas_h` overlay's own
+// canvas pixels — `None` past its edges. `world_width` must be the same
+// value that overlay's set_width was given: SteamVR derives the quad's
+// world height from the texture's aspect ratio, so the same ratio gives it
+// here too.
+fn ray_cast_canvas(
+    pose: &[[f32; 4]; 3],
+    controller_pose: &[[f32; 4]; 3],
+    world_width: f32,
+    canvas_w: usize,
+    canvas_h: usize,
+) -> Option<(f32, f32, f32)> {
+    let (local_x, local_y, t) = ray_cast_plane(pose, controller_pose)?;
 
-    let kbd_world_height = KEYBOARD_WORLD_WIDTH * (overlay::KEYBOARD_CANVAS_HEIGHT as f32 / overlay::KEYBOARD_CANVAS_WIDTH as f32);
-    let px = (local_x + KEYBOARD_WORLD_WIDTH / 2.0) / KEYBOARD_WORLD_WIDTH * overlay::KEYBOARD_CANVAS_WIDTH as f32;
+    let (canvas_w, canvas_h) = (canvas_w as f32, canvas_h as f32);
+    let world_height = world_width * (canvas_h / canvas_w);
+    let px = (local_x + world_width / 2.0) / world_width * canvas_w;
     // World +Y is up; canvas +Y is down — flip.
-    let py = (kbd_world_height / 2.0 - local_y) / kbd_world_height * overlay::KEYBOARD_CANVAS_HEIGHT as f32;
+    let py = (world_height / 2.0 - local_y) / world_height * canvas_h;
 
-    if px < 0.0 || py < 0.0 || px >= overlay::KEYBOARD_CANVAS_WIDTH as f32 || py >= overlay::KEYBOARD_CANVAS_HEIGHT as f32 {
-        return None; // hit the plane, but outside the actual panel's bounds
+    if px < 0.0 || py < 0.0 || px >= canvas_w || py >= canvas_h {
+        return None; // hit the plane, but outside the actual overlay's bounds
     }
     Some((px, py, t))
+}
+
+fn ray_cast_keyboard(panel: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
+    ray_cast_canvas(panel, controller_pose, KEYBOARD_WORLD_WIDTH, overlay::KEYBOARD_CANVAS_WIDTH, overlay::KEYBOARD_CANVAS_HEIGHT)
+}
+
+// The confirm/discard box — `box_pose` from box_world_transform, for the same
+// "hit-test exactly what's drawn" reason ray_cast_keyboard's `panel` comes
+// from keyboard_world_transform.
+fn ray_cast_box(box_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3]) -> Option<(f32, f32, f32)> {
+    ray_cast_canvas(box_pose, controller_pose, HUD_WORLD_WIDTH, overlay::CANVAS_WIDTH, overlay::CANVAS_HEIGHT)
 }
 
 // Takes a precomputed bitmask (1 << button_id) rather than the button id
@@ -1130,13 +1373,24 @@ async fn update_overlay(
         double_click: double_click.map(|d| (d.stage, d.is_send)),
         cursor,
         highlight_range: highlight_start.zip(highlight_end),
+        // Part of the memo key alongside the text-level fields above — a
+        // background/opacity change with the text content unchanged (the
+        // common case, since Appearance edits don't touch final_text etc.)
+        // would otherwise keep reusing pixels rasterized before the change.
+        // See overlay::render's own box_style_epoch parameter.
+        box_style_epoch: hud.box_style_epoch,
     };
     if hud.box_raster.as_ref().is_some_and(|(prev, _)| *prev != inputs) {
         hud.box_raster = None;
     }
-    let (_, pixels) = hud.box_raster.get_or_insert_with(|| {
+    // Not get_or_insert_with(closure): the closure would need to borrow
+    // hud.box_cache while hud.box_raster is already mutably borrowed as the
+    // method receiver — same sibling-field pattern as compose_keyboard_frame,
+    // just spelled out instead of relying on disjoint closure capture.
+    if hud.box_raster.is_none() {
         let progress = inputs.progress.map(|(is_send, fraction)| overlay::OverlayProgress { is_send, fraction });
         let pixels = overlay::render(
+            &mut hud.box_cache,
             &inputs.final_text,
             &inputs.interim_text,
             inputs.ending_preview.as_deref(),
@@ -1144,9 +1398,14 @@ async fn update_overlay(
             inputs.double_click,
             inputs.cursor,
             inputs.highlight_range,
+            hud.box_background.as_ref(),
+            hud.box_bg_opacity,
+            hud.box_style_epoch,
+            hud.keyboard_accent,
         );
-        (inputs, pixels)
-    });
+        hud.box_raster = Some((inputs, pixels));
+    }
+    let (_, pixels) = hud.box_raster.as_ref().expect("filled just above");
     hud.gpu.update(hud.handle.0, pixels)?;
     hud.overlay.set_opacity(hud.handle, fade_alpha.clamp(0.0, 1.0)).map_err(|e| format!("{e:?}"))?;
     hud.overlay.set_visibility(hud.handle, true).map_err(|e| format!("{e:?}"))?;
@@ -1164,11 +1423,19 @@ struct BoxRasterInputs {
     double_click: Option<(u8, bool)>,
     cursor: Option<usize>,
     highlight_range: Option<(usize, usize)>,
+    box_style_epoch: u32,
 }
 
 fn hmd_absolute_pose(system: &openvr::System) -> Option<[[f32; 4]; 3]> {
+    device_absolute_pose(system, openvr::tracked_device_index::HMD)
+}
+
+// By raw device index rather than controller role — BoxBinding::Device
+// stores the index it parented the box to (that's what the compositor was
+// given), so resolving the box's pose has to go through the same index.
+fn device_absolute_pose(system: &openvr::System, index: openvr::TrackedDeviceIndex) -> Option<[[f32; 4]; 3]> {
     let poses = system.device_to_absolute_tracking_pose(openvr::TrackingUniverseOrigin::Standing, 0.0);
-    let pose = &poses[openvr::tracked_device_index::HMD.0 as usize];
+    let pose = &poses[index.0 as usize];
     pose.pose_is_valid().then(|| *pose.device_to_absolute_tracking())
 }
 
@@ -1239,11 +1506,18 @@ struct HandHit {
     hit_x: Option<f32>,
     #[serde(rename = "hitY")]
     hit_y: Option<f32>,
+    // Where a trigger pull right now would put the text cursor, if this
+    // hand is aiming at the confirm/discard box instead of the panel — see
+    // overlay::text_index_at. Resolved here, every tick, rather than by a
+    // separate on-click command, so main.js also knows from this alone
+    // whether to show this hand's laser (see its own boxCursorIndex).
+    #[serde(rename = "boxCursorIndex")]
+    box_cursor_index: Option<usize>,
 }
 
 impl HandHit {
     fn none() -> Self {
-        Self { highlighted_index: None, hit_x: None, hit_y: None }
+        Self { highlighted_index: None, hit_x: None, hit_y: None, box_cursor_index: None }
     }
 }
 
@@ -1265,16 +1539,38 @@ impl UpdateKeyboardResult {
 // trigger press on the *other* hand engage a stale highlight left over from
 // before it became active, since that hand's own hover hadn't been
 // ray-cast at all until the *next* tick).
-fn hand_hit(system: &openvr::System, panel: Option<[[f32; 4]; 3]>, role: openvr::TrackedControllerRole, buttons: &[KeyButtonArg]) -> HandHit {
-    let hit = (|| {
-        let panel = panel?;
-        let controller_pose = controller_absolute_pose(system, role)?;
-        let (px, py, _t) = ray_cast_keyboard(&panel, &controller_pose)?;
-        Some((px, py))
-    })();
+//
+// `box_target` is the confirm/discard box's current pose plus the text it
+// was last rasterized with (Hud::box_raster — i.e. exactly what's on screen,
+// so a click resolves against the drawn layout, not whatever main.js has
+// changed pendingFinalText to since). When the ray lands in both rectangles
+// (they don't overlap head-on, but can from a steep enough angle), only the
+// nearer one counts, the same way the nearer surface is what the laser ends
+// on (see update_pointer_set) — so a trigger pull always acts on the
+// surface the dot is visibly sitting on.
+fn hand_hit(
+    system: &openvr::System,
+    panel: Option<[[f32; 4]; 3]>,
+    box_target: Option<([[f32; 4]; 3], &BoxRasterInputs)>,
+    role: openvr::TrackedControllerRole,
+    buttons: &[KeyButtonArg],
+) -> HandHit {
+    let Some(controller_pose) = controller_absolute_pose(system, role) else {
+        return HandHit::none();
+    };
+    let panel_hit = panel.and_then(|p| ray_cast_keyboard(&p, &controller_pose));
+    let box_hit = box_target.and_then(|(pose, text)| ray_cast_box(&pose, &controller_pose).map(|hit| (hit, text)));
+    let (panel_hit, box_hit) = match (panel_hit, box_hit) {
+        (Some(p), Some(b)) if (b.0).2 < p.2 => (None, Some(b)),
+        (Some(p), Some(_)) => (Some(p), None),
+        other => other,
+    };
+    let hit = panel_hit.map(|(px, py, _t)| (px, py));
     let highlighted_index =
         hit.and_then(|(px, py)| buttons.iter().position(|b| px >= b.x && px < b.x + b.w && py >= b.y && py < b.y + b.h));
-    HandHit { highlighted_index, hit_x: hit.map(|(x, _)| x), hit_y: hit.map(|(_, y)| y) }
+    let box_cursor_index =
+        box_hit.and_then(|((px, py, _t), text)| overlay::text_index_at(&text.final_text, &text.interim_text, px, py));
+    HandHit { highlighted_index, hit_x: hit.map(|(x, _)| x), hit_y: hit.map(|(_, y)| y), box_cursor_index }
 }
 
 // VR flick-input keyboard (TASK.md #23) — see overlay.rs's own top comment
@@ -1311,6 +1607,13 @@ async fn update_keyboard_overlay(
     // fade-out main.js keeps sending visible=true, so a close-then-reopen
     // inside that window never shows up as a visibility change on this end.
     reanchor: bool,
+    // The *right* controller's current stick Y axis (see hotkey_state's own
+    // HandState::stick_y) — only ever used while the keyboard is being
+    // grip-dragged (see apply_keyboard_grab_depth), to push/pull it along
+    // view depth regardless of which hand is actually holding it. Sent
+    // every call (like fixed_position) rather than via a separate command,
+    // same "applies on the very next tick" reasoning.
+    grab_depth_stick_y: f32,
     state: State<'_, OpenVrState>,
 ) -> Result<UpdateKeyboardResult, String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
@@ -1332,14 +1635,25 @@ async fn update_keyboard_overlay(
     // before set_visibility(true) further down, so a fixed-mode reopen never
     // flashes a frame at the previous session's spot.
     apply_keyboard_placement(hud, hmd_pose, fixed_position, reanchor)?;
+    // Also before keyboard_world_transform below, so a push/pull this same
+    // tick is reflected in this tick's own hit-testing/rendering rather than
+    // lagging a tick behind.
+    apply_keyboard_grab_depth(hud, hmd_pose, &handles.system, grab_depth_stick_y)?;
     hud.keyboard_shown = true;
     sync_box_to_keyboard(hud, &handles.system)?;
     let panel = keyboard_world_transform(&hud.keyboard_placement, &handles.system, hmd_pose);
     if let (KeyboardPlacement::Grabbed { last_world, .. }, Some(p)) = (&mut hud.keyboard_placement, panel) {
         *last_world = p;
     }
-    let right = hand_hit(&handles.system, panel, openvr::TrackedControllerRole::RightHand, &buttons);
-    let left = hand_hit(&handles.system, panel, openvr::TrackedControllerRole::LeftHand, &buttons);
+    // sync_box_to_keyboard above already ran this tick, so box_binding is
+    // current. box_raster is always Some here in practice (main.js keeps the
+    // box showing whenever the keyboard is — see update_overlay's `editing`),
+    // but it's filled by a *separate* command, so the very first tick after
+    // launch can reach here before it ever has been.
+    let box_target = box_world_transform(&hud.box_binding, &handles.system, hmd_pose)
+        .zip(hud.box_raster.as_ref().map(|(inputs, _)| inputs));
+    let right = hand_hit(&handles.system, panel, box_target, openvr::TrackedControllerRole::RightHand, &buttons);
+    let left = hand_hit(&handles.system, panel, box_target, openvr::TrackedControllerRole::LeftHand, &buttons);
 
     let render_buttons: Vec<overlay::KeyButton> = buttons
         .into_iter()
@@ -1375,7 +1689,14 @@ async fn update_keyboard_overlay(
     // every tick measured well over the tick budget. Fade is
     // compositor-side, same as update_overlay's.
     let cursor_box = (cursor_box.x, cursor_box.y, cursor_box.w, cursor_box.h);
-    let pixels = overlay::render_keyboard(&mut hud.keyboard_cache, render_buttons, cursor_box);
+    let visuals = overlay::KeyboardVisuals {
+        accent: hud.keyboard_accent,
+        key_opacity: hud.key_opacity,
+        keyboard_bg_opacity: hud.keyboard_bg_opacity,
+        keyboard_background: hud.keyboard_background.as_ref(),
+        epoch: hud.keyboard_style_epoch,
+    };
+    let pixels = overlay::render_keyboard(&mut hud.keyboard_cache, render_buttons, cursor_box, visuals);
     hud.keyboard_gpu.update(hud.keyboard_handle.0, pixels)?;
     hud.overlay.set_opacity(hud.keyboard_handle, fade_alpha.clamp(0.0, 1.0)).map_err(|e| format!("{e:?}"))?;
     hud.overlay.set_visibility(hud.keyboard_handle, true).map_err(|e| format!("{e:?}"))?;
@@ -1403,6 +1724,21 @@ fn keyboard_world_transform(
         KeyboardPlacement::Grabbed { role, relative, last_world } => {
             Some(controller_absolute_pose(system, *role).map_or(*last_world, |c| mat_compose(&c, relative)))
         }
+    }
+}
+
+// The confirm/discard box's world-space pose as the compositor is currently
+// rendering it — keyboard_world_transform's counterpart, derived from
+// Hud::box_binding (what sync_box_to_keyboard last actually pushed to
+// SteamVR) rather than recomputed from the keyboard's placement, so it
+// can't disagree with what's on screen even on a tick where the two haven't
+// been re-synced yet. None only when the device the box is parented to (the
+// HMD, or the grabbing controller) has no valid pose this tick.
+fn box_world_transform(binding: &BoxBinding, system: &openvr::System, hmd_pose: Option<[[f32; 4]; 3]>) -> Option<[[f32; 4]; 3]> {
+    match binding {
+        BoxBinding::Hmd => hmd_pose.map(|h| mat_compose(&h, &HUD_TRANSFORM)),
+        BoxBinding::Absolute(m) => Some(*m),
+        BoxBinding::Device(index, m) => device_absolute_pose(system, *index).map(|d| mat_compose(&d, m)),
     }
 }
 
@@ -1461,6 +1797,88 @@ fn apply_keyboard_placement(hud: &mut Hud, hmd_pose: Option<[[f32; 4]; 3]>, fixe
         None if is_centered => Ok(()),
         None => set_keyboard_centered(hud),
     }
+}
+
+// How far the panel moves per tick at full stick deflection — meters per
+// *tick*, not per second, since main.js's poll loop (HOTKEY_POLL_MS, ~50Hz)
+// is the only clock either side tracks here; picked to read as roughly
+// 1m/s at full tilt.
+const KEYBOARD_GRAB_DEPTH_SPEED_PER_TICK: f32 = 0.02;
+// Below this, treat the stick as centered — a physical stick rarely reports
+// exactly 0 at rest, and without a deadzone the panel would slowly creep
+// away on its own from that noise alone.
+const KEYBOARD_GRAB_DEPTH_DEADZONE: f32 = 0.15;
+
+// While the keyboard is being grip-dragged (see KeyboardPlacement::Grabbed),
+// the *right* stick's Y axis pushes/pulls it along view depth — regardless
+// of which hand is actually holding it, so gripping with the left hand
+// still leaves the right thumb free to adjust distance. Tilting up
+// (positive stick_y) pushes the panel further away (into the screen);
+// down pulls it closer — matching HUD_TRANSFORM/KEYBOARD_TRANSFORM's own
+// convention of placing panels along the HMD's local -Z ("forward").
+//
+// The push direction itself is derived from the *HMD's* forward (world
+// space, via mat_rotate_vec), not the grabbing controller's — using the
+// controller's own forward would have the push direction swing around
+// with every twist of the wrist, which doesn't read as "push it away from
+// me" at all. That world-space offset is then converted into an increment
+// on `relative`'s own translation (which lives in the grabbing
+// controller's local frame — see begin_keyboard_grab) via
+// mat_rotate_vec_inverse, so world = controller * relative still lands the
+// panel at the intended world-space offset regardless of the controller's
+// current orientation.
+fn apply_keyboard_grab_depth(
+    hud: &mut Hud,
+    hmd_pose: Option<[[f32; 4]; 3]>,
+    system: &openvr::System,
+    stick_y: f32,
+) -> Result<(), String> {
+    if stick_y.abs() < KEYBOARD_GRAB_DEPTH_DEADZONE {
+        return Ok(());
+    }
+    let role = match hud.keyboard_placement {
+        KeyboardPlacement::Grabbed { role, .. } => role,
+        _ => return Ok(()),
+    };
+    let Some(hmd_pose) = hmd_pose else {
+        return Ok(());
+    };
+    let Some(index) = system.tracked_device_index_for_controller_role(role) else {
+        return Ok(());
+    };
+    let Some(controller_pose) = controller_absolute_pose(system, role) else {
+        return Ok(());
+    };
+    let forward_world = mat_rotate_vec(&hmd_pose, [0.0, 0.0, -1.0]);
+    let world_offset = vec_scale(forward_world, stick_y * KEYBOARD_GRAB_DEPTH_SPEED_PER_TICK);
+    let local_offset = mat_rotate_vec_inverse(&controller_pose, world_offset);
+
+    // Updating only KeyboardPlacement changes what the ray-cast and the
+    // confirm/discard box use, but the compositor keeps rendering the
+    // keyboard with the old controller-relative transform. Push the new
+    // relative transform too; sync_box_to_keyboard then derives the box from
+    // this same matrix, keeping the two overlays locked together.
+    let updated_relative = match &hud.keyboard_placement {
+        KeyboardPlacement::Grabbed { relative, .. } => {
+            let t = vec_add(mat_translation(relative), local_offset);
+            let mut updated = *relative;
+            updated[0][3] = t[0];
+            updated[1][3] = t[1];
+            updated[2][3] = t[2];
+            updated
+        }
+        _ => return Ok(()),
+    };
+    hud.overlay
+        .set_transform_tracked_device_relative(hud.keyboard_handle, index, &openvr::pose::Matrix3x4(updated_relative))
+        .map_err(|e| format!("{e:?}"))?;
+    // Commit the state only after SteamVR accepted the new transform, so a
+    // transient overlay error can't make hit-testing/box placement diverge
+    // from the keyboard actually being rendered.
+    if let KeyboardPlacement::Grabbed { relative, .. } = &mut hud.keyboard_placement {
+        *relative = updated_relative;
+    }
+    Ok(())
 }
 
 fn controller_role_for_hand(hand: &str) -> openvr::TrackedControllerRole {
@@ -1548,6 +1966,104 @@ async fn end_keyboard_grab(state: State<'_, OpenVrState>) -> Result<(), String> 
     // Same-call reason as begin_keyboard_grab's: bake the box down together
     // with the panel, from the very same `panel` pose.
     sync_box_to_keyboard(hud, &handles.system)
+}
+
+// Applies a newly-set/cleared background image to whichever epoch it
+// affects — the keyboard grid and its cursor-control block share one canvas
+// (and thus one KeyboardVisuals/epoch, see keyboard_panel), while the
+// confirm/discard box is a fully separate overlay/canvas with its own.
+fn apply_background_to_hud(hud: &mut Hud, surface: BackgroundSurface, image: Option<overlay::BackgroundImage>) {
+    match surface {
+        BackgroundSurface::Keyboard => {
+            hud.keyboard_background = image;
+            hud.keyboard_style_epoch += 1;
+        }
+        BackgroundSurface::Box => {
+            hud.box_background = image;
+            hud.box_style_epoch += 1;
+        }
+    }
+}
+
+// One of the two tintable VR overlay surfaces' background image (settings >
+// Appearance) — `width`/`height` are whatever the frontend's own crop tool
+// cropped/resized to for that surface (see main.js's vrBackgroundSurfaces;
+// each surface has its own target size, so this isn't validated against a
+// single fixed constant here — see overlay::BackgroundImage's own comment).
+// Persisted to disk unconditionally (so it's there on the next launch even
+// if OpenVR/the HUD isn't currently up), and applied to the live Hud only
+// when one exists — a sync fn, not async, matching add_pronunciation_word's
+// own reasoning: this isn't a render-tick command, so there's no need to
+// keep it off whatever thread Tauri already dispatches plain commands to.
+#[tauri::command]
+fn set_background_image(surface: String, width: u32, height: u32, rgba: Vec<u8>, state: State<'_, OpenVrState>) -> Result<(), String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let (width, height) = (width as usize, height as usize);
+    if rgba.len() != width * height * 4 {
+        return Err(format!("expected {} bytes ({width}x{height}x4), got {}", width * height * 4, rgba.len()));
+    }
+    write_background_image_file(&background_image_path(surface), width, height, &rgba)?;
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(handles) = guard.as_mut() {
+        if let Ok(hud) = handles.hud.as_mut() {
+            apply_background_to_hud(hud, surface, Some((width, height, rgba)));
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn clear_background_image(surface: String, state: State<'_, OpenVrState>) -> Result<(), String> {
+    let surface = BackgroundSurface::parse(&surface)?;
+    let path = background_image_path(surface);
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| e.to_string())?;
+    }
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(handles) = guard.as_mut() {
+        if let Ok(hud) = handles.hud.as_mut() {
+            apply_background_to_hud(hud, surface, None);
+        }
+    }
+    Ok(())
+}
+
+// Read straight from disk rather than through OpenVrState — settings >
+// Appearance needs this at dialog-setup time regardless of whether SteamVR
+// (and thus the Hud that mirrors this same file) is even running.
+#[tauri::command]
+fn has_background_image(surface: String) -> Result<bool, String> {
+    Ok(background_image_path(BackgroundSurface::parse(&surface)?).exists())
+}
+
+// The keyboard/box opacity sliders and the accent color (settings >
+// Appearance) — bundled into one command rather than a setter per field so
+// bumping the right epoch(s) lives in exactly one place. main.js's
+// applyAppearance pushes this on every relevant Appearance change, once at
+// startup, and again after a successful reconnect_vr (which rebuilds Hud
+// from scratch, back at this module's hardcoded defaults) — unlike the
+// background images above, these aren't persisted on this side at all; the
+// frontend's own localStorage is already the source of truth for them.
+#[tauri::command]
+fn set_vr_overlay_appearance(
+    keyboard_bg_opacity: f32,
+    box_bg_opacity: f32,
+    key_opacity: f32,
+    accent: [u8; 3],
+    state: State<'_, OpenVrState>,
+) -> Result<(), String> {
+    let mut guard = state.0.lock().map_err(|e| e.to_string())?;
+    if let Some(handles) = guard.as_mut() {
+        if let Ok(hud) = handles.hud.as_mut() {
+            hud.keyboard_bg_opacity = keyboard_bg_opacity;
+            hud.box_bg_opacity = box_bg_opacity;
+            hud.key_opacity = key_opacity;
+            hud.keyboard_accent = accent;
+            hud.keyboard_style_epoch += 1;
+            hud.box_style_epoch += 1;
+        }
+    }
+    Ok(())
 }
 
 // Which transform the confirm/discard box (Hud::handle) is currently bound
@@ -1639,13 +2155,13 @@ fn sync_box_to_keyboard(hud: &mut Hud, system: &openvr::System) -> Result<(), St
 // having a pointer at all), the panel simply drew in front of them,
 // hiding both completely. Deriving the distance from the same ray-plane
 // hit distance ray_cast_keyboard already computes (see
-// ray_cast_keyboard_plane) keeps the pointer/beam ending right at the
+// ray_cast_plane) keeps the pointer/beam ending right at the
 // panel's surface no matter where on (or off) it the controller is aimed.
 //
 // The plane hit distance must be capped (POINTER_MAX_DISTANCE): the beam's
 // visible *thickness* is locked to its length by the beam texture's fixed
 // aspect ratio (see overlay.rs's POINTER_BEAM_CANVAS_HEIGHT — OpenVR has no
-// separate "set height"), and ray_cast_keyboard_plane intersects the panel's
+// separate "set height"), and ray_cast_plane intersects the panel's
 // *infinite* plane, which (in the centered position mode) is HMD-relative
 // and so tilts with the head. Aiming
 // anywhere close to parallel to that plane (e.g. pointing roughly forward
@@ -1779,10 +2295,10 @@ fn hide_pointer_set(overlay: &mut openvr::Overlay, set: &mut PointerSet) -> Resu
 // while the other still shows). Visibility is per-hand (right_visible/
 // left_visible), not a single shared flag — main.js only asks for a hand's
 // laser once that hand's own aim is actually landing within the keyboard
-// panel's bounds (one tick of lag, from the previous update_keyboard_overlay
-// call's hitX/hitY — see main.js's own comment), not just "the keyboard is
-// open", so pointing off into the room doesn't leave a laser hanging in
-// space toward nothing.
+// panel's or the confirm/discard box's bounds (one tick of lag, from the
+// previous update_keyboard_overlay call's hitX/hitY/boxCursorIndex — see
+// main.js's own comment), not just "the keyboard is open", so pointing off
+// into the room doesn't leave a laser hanging in space toward nothing.
 //
 // `async fn` — see update_overlay's own comment for why (keeps the raster +
 // texture upload off the main WebView2/UI thread).
@@ -1796,12 +2312,15 @@ async fn update_pointer_overlays(right_visible: bool, left_visible: bool, state:
     // moves keyboard_placement along; this just follows whatever it
     // currently is, so the beam ends where the panel is actually drawn.
     let panel = keyboard_world_transform(&hud.keyboard_placement, &handles.system, hmd_pose);
+    let box_pose = box_world_transform(&hud.box_binding, &handles.system, hmd_pose);
+    let accent = hud.keyboard_accent;
     for ((set, role), visible) in hud.pointers.iter_mut().zip(POINTER_HANDS).zip([right_visible, left_visible]) {
-        update_pointer_set(&mut hud.overlay, set, &handles.system, role, visible, hmd_pose, panel)?;
+        update_pointer_set(&mut hud.overlay, set, &handles.system, role, visible, hmd_pose, panel, box_pose, accent)?;
     }
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn update_pointer_set(
     overlay: &mut openvr::Overlay,
     set: &mut PointerSet,
@@ -1810,6 +2329,8 @@ fn update_pointer_set(
     visible: bool,
     hmd_pose: Option<[[f32; 4]; 3]>,
     panel: Option<[[f32; 4]; 3]>,
+    box_pose: Option<[[f32; 4]; 3]>,
+    accent: [u8; 3],
 ) -> Result<(), String> {
     if !visible {
         return hide_pointer_set(overlay, set);
@@ -1822,9 +2343,22 @@ fn update_pointer_set(
     };
 
     let aim_dir = controller_aim_direction();
-    let distance = panel
-        .and_then(|p| ray_cast_keyboard_plane(&p, &controller_pose))
-        .map_or(POINTER_FALLBACK_DISTANCE, |(_, _, t)| t.clamp(POINTER_MIN_DISTANCE, POINTER_MAX_DISTANCE));
+    // Ends on whichever surface's own rectangle the ray actually lands in,
+    // nearest first (same rule hand_hit uses to decide which one a trigger
+    // pull acts on) — the box is a second clickable surface, and without this
+    // a beam aimed at it would end wherever the ray meets the *keyboard's*
+    // plane instead, short of or past the box, with the dot nowhere near the
+    // spot a click would actually land. Off both, it keeps tracking
+    // the keyboard's infinite plane as before (see ray_cast_plane's own
+    // comment on why).
+    let surface_t = [panel.and_then(|p| ray_cast_keyboard(&p, &controller_pose)), box_pose.and_then(|b| ray_cast_box(&b, &controller_pose))]
+        .into_iter()
+        .flatten()
+        .map(|(_, _, t)| t)
+        .min_by(f32::total_cmp);
+    let distance = surface_t
+        .or_else(|| panel.and_then(|p| ray_cast_plane(&p, &controller_pose)).map(|(_, _, t)| t))
+        .map_or(POINTER_FALLBACK_DISTANCE, |t| t.clamp(POINTER_MIN_DISTANCE, POINTER_MAX_DISTANCE));
     // Falls back to a fixed "up"-facing orientation (the pre-billboard
     // default) on the rare case the HMD pose is briefly unavailable, rather
     // than showing nothing at all.
@@ -1843,14 +2377,14 @@ fn update_pointer_set(
     let upload = set.uploads_left > 0;
     if upload {
         set.uploads_left -= 1;
-        set.dot_gpu.update(set.dot_handle.0, &overlay::render_pointer_dot())?;
+        set.dot_gpu.update(set.dot_handle.0, &overlay::render_pointer_dot(accent))?;
     }
     let transform = openvr::pose::Matrix3x4(pointer_dot_transform(aim_dir, normal, up, distance));
     overlay.set_transform_tracked_device_relative(set.dot_handle, index, &transform).map_err(|e| format!("{e:?}"))?;
     overlay.set_visibility(set.dot_handle, true).map_err(|e| format!("{e:?}"))?;
 
     if upload {
-        set.beam_gpu.update(set.beam_handle.0, &overlay::render_pointer_beam())?;
+        set.beam_gpu.update(set.beam_handle.0, &overlay::render_pointer_beam(accent))?;
     }
     overlay.set_width(set.beam_handle, distance).map_err(|e| format!("{e:?}"))?;
     let beam_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal, up, distance));
@@ -1863,7 +2397,7 @@ fn update_pointer_set(
     let normal2 = up;
     let up2 = vec_scale(normal, -1.0);
     if upload {
-        set.beam2_gpu.update(set.beam2_handle.0, &overlay::render_pointer_beam())?;
+        set.beam2_gpu.update(set.beam2_handle.0, &overlay::render_pointer_beam(accent))?;
     }
     overlay.set_width(set.beam2_handle, distance).map_err(|e| format!("{e:?}"))?;
     let beam2_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal2, up2, distance));
@@ -1905,6 +2439,19 @@ async fn update_lang_tag(label: Option<String>, elapsed_secs: f32, state: State<
 #[tauri::command]
 fn reconnect_vr(state: State<OpenVrState>) -> bool {
     let mut guard = state.0.lock().unwrap();
+    // Drop the old VrHandles (and its openvr::Context) *before* calling
+    // init_openvr() below, not as part of the same assignment — `*guard =
+    // init_openvr()` evaluates the right-hand side first, which would call
+    // openvr::init() again while the old Context (held in the not-yet-
+    // overwritten `*guard`) is still alive. The openvr crate tracks a
+    // single process-wide `static INITIALIZED` flag that only clears when
+    // a Context is actually dropped (see its own Drop impl calling
+    // shutdown()), so a second init while the first is still live panics
+    // with "OpenVR has already been initialized!" — non-unwinding, since it
+    // fires from inside a WebView2 callback, which takes the whole process
+    // down. Confirmed in practice: this is exactly what reconnecting used
+    // to crash with.
+    *guard = None;
     *guard = init_openvr();
     guard.is_some()
 }
@@ -1943,9 +2490,12 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             let synth = init_synthesizer().expect("failed to initialize VOICEVOX synthesizer");
+            let user_dict = load_user_dict(&synth);
             app.manage(VoicevoxState(Mutex::new(synth)));
+            app.manage(UserDictState(Mutex::new(user_dict)));
             app.manage(OpenVrState(Mutex::new(init_openvr())));
             app.manage(sense_voice::SenseVoiceState::new());
             app.manage(sense_voice::DownloadCancelState::new());
@@ -1954,6 +2504,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             synthesize,
+            list_pronunciation_words,
+            add_pronunciation_word,
+            remove_pronunciation_word,
             send_chatbox,
             hotkey_state,
             reconnect_vr,
@@ -1964,6 +2517,10 @@ pub fn run() {
             update_pointer_overlays,
             begin_keyboard_grab,
             end_keyboard_grab,
+            set_background_image,
+            clear_background_image,
+            has_background_image,
+            set_vr_overlay_appearance,
             character_catalog,
             download_character,
             load_character,

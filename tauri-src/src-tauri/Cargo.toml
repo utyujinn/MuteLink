@@ -1,6 +1,6 @@
 [package]
 name = "tauri-src"
-version = "0.5.0"
+version = "0.5.1"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -22,12 +22,25 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
+# navigator.clipboard.readText() from the VR keyboard's own paste button
+# (see applyVrKeyboardAction's "pasteText" case in main.js) silently comes
+# back empty — that call isn't tied to a real DOM user-gesture (it fires
+# from the VR controller poll loop, not an actual click event), and
+# browsers gate clipboard *reads* (unlike writes, which are lenient) behind
+# that. This plugin reads the OS clipboard directly from Rust instead,
+# sidestepping the web permission model entirely.
+tauri-plugin-clipboard-manager = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
 rosc = "0.11"
 openvr = "0.9"
 voicevox_core = { git = "https://github.com/VOICEVOX/voicevox_core", tag = "0.16.4", features = ["load-onnxruntime"] }
+# Already pulled in transitively by voicevox_core (its UserDict keys words by
+# Uuid) — added directly here just to parse/format the ids that cross the
+# add_pronunciation_word/remove_pronunciation_word Tauri commands as plain
+# strings.
+uuid = "1"
 reqwest = { version = "0.12", features = ["stream", "json"] }
 futures-util = "0.3"
 tokio = { version = "1", features = ["time"] }
