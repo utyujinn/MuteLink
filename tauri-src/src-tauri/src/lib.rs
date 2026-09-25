@@ -533,8 +533,10 @@ enum KeyboardPlacement {
 struct PointerSet {
     // A small fixed dot, positioned controller-relative (see
     // update_pointer_overlays) so SteamVR's own tracking keeps it aligned
-    // with the hand, with no per-frame ray math on this end — just a
-    // translation offset along that controller's own -Z.
+    // with the hand; update_pointer_overlays supplies the current hit
+    // distance and recomputes a true view-facing orientation (see
+    // view_facing_basis) so it remains square to the HMD instead of sharing
+    // the laser's edge-on plane.
     // Its content is fixed *within one show* (render_pointer_dot() only
     // ever depends on the accent color, which isn't expected to change
     // mid-point) but gets re-uploaded for the first few visible frames after
@@ -544,8 +546,8 @@ struct PointerSet {
     dot_gpu: overlay_gpu::GpuOverlay,
     // The laser line reaching from the controller out to dot_handle's
     // dot — a separate overlay (rather than trying to draw both in one
-    // texture) since it needs its own rotated transform (see
-    // pointer_beam_transform) while the dot stays unrotated. Shown/hidden
+    // texture) since its length axis stays pinned to the aim ray and needs
+    // its own rotated transform (see pointer_beam_transform). Shown/hidden
     // and re-aimed in lockstep with dot_handle in update_pointer_overlays.
     beam_handle: openvr::overlay::OverlayHandle,
     beam_gpu: overlay_gpu::GpuOverlay,
@@ -2154,8 +2156,8 @@ fn sync_box_to_keyboard(hud: &mut Hud, system: &openvr::System) -> Result<(), St
 // happens when actually aiming at the keyboard — the entire point of
 // having a pointer at all), the panel simply drew in front of them,
 // hiding both completely. Deriving the distance from the same ray-plane
-// hit distance ray_cast_keyboard already computes (see
-// ray_cast_plane) keeps the pointer/beam ending right at the
+// hit distance ray_cast_keyboard already computes (see ray_cast_plane)
+// keeps the pointer/beam ending at a stable point just in front of the
 // panel's surface no matter where on (or off) it the controller is aimed.
 //
 // The plane hit distance must be capped (POINTER_MAX_DISTANCE): the beam's
@@ -2183,16 +2185,13 @@ fn sync_box_to_keyboard(hud: &mut Hud, system: &openvr::System) -> Result<(), St
 const POINTER_MAX_DISTANCE: f32 = 1.3;
 const POINTER_FALLBACK_DISTANCE: f32 = POINTER_MAX_DISTANCE;
 const POINTER_MIN_DISTANCE: f32 = 0.1;
-// No margin pulling the dot back toward the hand along the ray (there used
-// to be one, POINTER_SURFACE_MARGIN = 0.03): with the eye well above the
-// hand, a dot short of the true hit point projects onto the panel visibly
-// lower than where the ray actually lands, which read as the hit-test
-// itself being offset (you'd have to aim clearly above a key's real top
-// edge to see the dot reach it, and the dot would still be on a key once
-// the ray had already left its bottom edge). The dot/beam don't need a
-// margin to stay visibly in front of the panel — they're already drawn on
-// top of it via a higher OpenVR sort order (see set_sort_order below), not
-// by sitting physically closer to the eye.
+// Pull the visual endpoint a few millimetres back toward the controller so
+// the dot/beam cannot disappear into the keyboard surface at shallow angles.
+// This is deliberately much smaller than the old 3cm margin: it prevents
+// depth fighting without making the pointer look visibly offset from the key
+// it is aiming at. The hit-test itself is unchanged; only the rendered
+// endpoint uses the shortened distance below.
+const POINTER_SURFACE_MARGIN: f32 = 0.005;
 
 // A unit vector perpendicular to `axis` (unit length), as close to `hint`
 // as possible (Gram-Schmidt). `fallback_hint` is used instead when `hint`
@@ -2220,20 +2219,19 @@ fn perpendicular_unit(axis: [f32; 3], hint: [f32; 3], fallback_hint: [f32; 3]) -
 // -Y), so perpendicular_unit's fallback path is always well-defined.
 const CONTROLLER_LOCAL_UP: [f32; 3] = [0.0, 1.0, 0.0];
 
-// A billboard-style basis for a controller-relative overlay that extends
-// along `aim_dir_local` (in the controller's own local frame) while facing
-// the headset as squarely as possible around that axis. A *fixed* rotation
-// (tried first) only faces the eye well from one particular relative
+// A billboard-style basis for a controller-relative beam overlay that
+// extends along `aim_dir_local` (in the controller's own local frame) while
+// facing the headset as squarely as possible around that axis. A *fixed*
+// rotation (tried first) only faces the eye well from one particular relative
 // viewing angle — from others, the same physical width reads as thinner or
 // fatter (a flat quad viewed edge-on has ~zero visible width; viewed
 // face-on has its full width), which is exactly the "looks fatter at some
-// angles" behavior reported for both the dot and the beam with a fixed
-// orientation. Recomputing the quad's normal from the *current* headset
-// position instead removes that: it's still not a full screen-facing
-// billboard (the length axis stays pinned to the aim ray — that's what
-// makes it read as "pointing at" something), but it removes the one
-// remaining free rotational degree of freedom that was picked arbitrarily
-// before.
+// angles" behavior reported for the beam. Recomputing the quad's normal from
+// the *current* headset position instead removes that: it's still not a full
+// screen-facing billboard (the length axis stays pinned to the aim ray —
+// that's what makes it read as "pointing at" something), but it removes the
+// one remaining free rotational degree of freedom that was picked
+// arbitrarily before.
 fn billboard_basis(hmd_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3], aim_dir_local: [f32; 3]) -> ([f32; 3], [f32; 3]) {
     let origin_world = vec_add(mat_translation(controller_pose), mat_rotate_vec(controller_pose, AIM_ORIGIN_OFFSET));
     let to_eye_world = vec_sub(mat_translation(hmd_pose), origin_world);
@@ -2246,6 +2244,36 @@ fn billboard_basis(hmd_pose: &[[f32; 4]; 3], controller_pose: &[[f32; 4]; 3], ai
     basis_from_normal(aim_dir_local, perpendicular_unit(aim_dir_local, to_eye_local, CONTROLLER_LOCAL_UP))
 }
 
+// A true view-facing basis for the small dot at the ray's hit point. The
+// beam intentionally keeps its long axis pinned to the aim ray (see
+// billboard_basis), but that necessarily makes any quad sharing that basis
+// parallel to the laser. A dot does not need to preserve that axis: making
+// its local Z axis point directly from the hit point toward the HMD keeps the
+// square face-on even when the laser itself points almost straight at the
+// viewer. The dot's texture is symmetric, so only this basis — not its roll
+// around the view axis — is visually relevant.
+fn view_facing_basis(
+    hmd_pose: Option<&[[f32; 4]; 3]>,
+    controller_pose: &[[f32; 4]; 3],
+    aim_dir_local: [f32; 3],
+    distance: f32,
+) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    let origin_world = vec_add(mat_translation(controller_pose), mat_rotate_vec(controller_pose, AIM_ORIGIN_OFFSET));
+    let hit_world = vec_add(origin_world, vec_scale(mat_rotate_vec(controller_pose, aim_dir_local), distance));
+    let normal = hmd_pose
+        .and_then(|hmd| {
+            let to_eye_world = vec_sub(mat_translation(hmd), hit_world);
+            vec_normalize(mat_rotate_vec_inverse(controller_pose, to_eye_world))
+        })
+        .unwrap_or_else(|| perpendicular_unit(aim_dir_local, CONTROLLER_LOCAL_UP, [0.0, 0.0, -1.0]));
+    // Pick a stable right axis in the billboard plane. The two fallback
+    // directions are deliberately perpendicular to one another, so this is
+    // defined even when the view direction is vertical or forward/backward.
+    let right = perpendicular_unit(normal, CONTROLLER_LOCAL_UP, [0.0, 0.0, -1.0]);
+    let up = vec_cross(normal, right);
+    (right, up, normal)
+}
+
 // Completes (normal, up) from a unit normal already perpendicular to the
 // unit aim axis. The overlay transform's columns are (aim, up, normal) for
 // local (X, Y, Z); aim x up = aim x (normal x aim) = normal, so this is a
@@ -2254,11 +2282,18 @@ fn basis_from_normal(aim_dir_local: [f32; 3], normal: [f32; 3]) -> ([f32; 3], [f
     (normal, vec_cross(normal, aim_dir_local))
 }
 
-// Positioned `distance` out along the aim ray; oriented via billboard_basis
-// (normal/up) so it faces the headset regardless of arm angle.
-fn pointer_dot_transform(aim_dir: [f32; 3], normal: [f32; 3], up: [f32; 3], distance: f32) -> [[f32; 4]; 3] {
+// Positioned `distance` out along the aim ray, but with a true view-facing
+// basis rather than the beam's aim-constrained basis. This keeps the dot's
+// surface square to the headset instead of edge-on/parallel to the laser.
+fn pointer_dot_transform(
+    aim_dir: [f32; 3],
+    right: [f32; 3],
+    up: [f32; 3],
+    normal: [f32; 3],
+    distance: f32,
+) -> [[f32; 4]; 3] {
     let t = vec_add(AIM_ORIGIN_OFFSET, vec_scale(aim_dir, distance));
-    [[aim_dir[0], up[0], normal[0], t[0]], [aim_dir[1], up[1], normal[1], t[1]], [aim_dir[2], up[2], normal[2], t[2]]]
+    [[right[0], up[0], normal[0], t[0]], [right[1], up[1], normal[1], t[1]], [right[2], up[2], normal[2], t[2]]]
 }
 
 // The laser line from the controller to the dot above. Same billboard
@@ -2356,16 +2391,24 @@ fn update_pointer_set(
         .flatten()
         .map(|(_, _, t)| t)
         .min_by(f32::total_cmp);
-    let distance = surface_t
+    let hit_distance = surface_t
         .or_else(|| panel.and_then(|p| ray_cast_plane(&p, &controller_pose)).map(|(_, _, t)| t))
         .map_or(POINTER_FALLBACK_DISTANCE, |t| t.clamp(POINTER_MIN_DISTANCE, POINTER_MAX_DISTANCE));
+    // Keep the actual hit-test distance above untouched, but end the visual
+    // beam/dot just in front of that surface so shallow-angle depth fighting
+    // cannot bury the pointer in the keyboard.
+    let visual_distance = (hit_distance - POINTER_SURFACE_MARGIN).max(POINTER_MIN_DISTANCE);
     // Falls back to a fixed "up"-facing orientation (the pre-billboard
     // default) on the rare case the HMD pose is briefly unavailable, rather
     // than showing nothing at all.
-    let (normal, up) = match hmd_pose {
-        Some(h) => billboard_basis(&h, &controller_pose, aim_dir),
+    let (normal, up) = match hmd_pose.as_ref() {
+        Some(h) => billboard_basis(h, &controller_pose, aim_dir),
         None => basis_from_normal(aim_dir, perpendicular_unit(aim_dir, CONTROLLER_LOCAL_UP, CONTROLLER_LOCAL_UP)),
     };
+    // The dot gets a separate true billboard basis. Sharing the beam's basis
+    // would keep its surface parallel to the laser, which is exactly the
+    // edge-on orientation that made the hit point hard to see.
+    let (dot_right, dot_up, dot_normal) = view_facing_basis(hmd_pose.as_ref(), &controller_pose, aim_dir, visual_distance);
 
     // Uploaded after each show rather than once at init — SetOverlayTexture
     // appears to hand the compositor whatever's in the shared D3D11 texture
@@ -2379,15 +2422,15 @@ fn update_pointer_set(
         set.uploads_left -= 1;
         set.dot_gpu.update(set.dot_handle.0, &overlay::render_pointer_dot(accent))?;
     }
-    let transform = openvr::pose::Matrix3x4(pointer_dot_transform(aim_dir, normal, up, distance));
+    let transform = openvr::pose::Matrix3x4(pointer_dot_transform(aim_dir, dot_right, dot_up, dot_normal, visual_distance));
     overlay.set_transform_tracked_device_relative(set.dot_handle, index, &transform).map_err(|e| format!("{e:?}"))?;
     overlay.set_visibility(set.dot_handle, true).map_err(|e| format!("{e:?}"))?;
 
     if upload {
         set.beam_gpu.update(set.beam_handle.0, &overlay::render_pointer_beam(accent))?;
     }
-    overlay.set_width(set.beam_handle, distance).map_err(|e| format!("{e:?}"))?;
-    let beam_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal, up, distance));
+    overlay.set_width(set.beam_handle, visual_distance).map_err(|e| format!("{e:?}"))?;
+    let beam_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal, up, visual_distance));
     overlay.set_transform_tracked_device_relative(set.beam_handle, index, &beam_transform).map_err(|e| format!("{e:?}"))?;
     overlay.set_visibility(set.beam_handle, true).map_err(|e| format!("{e:?}"))?;
 
@@ -2399,8 +2442,8 @@ fn update_pointer_set(
     if upload {
         set.beam2_gpu.update(set.beam2_handle.0, &overlay::render_pointer_beam(accent))?;
     }
-    overlay.set_width(set.beam2_handle, distance).map_err(|e| format!("{e:?}"))?;
-    let beam2_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal2, up2, distance));
+    overlay.set_width(set.beam2_handle, visual_distance).map_err(|e| format!("{e:?}"))?;
+    let beam2_transform = openvr::pose::Matrix3x4(pointer_beam_transform(aim_dir, normal2, up2, visual_distance));
     overlay.set_transform_tracked_device_relative(set.beam2_handle, index, &beam2_transform).map_err(|e| format!("{e:?}"))?;
     overlay.set_visibility(set.beam2_handle, true).map_err(|e| format!("{e:?}"))?;
     Ok(())

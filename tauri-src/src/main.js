@@ -798,6 +798,10 @@ function getSttLang() {
 // poking the DOM directly, so there's one source of truth (the VR overlay
 // render loop reads the same two variables independently).
 function renderMergedText() {
+  // A genuinely new Final/typed line supersedes the short post-send freeze;
+  // an interim tail alone does not, so it can't immediately resurrect the
+  // stale send controls while recognition is still settling.
+  if (pendingFinalText) sendIndicatorsFrozenUntil = 0;
   finalTextPartEl.textContent = pendingFinalText;
   interimTextPartEl.textContent = pendingFinalText && currentInterimText ? ` ${currentInterimText}` : currentInterimText;
 
@@ -2610,6 +2614,20 @@ function renderEndingButtons(container, endings, onPick) {
 // trigger the exact same "pick this favorite" action as clicking its button.
 let endings = [];
 
+// After a send/discard, the confirm/discard box may stay visible (for
+// example while the VR keyboard is open for the next line, or while an STT
+// interim is still on screen). Keep the send-progress bar, double-click dots,
+// and ending preview frozen for this short settling window, then let the
+// normal render state take over again.
+const SEND_INDICATOR_FREEZE_MS = 500;
+let sendIndicatorsFrozenUntil = 0;
+function freezeSendIndicators() {
+  sendIndicatorsFrozenUntil = Date.now() + SEND_INDICATOR_FREEZE_MS;
+  // Clear the live hold state immediately; the render loop preserves the
+  // last frame for the freeze window, then has no stale value to resurrect.
+  resetHotkeyHold();
+}
+
 // Applying a favorite appends it to whatever's pending in the Final block and
 // sends immediately, using that ending's own VOICEVOX parameters. A trailing
 // 。/./？/? on the pending text is dropped first since the ending replaces it
@@ -2631,6 +2649,7 @@ function applyEnding(ending) {
     volumeScale: ending.volumeScale,
   });
   pendingFinalText = "";
+  freezeSendIndicators();
   // The VR keyboard can still be open after this (auto-close-on-ending is
   // itself an option — see loadVrKeyboardAutoCloseOnSend) — without this,
   // vrKeyboardCursorPos stays wherever it was in the now-gone text (e.g.
@@ -4085,15 +4104,23 @@ let leftHotkeyHold = newHotkeyHoldState();
 // new content instead of firing on stale timing. Leaves stick-press edge
 // tracking alone — that's about physical button transitions, not content.
 function resetHotkeyHold() {
-  rightHotkeyHold.activeSlot = null;
-  rightHotkeyHold.candidateSlot = null;
-  leftHotkeyHold.activeSlot = null;
-  leftHotkeyHold.candidateSlot = null;
+  for (const hold of [rightHotkeyHold, leftHotkeyHold]) {
+    hold.candidateSlot = null;
+    hold.candidateSince = 0;
+    hold.activeSlot = null;
+    hold.activeSince = 0;
+    // These display fields are read by the render loop even after the hold
+    // has ended. Clear them too, or a send/discard can leave its progress
+    // bar/ending preview stuck over the empty box until new text arrives.
+    hold.activeAssignment = "";
+    hold.firedForThisHold = false;
+  }
 }
 
 function fireHotkeyAssignment(assignment) {
   if (assignment === HOTKEY_CANCEL_ACTION) {
     pendingFinalText = "";
+    freezeSendIndicators();
     // Same reasoning as applyEnding's own reset — this can fire (stick
     // short-press, or a grip/trigger hold if hotkeyActiveDuringKeyboard is
     // on) while the VR keyboard is still open, and without resetting these
@@ -4850,7 +4877,7 @@ function computeVrKeyboardLayout() {
     buttons.push({ x: cellX(c), y: cellY(r), w: cellW, h: cellH, label, action, ...extra });
 
   // English and numsym share one control-row shape — kana / the other one
-  // of this pair / newline / space / BS — so switching between "typing
+  // of this pair / space / newline / BS — so switching between "typing
   // Latin text" and "typing symbols" is always one press each way, with no
   // detour through kana mode. Neither carries a Send button any more (kana
   // mode's own still does): with the double-click-to-send hotkey covering
@@ -4892,8 +4919,8 @@ function computeVrKeyboardLayout() {
     // English without spaces is unusable — it gets its own control-row slot.
     cell(3, 0, t("vrKbModeKana"), { type: "mode", mode: "kana" });
     cell(3, 1, t("vrKbModeNumber"), { type: "mode", mode: "numsym" });
-    cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
-    cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
+    cell(3, 2, t("vrKbSpaceButton"), { type: "insert", text: " ", confirmed: true });
+    cell(3, 3, t("vrKbNewlineButton"), { type: "insert", text: "\n", confirmed: true });
     cell(3, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
   } else if (vrKeyboardMode === "numsym") {
     // Full-width like English above — see VR_KB_NUMSYM_ROWS' own comment
@@ -4922,8 +4949,8 @@ function computeVrKeyboardLayout() {
     });
     cell(3, 0, t("vrKbModeKana"), { type: "mode", mode: "kana" });
     cell(3, 1, t("vrKbModeEnglish"), { type: "mode", mode: "english" });
-    cell(3, 2, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
-    cell(3, 3, t("vrKbSpaceButton"), { type: "insert", text: " " });
+    cell(3, 2, t("vrKbSpaceButton"), { type: "insert", text: " ", confirmed: true });
+    cell(3, 3, t("vrKbNewlineButton"), { type: "insert", text: "\n", confirmed: true });
     cell(3, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
   } else {
     // Column 1: an active mode's own button relabels to かな and toggles
@@ -4973,8 +5000,8 @@ function computeVrKeyboardLayout() {
     // plus the cursor column's ◀/▶ (see cursorActions below) covers the
     // same ground without needing a fifth slot.
     cell(0, 4, VR_KB_BACKSPACE_LABEL, { type: "delete" });
-    cell(1, 4, t("vrKbSpaceButton"), { type: "insert", text: " " });
-    cell(2, 4, t("vrKbNewlineButton"), { type: "insert", text: "\n" });
+    cell(1, 4, t("vrKbSpaceButton"), { type: "insert", text: " ", confirmed: true });
+    cell(2, 4, t("vrKbNewlineButton"), { type: "insert", text: "\n", confirmed: true });
     // 確定 accepts whatever's currently unconfirmed (blue) as final text —
     // without converting it if it was never sent through 変換 at all, or
     // ending a candidate review early and locking in whatever's currently
@@ -5361,10 +5388,10 @@ function applyVrKeyboardAction(action, direction) {
       insertAtVrKeyboardCursor(action.text);
       // Template phrases (see computeVrKeyboardLayout's template mode) are
       // already-final text, not something to convert — they should never
-      // show up blue/pending the way freshly-flicked kana does. Space/
-      // newline don't set this: those get typed *while* composing
-      // something else, so they stay part of whatever's currently
-      // unconfirmed around them.
+      // show up blue/pending the way freshly-flicked kana does. Space and
+      // newline are structural separators too: mark everything through the
+      // inserted separator confirmed so a later 変換 acts on the next
+      // composing run, not on the whitespace itself.
       if (action.confirmed) vrKeyboardConfirmedLength = Math.max(vrKeyboardConfirmedLength, vrKeyboardCursorPos);
       break;
     case "variant": {
@@ -5727,8 +5754,9 @@ function setupHotkeys() {
     // voice-recognized text (typing a message from scratch) would show no
     // box, and so no cursor, until the first character landed.
     if (vrAvailable && (pendingFinalText || currentInterimText || vrKeyboardVisible)) {
+      const freezeIndicators = now < sendIndicatorsFrozenUntil;
       boxFadingOutSince = 0;
-      boxFrozenContent = null;
+      if (!freezeIndicators) boxFrozenContent = null;
       if (!overlayShown) {
         overlayShown = true;
         boxShownAt = now;
@@ -5799,12 +5827,18 @@ function setupHotkeys() {
       const hasUnconfirmed = pendingFinalText.length > vrKeyboardConfirmedLength;
       const highlightStart = hasUnconfirmed ? vrKeyboardConfirmedLength : null;
       const highlightEnd = hasUnconfirmed ? pendingFinalText.length : null;
+      // During the post-send settling window, keep the exact indicator
+      // frame that was on screen at send time even if the box itself remains
+      // visible for keyboard/interim input. After 500ms the live values take
+      // over again; resetHotkeyHold() below has already cleared stale hold
+      // fields, so nothing can resurrect the old bar indefinitely.
+      const frozenIndicators = freezeIndicators ? boxFrozenContent : null;
       const content = {
         finalText: pendingFinalText,
         interimText: currentInterimText,
-        endingPreview,
-        progress,
-        doubleClick,
+        endingPreview: frozenIndicators ? frozenIndicators.endingPreview : endingPreview,
+        progress: frozenIndicators ? frozenIndicators.progress : progress,
+        doubleClick: frozenIndicators ? frozenIndicators.doubleClick : doubleClick,
         cursor,
         editing: vrKeyboardVisible,
         highlightStart,
