@@ -4952,7 +4952,14 @@ function fireHotkeyAssignment(assignment) {
     toggleVrKeyboard();
   } else {
     const ending = endingForAssignment(assignment);
-    if (ending) applyEnding(ending);
+    // A hotkey-fired ending (double-click/hold/stick — unlike a direct press
+    // of the ending button itself, see applyEnding's other caller) with
+    // nothing typed would send just the ending on its own. That's almost
+    // always an accidental trigger with no speech in progress, not a
+    // message worth sending, so it's suppressed here rather than in
+    // applyEnding() itself — pressing the button directly should still send
+    // the ending alone on purpose.
+    if (ending && pendingFinalText.trim()) applyEnding(ending);
   }
 }
 
