@@ -181,6 +181,19 @@
             </div>
             <div id="stt-exclusion-word-list"></div>
 
+            <h3 data-i18n="oscTypingDisplayHeading">チャットボックスの入力中表示</h3>
+            <div class="settings-list-row">
+              <span class="settings-list-label" data-i18n="oscTypingDisplayLabel">表示モード</span>
+              <select id="osc-typing-display-select">
+                <option value="off" data-i18n="oscTypingDisplayOffOption">表示しない</option>
+                <option value="dots" data-i18n="oscTypingDisplayDotsOption">「...」のみ表示</option>
+                <option value="live" data-i18n="oscTypingDisplayLiveOption">入力中の文字をそのつど表示</option>
+              </select>
+            </div>
+            <p class="hint" data-i18n="oscTypingDisplayHint">
+              確定前の認識結果をVRChatのチャットボックスにOSCで表示するかどうかの設定です。「...」表示はVRChat自身の入力中インジケーターを使い、文字の内容は送りません。「入力中の文字をそのつど表示」は、認識中の文字をその都度チャットボックスに反映します(通知音は鳴りません)。
+            </p>
+
             <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
               <button id="settings-reset-btn" class="danger-btn" type="button" data-i18n="resetButton">

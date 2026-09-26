@@ -746,12 +746,31 @@ fn load_character(vvm_file: String, state: State<VoicevoxState>) -> Result<Voice
 
 // VRChat listens for OSC on 127.0.0.1:9000. /chatbox/input takes
 // (message, bSend, bSFX): bSend=true submits immediately instead of opening
-// the keyboard; bSFX=true plays the notification sound.
+// the keyboard; bSFX controls the notification sound — the caller silences
+// it for the "live" typing-preview mode's own rapid text updates (see
+// OSC_TYPING_DISPLAY_MODE in main.js) so it doesn't play once per character,
+// while a real confirmed send still gets it.
 #[tauri::command]
-fn send_chatbox(text: String) -> Result<(), String> {
+fn send_chatbox(text: String, notify: bool) -> Result<(), String> {
     let packet = OscPacket::Message(OscMessage {
         addr: "/chatbox/input".to_string(),
-        args: vec![OscType::String(text), OscType::Bool(true), OscType::Bool(true)],
+        args: vec![OscType::String(text), OscType::Bool(true), OscType::Bool(notify)],
+    });
+    let bytes = rosc::encoder::encode(&packet).map_err(|e| e.to_string())?;
+    let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
+    socket.send_to(&bytes, VRCHAT_OSC_ADDR).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// /chatbox/typing shows VRChat's own native "..." typing indicator above the
+// player's head without touching the chatbox text itself — used by the
+// "dots" typing-display mode so an in-progress (not-yet-final) utterance is
+// visible to others without leaking its actual words.
+#[tauri::command]
+fn send_chatbox_typing(typing: bool) -> Result<(), String> {
+    let packet = OscPacket::Message(OscMessage {
+        addr: "/chatbox/typing".to_string(),
+        args: vec![OscType::Bool(typing)],
     });
     let bytes = rosc::encoder::encode(&packet).map_err(|e| e.to_string())?;
     let socket = UdpSocket::bind("0.0.0.0:0").map_err(|e| e.to_string())?;
@@ -3085,6 +3104,7 @@ pub fn run() {
             add_pronunciation_word,
             remove_pronunciation_word,
             send_chatbox,
+            send_chatbox_typing,
             hotkey_state,
             reconnect_vr,
             trigger_hand_haptic,

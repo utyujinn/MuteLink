@@ -48,6 +48,28 @@ const I18N = {
   },
   sttExclusionRemoveAriaLabel: { ja: "除外ワードを削除", en: "Remove excluded word", zh: "删除排除词", ko: "제외 단어 삭제" },
 
+  oscTypingDisplayHeading: {
+    ja: "チャットボックスの入力中表示",
+    en: "Chatbox typing display",
+    zh: "聊天框输入中显示",
+    ko: "채팅박스 입력 중 표시",
+  },
+  oscTypingDisplayLabel: { ja: "表示モード", en: "Display mode", zh: "显示模式", ko: "표시 모드" },
+  oscTypingDisplayOffOption: { ja: "表示しない", en: "Off", zh: "不显示", ko: "표시 안 함" },
+  oscTypingDisplayDotsOption: { ja: "「...」のみ表示", en: "Show \"...\" only", zh: "仅显示「...」", ko: "「...」만 표시" },
+  oscTypingDisplayLiveOption: {
+    ja: "入力中の文字をそのつど表示",
+    en: "Show text live as it's recognized",
+    zh: "实时显示正在识别的文字",
+    ko: "인식 중인 문자를 실시간으로 표시",
+  },
+  oscTypingDisplayHint: {
+    ja: "確定前の認識結果をVRChatのチャットボックスにOSCで表示するかどうかの設定です。「...」表示はVRChat自身の入力中インジケーターを使い、文字の内容は送りません。「入力中の文字をそのつど表示」は、認識中の文字をその都度チャットボックスに反映します(通知音は鳴りません)。",
+    en: "Controls whether the not-yet-confirmed recognition result is shown in VRChat's chatbox over OSC. \"...\" uses VRChat's own typing indicator without sending any text. \"Show text live\" reflects the in-progress text into the chatbox as it's recognized (no notification sound).",
+    zh: "设置是否通过OSC将尚未确定的识别结果显示在VRChat的聊天框中。「...」使用VRChat自带的输入中指示器，不发送文字内容。「实时显示正在识别的文字」会将识别过程中的文字随时反映到聊天框中（不会播放通知音）。",
+    ko: "확정되지 않은 인식 결과를 OSC로 VRChat 채팅박스에 표시할지 설정합니다. 「...」는 VRChat 자체의 입력 중 표시기를 사용하며 문자 내용은 보내지 않습니다. 「인식 중인 문자를 실시간으로 표시」는 인식 중인 문자를 그때그때 채팅박스에 반영합니다(알림음은 울리지 않습니다).",
+  },
+
   resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
   resetButton: { ja: "設定をリセット", en: "Reset settings", zh: "重置设置", ko: "설정 초기화" },
   resetConfirm: {
@@ -862,6 +884,7 @@ let sttStateLabelEl;
 let chatboxEnabled = true; // overwritten from storage on load — see loadChatboxEnabled()
 let ttsEnabled = true; // overwritten from storage on load — see loadTtsEnabled()
 let sendMode = "manual"; // "auto" | "manual", mirrors the old <select id="send-mode">; overwritten from storage on load — see loadSendMode()
+let oscTypingDisplayMode = "off"; // "off" | "dots" | "live" — overwritten from storage on load, see loadOscTypingDisplayMode()
 let finalTextPartEl;
 let interimTextPartEl;
 let pendingTextEditorEl;
@@ -869,6 +892,8 @@ let pendingTextFinalPartEl;
 let pendingTextInterimPartEl;
 let pendingFinalText = "";
 let currentInterimText = ""; // live, not-yet-Final recognition result; read by both the desktop merged block and the VR overlay render loop
+let oscTypingActive = false; // last /chatbox/typing state actually sent in "dots" mode, so it's only re-sent on an actual change
+let oscLiveLastText = null; // last /chatbox/input text actually sent in "live" mode, so it's only re-sent on an actual change
 
 // Sent-message recall is deliberately global rather than profile-scoped: it
 // is a transcript of what the app actually sent, not a profile preference.
@@ -931,6 +956,38 @@ function renderMergedText() {
   // (which already updated pendingFinalText and calls this right back)
   // doesn't reset the cursor to the end on every keystroke.
   if (pendingTextEditorEl.value !== pendingFinalText) pendingTextEditorEl.value = pendingFinalText;
+
+  updateOscTypingDisplay();
+}
+
+// Optional preview of the not-yet-confirmed utterance in VRChat's own
+// chatbox, gated by oscTypingDisplayMode — independent of sendChatbox()'s
+// own always-fires-on-Final call in dispatchText(), which stays untouched by
+// this. "dots" only flips VRChat's native /chatbox/typing indicator on/off;
+// "live" mirrors the same pendingFinalText+currentInterimText merge already
+// shown on the desktop (see renderMergedText) into the actual chatbox text,
+// muted (notify=false) so it doesn't play the notification sound per
+// keystroke. Deliberately does nothing when the merge is empty rather than
+// clearing the chatbox — an empty merge right after a real Final (see
+// handleFinalRecognizedText/applyEnding) means the just-sent confirmed
+// message should keep showing, not get wiped by this preview path.
+function updateOscTypingDisplay() {
+  if (!chatboxEnabled || oscTypingDisplayMode === "off") return;
+  const hasContent = Boolean(pendingFinalText || currentInterimText);
+  if (oscTypingDisplayMode === "dots") {
+    if (hasContent === oscTypingActive) return;
+    oscTypingActive = hasContent;
+    sendChatboxTyping(hasContent);
+    return;
+  }
+  if (!hasContent) {
+    oscLiveLastText = null; // next utterance's first update should send fresh, not get suppressed by a stale comparison
+    return;
+  }
+  const merged = pendingFinalText && currentInterimText ? `${pendingFinalText} ${currentInterimText}` : pendingFinalText || currentInterimText;
+  if (merged === oscLiveLastText) return;
+  oscLiveLastText = merged;
+  sendChatbox(merged, false);
 }
 
 function loadSentMessageHistory() {
@@ -1037,12 +1094,23 @@ function clearCurrentInterim() {
   renderMergedText();
 }
 
-async function sendChatbox(text) {
+async function sendChatbox(text, notify) {
   try {
-    await window.__TAURI__.core.invoke("send_chatbox", { text });
+    await window.__TAURI__.core.invoke("send_chatbox", { text, notify });
     log(`[chatbox] sent: ${text}`);
   } catch (err) {
     log(`[chatbox] error: ${err}`);
+  }
+}
+
+// Drives VRChat's own native "..." head-indicator (see send_chatbox_typing's
+// comment) — a separate OSC address from the chatbox text itself, so it
+// never touches/overwrites whatever's currently shown there.
+async function sendChatboxTyping(typing) {
+  try {
+    await window.__TAURI__.core.invoke("send_chatbox_typing", { typing });
+  } catch (err) {
+    log(`[chatbox] typing error: ${err}`);
   }
 }
 
@@ -1082,6 +1150,21 @@ function loadSendMode() {
 
 function saveSendMode(mode) {
   localStorage.setItem(SEND_MODE_KEY, mode);
+}
+
+const OSC_TYPING_DISPLAY_MODE_KEY = "mutelink.oscTypingDisplayMode";
+const OSC_TYPING_DISPLAY_MODES = ["off", "dots", "live"];
+
+// "off" (don't reveal the in-progress utterance at all) is the default —
+// unlike sendMode, there's no reason anyone would expect the chatbox to leak
+// partial/uncommitted speech unless they opt in.
+function loadOscTypingDisplayMode() {
+  const raw = localStorage.getItem(OSC_TYPING_DISPLAY_MODE_KEY);
+  return OSC_TYPING_DISPLAY_MODES.includes(raw) ? raw : "off";
+}
+
+function saveOscTypingDisplayMode(mode) {
+  localStorage.setItem(OSC_TYPING_DISPLAY_MODE_KEY, mode);
 }
 
 // Single entry points for Auto/Chatbox/TTS, same reasoning as
@@ -1216,7 +1299,7 @@ function dispatchText(outputText, spokenText, params, historyText = outputText) 
   // should remain available even when an output device is unavailable, and
   // the user can decide whether to retry the send.
   rememberSentMessage(historyText);
-  if (chatboxEnabled) sendChatbox(outputText);
+  if (chatboxEnabled) sendChatbox(outputText, true);
   if (!ttsEnabled) return;
   // Everything gets sent to VOICEVOX regardless of recognition language —
   // English/中文 come out fairly broken since OpenJTalk (VOICEVOX's text
@@ -7211,6 +7294,25 @@ function setupSttExclusionWords() {
   renderSttExclusionWordList();
 }
 
+function setupOscTypingDisplaySettings() {
+  const select = document.querySelector("#osc-typing-display-select");
+  select.value = oscTypingDisplayMode;
+  select.addEventListener("change", () => {
+    oscTypingDisplayMode = select.value;
+    saveOscTypingDisplayMode(oscTypingDisplayMode);
+    // Switching modes mid-utterance must not strand VRChat's own state from
+    // the mode just left — an in-flight "..." indicator from "dots" or a
+    // half-typed sentence from "live" would otherwise sit there forever
+    // since neither mode's own change-detection (oscTypingActive/
+    // oscLiveLastText) knows the other mode ever ran.
+    if (chatboxEnabled) {
+      sendChatboxTyping(false);
+      oscTypingActive = false;
+      oscLiveLastText = null;
+    }
+  });
+}
+
 // Switching engines/models here only takes effect the next time recognition
 // (re)starts — see the `sttEngine = loadSttEngine()` at the top of
 // startGoogleStt() — not live mid-session. The interim-preview toggle is the
@@ -7496,6 +7598,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector("#tts-toggle-btn").addEventListener("click", () => {
     setTtsEnabled(!ttsEnabled);
   });
+
+  oscTypingDisplayMode = loadOscTypingDisplayMode();
+  setupOscTypingDisplaySettings();
 
   const uiLangSelect = document.querySelector("#ui-lang-select");
   uiLangSelect.value = uiLang;
