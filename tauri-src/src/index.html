@@ -171,6 +171,16 @@
               値を大きくすると、息や物音などの小さな音を発話と誤認識しにくくなります。大きくしすぎると、小さな声を拾えなくなることがあります。
             </p>
 
+            <h3 data-i18n="sttExclusionHeading">認識結果の除外ワード</h3>
+            <p class="hint" data-i18n="sttExclusionHint">
+              ここに登録した単語と一致する認識結果は、送信・読み上げされずに破棄されます(末尾の句読点の有無は区別しません)。「うん」「ピッ」のような短い誤認識の対策に。
+            </p>
+            <div class="row">
+              <input type="text" id="stt-exclusion-word-input" />
+              <button type="button" id="stt-exclusion-word-add-btn" data-i18n="addButton">追加</button>
+            </div>
+            <div id="stt-exclusion-word-list"></div>
+
             <h3 data-i18n="resetHeading">リセット</h3>
             <div class="row">
               <button id="settings-reset-btn" class="danger-btn" type="button" data-i18n="resetButton">

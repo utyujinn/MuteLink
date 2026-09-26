@@ -34,6 +34,20 @@ const I18N = {
     ko: "값을 높이면 숨소리 등 작은 소리를 발화로 오인식하기 어려워집니다. 너무 높이면 작은 목소리를 인식하지 못할 수 있습니다. 로컬 음성 인식(SenseVoice/Whisper/Parakeet)의 발화 구간 판정은 이 값이 아니라 VAD 모델을 사용하므로, 그쪽 오인식 대책으로는 큰 효과가 없습니다.",
   },
 
+  sttExclusionHeading: {
+    ja: "認識結果の除外ワード",
+    en: "Excluded recognition results",
+    zh: "识别结果排除词",
+    ko: "인식 결과 제외 단어",
+  },
+  sttExclusionHint: {
+    ja: "ここに登録した単語と一致する認識結果は、送信・読み上げされずに破棄されます(末尾の句読点の有無は区別しません)。「うん」「ピッ」のような短い誤認識の対策に。",
+    en: "A recognition result that matches a word listed here is discarded instead of being sent/spoken (trailing punctuation is ignored when comparing). Useful against short misrecognitions like \"うん\" or \"ピッ\".",
+    zh: "与此处登记的单词匹配的识别结果将被丢弃，不会发送或朗读(比较时忽略末尾标点)。可用于应对“うん”“ピッ”这类简短的误识别。",
+    ko: "여기에 등록한 단어와 일치하는 인식 결과는 전송·낭독되지 않고 폐기됩니다(끝의 문장 부호 유무는 구분하지 않습니다). \"うん\", \"ピッ\" 같은 짧은 오인식 대책으로 사용하세요.",
+  },
+  sttExclusionRemoveAriaLabel: { ja: "除外ワードを削除", en: "Remove excluded word", zh: "删除排除词", ko: "제외 단어 삭제" },
+
   resetHeading: { ja: "リセット", en: "Reset", zh: "重置", ko: "초기화" },
   resetButton: { ja: "設定をリセット", en: "Reset settings", zh: "重置设置", ko: "설정 초기화" },
   resetConfirm: {
@@ -759,6 +773,54 @@ function saveVoiceRmsThreshold(value) {
 // plain module-level variable rather than re-reading localStorage on every
 // audio callback (onaudioprocess fires many times a second).
 let voiceRmsThresholdCache = DEFAULT_VOICE_RMS_THRESHOLD;
+
+// User-configured words/phrases that should never be treated as a real
+// utterance (see handleFinalRecognizedText) — the RMS/VAD thresholds above
+// cut down on breath/room-noise triggering a *recognition* at all, but they
+// can't stop a short involuntary sound (a soft "ん", a mic click) from
+// genuinely being transcribed AS something once one does trigger — both STT
+// engines apparently gravitate toward the same handful of short results
+// ("うん", "ピッ") for that kind of noise, so an exact-match blocklist
+// catches what the audio-level thresholds structurally can't. Global, not
+// profile-scoped (see the Profile system's own comment for why General/
+// Device/Appearance-style settings stay unprofiled) — this is about the
+// mic/engine's own noise floor, not anything persona/profile-specific.
+const STT_EXCLUSION_WORDS_KEY = "mutelink.sttExclusionWords";
+
+function loadSttExclusionWords() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STT_EXCLUSION_WORDS_KEY) ?? "[]");
+    if (Array.isArray(raw)) return raw.filter((w) => typeof w === "string");
+  } catch {
+    // fall through to empty
+  }
+  return [];
+}
+
+function saveSttExclusionWords(words) {
+  localStorage.setItem(STT_EXCLUSION_WORDS_KEY, JSON.stringify(words));
+}
+
+// Strips trailing sentence-ending punctuation (and surrounding whitespace)
+// before comparing — both STT engines inconsistently attach a trailing 。/!
+// to short results ("うん" vs "うん。"), so matching on the raw string would
+// need every punctuated variant listed separately. Applied to both sides of
+// the comparison (list entries and incoming text), so it only has to be
+// listed once either way.
+function normalizeForExclusionMatch(text) {
+  return text.trim().replace(/[。、！？!?]+$/g, "").trim();
+}
+
+// Mirrors voiceRmsThresholdCache's own pattern: synced from storage at
+// startup and on every settings-panel change (see setupSttExclusionWords),
+// pre-normalized so the hot path (isExcludedSttResult, called on every
+// Final) doesn't need to.
+let sttExclusionWordsCache = loadSttExclusionWords().map(normalizeForExclusionMatch);
+
+function isExcludedSttResult(text) {
+  const normalized = normalizeForExclusionMatch(text);
+  return normalized !== "" && sttExclusionWordsCache.includes(normalized);
+}
 // If this long passes with zero detected voice, proactively cycle the
 // recognition session (see refreshRecognitionSession()) rather than trust
 // the backend to notify us its own idle session went stale.
@@ -1567,6 +1629,15 @@ async function stopVoiceMonitor() {
 // hotkey-hold handling only lives in one place regardless of which engine
 // produced the text.
 function handleFinalRecognizedText(text) {
+  // Checked first, before any of the state below changes — an excluded
+  // result (see isExcludedSttResult's own comment) should behave exactly as
+  // if nothing had been recognized at all, not just "recognized as empty
+  // text": the interim preview, cursor, and any in-progress history/IME
+  // state should all stay exactly as they were.
+  if (isExcludedSttResult(text)) {
+    log(`[stt] excluded recognized text: ${text}`);
+    return;
+  }
   // A new Final changes the text/cursor context; never let an older IME
   // review or its late network response act on the new sentence. If the
   // user was browsing history, put back the draft they had before opening
@@ -7083,6 +7154,63 @@ function setupMicSensitivitySettings() {
   });
 }
 
+// See STT_EXCLUSION_WORDS_KEY's own comment. Plain add/remove list, no
+// Rust involvement (unlike the pronunciation dictionary below, which has to
+// reach OpenJtalk's own user dict) — this only ever needs to be compared
+// against in JS.
+function renderSttExclusionWordList() {
+  const list = document.querySelector("#stt-exclusion-word-list");
+  const words = loadSttExclusionWords();
+  list.innerHTML = "";
+  for (const word of words) {
+    const row = document.createElement("div");
+    row.className = "settings-list-row";
+
+    const wordEl = document.createElement("span");
+    wordEl.className = "settings-list-label";
+    wordEl.textContent = word;
+
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "link-btn";
+    removeBtn.textContent = "✕";
+    removeBtn.setAttribute("aria-label", t("sttExclusionRemoveAriaLabel"));
+    removeBtn.addEventListener("click", () => {
+      const updated = loadSttExclusionWords().filter((w) => w !== word);
+      saveSttExclusionWords(updated);
+      sttExclusionWordsCache = updated.map(normalizeForExclusionMatch);
+      renderSttExclusionWordList();
+    });
+
+    row.append(wordEl, removeBtn);
+    list.append(row);
+  }
+}
+
+function setupSttExclusionWords() {
+  const input = document.querySelector("#stt-exclusion-word-input");
+  const addBtn = document.querySelector("#stt-exclusion-word-add-btn");
+
+  addBtn.addEventListener("click", () => {
+    const word = input.value.trim();
+    if (!word) return;
+    const words = loadSttExclusionWords();
+    // Compare normalized so "うん" and "うん。" can't both end up listed as
+    // if they were different entries (see normalizeForExclusionMatch).
+    if (words.some((w) => normalizeForExclusionMatch(w) === normalizeForExclusionMatch(word))) {
+      input.value = "";
+      return;
+    }
+    words.push(word);
+    saveSttExclusionWords(words);
+    sttExclusionWordsCache = words.map(normalizeForExclusionMatch);
+    input.value = "";
+    renderSttExclusionWordList();
+  });
+
+  renderSttExclusionWordList();
+}
+
 // Switching engines/models here only takes effect the next time recognition
 // (re)starts — see the `sttEngine = loadSttEngine()` at the top of
 // startGoogleStt() — not live mid-session. The interim-preview toggle is the
@@ -7338,6 +7466,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   setupSttCycleLangSettings();
   setupSttEngineSettings();
   setupMicSensitivitySettings();
+  setupSttExclusionWords();
   checkForUpdates();
 
   googleBtn.addEventListener("click", () => {
